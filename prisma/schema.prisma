@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── USERS ──────────────────────────────────────────────────────
+// Row Level Security: Users can only access their own records
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  avatar       String?  // Supabase Storage URL or Google picture URL
+  passwordHash String?  // null for Google OAuth users
+  provider     String   @default("email") // "email" | "google"
+  googleId     String?  @unique
+
+  // Onboarding data
+  styleProfiles String[] @default([])
+  styleIssues   String[] @default([])
+  onboarded     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  wardrobeItems WardrobeItem[]
+  outfits       Outfit[]
+  subscription  Subscription?
+  sessions      Session[]
+
+  @@index([email])
+  @@index([googleId])
+}
+
+// ── SESSIONS (for JWT refresh tokens) ──────────────────────────
+// Row Level Security: Users can only access their own sessions
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique // hashed refresh token
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ── WARDROBE ITEMS ─────────────────────────────────────────────
+// Row Level Security: Users can only access their own items
+model WardrobeItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Core
+  name     String
+  category String // top | bottom | dress | outerwear | footwear | bag | accessory | outfit
+
+  // Supabase Storage
+  imageUrl    String  // full public CDN URL
+  storagePath String  // e.g. "wardrobe-images/user_id/item_id.jpg"
+
+  // AI metadata
+  colors     String[] @default([])
+  colorNames String[] @default([])
+  pattern    String?
+  fabric     String?
+  fit        String?
+  formality  Int      @default(5) // 1-10
+  season     String[] @default([])
+  occasion   String[] @default([])
+  stylistNote String?
+  tags       String[] @default([])
+
+  // Usage
+  wearCount  Int       @default(0)
+  lastWornAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outfitItems OutfitItem[]
+
+  @@index([userId])
+  @@index([category])
+}
+
+// ── OUTFITS ────────────────────────────────────────────────────
+// Row Level Security: Users can only access their own outfits
+model Outfit {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  occasion       String?
+  reasoning      String?
+  colorStory     String?
+  scoreBalance   Int?
+  scoreFormality Int?
+  scoreColor     Int?
+  scoreNovelty   Int?
+
+  worn   Boolean   @default(false)
+  wornAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  items OutfitItem[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ── OUTFIT ITEMS ───────────────────────────────────────────────
+// Row Level Security: Enforced via Outfit relationship
+model OutfitItem {
+  id             String       @id @default(cuid())
+  outfitId       String
+  outfit         Outfit       @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  wardrobeItemId String
+  wardrobeItem   WardrobeItem @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+  role           String? // base | layer | accent | statement
+
+  @@index([outfitId])
+  @@index([wardrobeItemId])
+}
+
+// ── SUBSCRIPTIONS ──────────────────────────────────────────────
+// Row Level Security: Users can only access their own subscriptions
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan   String // "monthly" | "yearly"
+  status String // "active" | "cancelled" | "expired"
+
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  amount   Int    // paise
+  currency String @default("INR")
+
+  startedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
