@@ -9,9 +9,16 @@ import {
   WardrobeItemResponse,
   OutfitResponse,
   UploadResponse,
+  ClothingClassificationItem,
+  GeneratedOutfitResponse,
+  UserProfileResponse,
+  SubscriptionResponse,
 } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+// Module-level flag to prevent concurrent refresh attempts
+let isRefreshingToken = false;
 
 /**
  * API Response wrapper type
@@ -112,13 +119,43 @@ async function apiRequest<T>(
 
     const data = await response.json();
 
-    // Handle 401 Unauthorized - token might be expired
-    if (response.status === 401) {
-      console.warn("[API Client] Unauthorized - attempting token refresh");
-      // Clear auth state and redirect to login
+    // Handle 401 Unauthorized — attempt one token refresh then retry
+    if (
+      response.status === 401 &&
+      !isRefreshingToken &&
+      !endpoint.includes("/api/auth/")
+    ) {
+      isRefreshingToken = true;
+      try {
+        const refreshResponse = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          if (refreshData.data?.accessToken) {
+            localStorage.setItem("accessToken", refreshData.data.accessToken);
+            if (refreshData.data?.user) {
+              localStorage.setItem(
+                "user",
+                JSON.stringify(refreshData.data.user),
+              );
+            }
+            isRefreshingToken = false;
+            // Retry the original request with the new token
+            return apiRequest<T>(endpoint, options);
+          }
+        }
+      } catch {
+        // refresh network error — fall through to logout
+      }
+      isRefreshingToken = false;
       clearAuthState();
-      // Note: Frontend should listen for logout event or state change
-      throw new Error("Unauthorized - please login again");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:logout"));
+      }
+      return { success: false, error: "Session expired. Please log in again." };
     }
 
     if (!response.ok) {
@@ -452,6 +489,27 @@ export const outfitAPI = {
   },
 
   /**
+   * Manually create an outfit from wardrobe item IDs
+   */
+  createOutfit: async (payload: {
+    wardrobeItemIds: string[];
+    occasion?: string;
+    reasoning?: string;
+    colorStory?: string;
+    scores?: {
+      balance?: number;
+      formality?: number;
+      color?: number;
+      novelty?: number;
+    };
+  }) => {
+    return apiRequest<OutfitResponse>("/api/outfits", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
    * Mark outfit as worn
    */
   markOutfitWorn: async (id: string, worn: boolean = true) => {
@@ -466,9 +524,115 @@ export const outfitAPI = {
 // EXPORT ALL APIs
 // ════════════════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════════════════
+// AI ENDPOINTS
+// ════════════════════════════════════════════════════════════════════════════
+
+export const aiAPI = {
+  /**
+   * Classify clothing items from a base64 image.
+   * base64 must NOT include the data:image/...;base64, prefix.
+   */
+  classifyClothing: async (base64: string, mediaType: string) => {
+    return apiRequest<ClothingClassificationItem[]>("/api/classify-clothing", {
+      method: "POST",
+      body: JSON.stringify({ base64, mediaType }),
+    });
+  },
+
+  /**
+   * Generate a styled outfit from user's wardrobe (stored in DB).
+   */
+  generateOutfit: async (options?: {
+    previousOutfitIds?: string[];
+    shuffleVibe?: string;
+  }) => {
+    return apiRequest<GeneratedOutfitResponse>("/api/generate-outfit", {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    });
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// USER ENDPOINTS
+// ════════════════════════════════════════════════════════════════════════════
+
+export const userAPI = {
+  getProfile: async () => {
+    return apiRequest<UserProfileResponse>("/api/user/profile", {
+      method: "GET",
+    });
+  },
+
+  updateProfile: async (updates: { name?: string; avatar?: string }) => {
+    return apiRequest<UserProfileResponse>("/api/user/profile", {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+  },
+
+  completeOnboarding: async (
+    styleProfiles: string[],
+    styleIssues: string[] = [],
+  ) => {
+    return apiRequest<UserProfileResponse>("/api/user/onboarding", {
+      method: "POST",
+      body: JSON.stringify({ styleProfiles, styleIssues }),
+    });
+  },
+
+  getSubscription: async () => {
+    return apiRequest<SubscriptionResponse | null>("/api/user/subscription", {
+      method: "GET",
+    });
+  },
+
+  deleteAccount: async (password?: string) => {
+    return apiRequest<{ deleted: boolean }>("/api/user/account", {
+      method: "DELETE",
+      body: JSON.stringify(password ? { password } : {}),
+    });
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// WARDROBE BULK
+// ════════════════════════════════════════════════════════════════════════════
+
+export const wardrobeBulkAPI = {
+  bulkCreateItems: async (
+    items: import("@/types/api").WardrobeItemCreateInput[],
+  ) => {
+    return apiRequest<{ items: WardrobeItemResponse[]; count: number }>(
+      "/api/wardrobe/bulk",
+      {
+        method: "POST",
+        body: JSON.stringify({ items }),
+      },
+    );
+  },
+
+  bulkDeleteItems: async (ids: string[]) => {
+    return apiRequest<{ deleted: number }>("/api/wardrobe/bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  recordWear: async (id: string) => {
+    return apiRequest<WardrobeItemResponse>(`/api/wardrobe/${id}/wear`, {
+      method: "POST",
+    });
+  },
+};
+
 export const apiClient = {
   auth: authAPI,
   upload: uploadAPI,
   wardrobe: wardrobeAPI,
+  wardrobeBulk: wardrobeBulkAPI,
   outfit: outfitAPI,
+  ai: aiAPI,
+  user: userAPI,
 };

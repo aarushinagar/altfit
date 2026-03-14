@@ -136,3 +136,97 @@ export interface SubscriptionResponse {
   expiresAt: string | null;
   cancelledAt: string | null;
 }
+
+// ─── AI / Classification types ────────────────────────────────────────────
+
+export interface ClothingClassificationItem {
+  name: string;
+  category:
+    | "top"
+    | "bottom"
+    | "dress"
+    | "outerwear"
+    | "footwear"
+    | "bag"
+    | "accessory"
+    | "outfit";
+  colors: string[];
+  colorNames: string[];
+  pattern?: string;
+  fabric?: string | null;
+  fit?: string | null;
+  formality: number;
+  season: string[];
+  occasion: string[];
+  stylistNote?: string | null;
+  tags: string[];
+}
+
+export interface ClassifyClothingResponse {
+  items: ClothingClassificationItem[];
+}
+
+export interface GeneratedOutfitPiece {
+  role: "base" | "layer" | "accent" | "statement";
+  itemId: string;
+  item?: WardrobeItemResponse;
+}
+
+export interface GeneratedOutfitResponse {
+  title: string;
+  description: string;
+  colorPsychology?: string;
+  pieces: GeneratedOutfitPiece[];
+  styling_tips?: string[];
+  occasion?: string;
+  mood_boost?: string;
+}
+
+// ─── Wardrobe input types ─────────────────────────────────────────────────
+
+export interface WardrobeItemCreateInput {
+  name: string;
+  category: string;
+  imageUrl: string;
+  storagePath: string;
+  colors?: string[];
+  colorNames?: string[];
+  pattern?: string;
+  fabric?: string;
+  fit?: string;
+  formality?: number;
+  season?: string[];
+  occasion?: string[];
+  stylistNote?: string;
+  tags?: string[];
+}
+
+export interface WardrobeItemUpdateInput {
+  name?: string;
+  category?: string;
+  colors?: string[];
+  colorNames?: string[];
+  pattern?: string;
+  fabric?: string;
+  fit?: string;
+  formality?: number;
+  season?: string[];
+  occasion?: string[];
+  stylistNote?: string;
+  tags?: string[];
+}
+
+// ─── User types ───────────────────────────────────────────────────────────
+
+export interface UserProfileResponse {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar: string | null;
+  provider: string;
+  styleProfiles: string[];
+  styleIssues: string[];
+  onboarded: boolean;
+  createdAt: string;
+  _count?: { wardrobeItems: number; outfits: number };
+}

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Build query
-    const where: any = { userId };
+    const where: { userId: string; category?: string } = { userId };
     if (category) {
       where.category = category;
     }
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       `[Wardrobe Get] Retrieved ${items.length} items (total: ${total})`,
     );
 
-    const response: WardrobeItemResponse[] = items.map((item: any) => ({
+    const response: WardrobeItemResponse[] = items.map((item) => ({
       id: item.id,
       userId: item.userId,
       name: item.name,

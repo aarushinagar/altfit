@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Build query
-    const where: any = { userId };
+    const where: { userId: string; worn?: boolean } = { userId };
     if (worn !== null) {
       where.worn = worn === "true";
     }
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       `[Outfits Get] Retrieved ${outfits.length} outfits (total: ${total})`,
     );
 
-    const response: OutfitResponse[] = outfits.map((outfit: any) => ({
+    const response: OutfitResponse[] = outfits.map((outfit) => ({
       id: outfit.id,
       userId: outfit.userId,
       occasion: outfit.occasion,
@@ -94,6 +94,80 @@ export async function GET(request: NextRequest) {
     console.error("[Outfits Get] Error:", error);
     return errorResponse(
       error instanceof Error ? error.message : "Failed to fetch outfits",
+      500,
+    );
+  }
+}
+
+/**
+ * POST /api/outfits
+ * Manually save an outfit (item IDs must belong to the authenticated user).
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const authError = authenticateRequest(request);
+    if (authError) return authError;
+
+    const userId = getAuthenticatedUserId(request);
+    const body = await request.json().catch(() => ({}));
+
+    const { wardrobeItemIds, occasion, reasoning, colorStory } = body as {
+      wardrobeItemIds?: string[];
+      occasion?: string;
+      reasoning?: string;
+      colorStory?: string;
+    };
+
+    if (!Array.isArray(wardrobeItemIds) || wardrobeItemIds.length === 0) {
+      return errorResponse("wardrobeItemIds must be a non-empty array", 400);
+    }
+
+    // Verify all items belong to this user
+    const ownedItems = await prisma.wardrobeItem.findMany({
+      where: { id: { in: wardrobeItemIds }, userId },
+      select: { id: true },
+    });
+
+    if (ownedItems.length !== wardrobeItemIds.length) {
+      return errorResponse(
+        "One or more wardrobe items not found or not owned by you",
+        403,
+      );
+    }
+
+    const outfit = await prisma.$transaction(async (tx) => {
+      const created = await tx.outfit.create({
+        data: {
+          userId,
+          occasion: occasion ?? null,
+          reasoning: reasoning ?? null,
+          colorStory: colorStory ?? null,
+        },
+      });
+
+      await tx.outfitItem.createMany({
+        data: ownedItems.map((item, i) => ({
+          outfitId: created.id,
+          wardrobeItemId: item.id,
+          role:
+            i === 0 ? "base" : i === ownedItems.length - 1 ? "accent" : "layer",
+        })),
+      });
+
+      return tx.outfit.findUnique({
+        where: { id: created.id },
+        include: { items: true },
+      });
+    });
+
+    console.log(
+      `[Outfits POST] Outfit ${outfit?.id} created for user ${userId}`,
+    );
+    return successResponse(outfit, "Outfit saved", 201);
+  } catch (error) {
+    console.error("[Outfits POST] Error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to save outfit",
       500,
     );
   }

@@ -14,7 +14,7 @@
  * }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import {
@@ -48,8 +48,7 @@ export async function POST(request: NextRequest) {
     let payload;
     try {
       payload = verifyToken(refreshToken);
-    } catch (error) {
-      console.warn("[Auth Refresh] Invalid refresh token");
+    } catch (_error) {
       return errorResponse("Invalid refresh token", 401);
     }
 

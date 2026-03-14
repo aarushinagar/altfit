@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
+import { useWardrobe } from "@/lib/hooks/useWardrobe";
 
 const GOOGLE_FONTS = `
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
@@ -444,7 +445,7 @@ function Paywall({ onUpgrade, onClose, itemCount, userEmail }) {
           >
             Your wardrobe is full.
             <br />
-            <em style={{ fontStyle: "italic" }}>Your style isn't.</em>
+            <em style={{ fontStyle: "italic" }}>Your style isn&apos;t.</em>
           </h2>
           <p
             style={{
@@ -454,8 +455,8 @@ function Paywall({ onUpgrade, onClose, itemCount, userEmail }) {
               lineHeight: 1.6,
             }}
           >
-            You've added {itemCount} pieces — the free limit is {FREE_LIMIT}.
-            Upgrade to keep building.
+            You&apos;ve added {itemCount} pieces — the free limit is{" "}
+            {FREE_LIMIT}. Upgrade to keep building.
           </p>
         </div>
 
@@ -670,202 +671,6 @@ function Paywall({ onUpgrade, onClose, itemCount, userEmail }) {
   );
 }
 
-// ===================== DEMO DATA =====================
-const WARDROBE_ITEMS = [
-  {
-    id: 1,
-    emoji: "👔",
-    name: "White Linen Shirt",
-    type: "Shirt",
-    category: "top",
-    color: "#FFFFFF",
-    colorName: "White",
-    pattern: "Solid",
-    fit: "Relaxed",
-    formality: "Smart Casual",
-    season: "Summer",
-    wornCount: 3,
-    pairsWith: ["Tailored Trousers", "Dark Denim", "Linen Shorts"],
-    note: "The foundation piece. Clean, breathable, effortlessly polished.",
-  },
-  {
-    id: 2,
-    emoji: "👗",
-    name: "Beige Slip Dress",
-    type: "Dress",
-    category: "dress",
-    color: "#D4C4B0",
-    colorName: "Beige",
-    pattern: "Solid",
-    fit: "Fitted",
-    formality: "Smart Casual",
-    season: "Summer",
-    wornCount: 1,
-    pairsWith: ["White Sneakers", "Strappy Heels", "Structured Tote"],
-    note: "Understated luxury. Pairs with almost everything.",
-  },
-  {
-    id: 3,
-    emoji: "👖",
-    name: "Dark Indigo Jeans",
-    type: "Jeans",
-    category: "bottom",
-    color: "#1A2A4A",
-    colorName: "Indigo",
-    pattern: "Solid",
-    fit: "Fitted",
-    formality: "Casual",
-    season: "All-Season",
-    wornCount: 7,
-    pairsWith: ["White Shirt", "Striped Top", "Blazer"],
-    note: "Your most versatile piece. Dark wash keeps it polished.",
-  },
-  {
-    id: 4,
-    emoji: "🧥",
-    name: "Camel Wool Blazer",
-    type: "Blazer",
-    category: "outerwear",
-    color: "#C19A6B",
-    colorName: "Camel",
-    pattern: "Solid",
-    fit: "Fitted",
-    formality: "Smart Casual",
-    season: "Winter",
-    wornCount: 2,
-    pairsWith: ["White Tee", "Trousers", "Jeans"],
-    note: "The instant-elevation layer. Transforms any casual outfit.",
-  },
-  {
-    id: 5,
-    emoji: "👟",
-    name: "White Leather Sneakers",
-    type: "Sneakers",
-    category: "footwear",
-    color: "#FFFFFF",
-    colorName: "White",
-    pattern: "Solid",
-    fit: null,
-    formality: "Casual",
-    season: "All-Season",
-    wornCount: 12,
-    pairsWith: ["Jeans", "Trousers", "Slip Dress"],
-    note: "Clean and current. The modern shoe for any casual look.",
-  },
-  {
-    id: 6,
-    emoji: "👜",
-    name: "Tan Structured Tote",
-    type: "Tote",
-    category: "bag",
-    color: "#C4A47C",
-    colorName: "Tan",
-    pattern: "Solid",
-    fit: null,
-    formality: "Smart Casual",
-    season: "All-Season",
-    wornCount: 8,
-    pairsWith: ["Any outfit"],
-    note: "Structured silhouette reads as polished without trying.",
-  },
-  {
-    id: 7,
-    emoji: "👕",
-    name: "Navy Breton Stripe",
-    type: "T-Shirt",
-    category: "top",
-    color: "#1A2A4A",
-    colorName: "Navy",
-    pattern: "Striped",
-    fit: "Fitted",
-    formality: "Casual",
-    season: "All-Season",
-    wornCount: 4,
-    pairsWith: ["White Jeans", "Beige Trousers", "Midi Skirt"],
-    note: "A Parisian staple that never loses its relevance.",
-  },
-  {
-    id: 8,
-    emoji: "👡",
-    name: "Nude Block Heel",
-    type: "Heels",
-    category: "footwear",
-    color: "#D4B8A0",
-    colorName: "Nude",
-    pattern: "Solid",
-    fit: null,
-    formality: "Smart Casual",
-    season: "All-Season",
-    wornCount: 3,
-    pairsWith: ["Trousers", "Midi Dress", "Blazer"],
-    note: "Lengthens the leg, elevates the outfit. A wardrobe staple.",
-  },
-  {
-    id: 9,
-    emoji: "🧣",
-    name: "Ivory Cashmere Scarf",
-    type: "Scarf",
-    category: "accessory",
-    color: "#FAF0E0",
-    colorName: "Ivory",
-    pattern: "Solid",
-    fit: null,
-    formality: "Smart Casual",
-    season: "Winter",
-    wornCount: 5,
-    pairsWith: ["Coat", "Blazer", "Knit"],
-    note: "Adds texture and warmth without visual noise.",
-  },
-  {
-    id: 10,
-    emoji: "🧥",
-    name: "Cream Knit Sweater",
-    type: "Sweater",
-    category: "top",
-    color: "#F5EDD8",
-    colorName: "Cream",
-    pattern: "Textured",
-    fit: "Relaxed",
-    formality: "Casual",
-    season: "Winter",
-    wornCount: 6,
-    pairsWith: ["Jeans", "Trousers", "Midi Skirt"],
-    note: "Cozy but composed. The relaxed knit done right.",
-  },
-  {
-    id: 11,
-    emoji: "🩱",
-    name: "Black Slim Trousers",
-    type: "Trousers",
-    category: "bottom",
-    color: "#1A1714",
-    colorName: "Black",
-    pattern: "Solid",
-    fit: "Fitted",
-    formality: "Formal",
-    season: "All-Season",
-    wornCount: 9,
-    pairsWith: ["White Shirt", "Blazer", "Silk Blouse"],
-    note: "The sharpest bottom you own. Anchor for any formal look.",
-  },
-  {
-    id: 12,
-    emoji: "👒",
-    name: "Straw Wide Brim Hat",
-    type: "Hat",
-    category: "accessory",
-    color: "#C4A96D",
-    colorName: "Natural",
-    pattern: "Textured",
-    fit: null,
-    formality: "Casual",
-    season: "Summer",
-    wornCount: 2,
-    pairsWith: ["Slip Dress", "Linen Shirt", "Shorts"],
-    note: "Summer's finishing touch. Effortlessly editorial.",
-  },
-];
-
 const CATEGORIES = [
   "All",
   "Top",
@@ -946,66 +751,6 @@ function logToConsole(context, level, message, data = {}) {
     message,
     data,
   );
-}
-
-/**
- * Generate outfit using backend API
- * Calls safe backend route that handles Anthropic API securely
- */
-async function generateOutfitWithAI(
-  wardrobeItems,
-  previousOutfitIds = [],
-  shuffleVibe = null,
-) {
-  const startTime = Date.now();
-  const context = "generateOutfitWithAI";
-
-  try {
-    logToConsole(context, "info", "Starting outfit generation", {
-      itemCount: wardrobeItems.length,
-      previousOutfitCount: previousOutfitIds.length,
-      hasViba: !!shuffleVibe,
-    });
-
-    if (!wardrobeItems || wardrobeItems.length === 0) {
-      throw new Error("No wardrobe items provided");
-    }
-
-    // Call backend API instead of Anthropic directly
-    const res = await fetch("/api/generate-outfit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        wardrobeItems,
-        previousOutfitIds,
-        shuffleVibe,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      logToConsole(context, "error", "Backend API failed", {
-        status: res.status,
-        error: data?.error,
-      });
-      throw new Error(data?.error || `API error: ${res.status}`);
-    }
-
-    logToConsole(context, "info", "Outfit generated successfully", {
-      occasion: data.occasion,
-      pieceCount: data.pieces?.length,
-      processingMs: Date.now() - startTime,
-    });
-
-    return data;
-  } catch (error) {
-    logToConsole(context, "error", "Failed to generate outfit", {
-      message: error.message,
-      processingMs: Date.now() - startTime,
-    });
-    throw error;
-  }
 }
 
 /**
@@ -1161,10 +906,11 @@ const cropImageForCategory = (sourceDataUrl, category) => {
 // ===================== COMPONENTS =====================
 
 function WardrobeImage({ item, style = {} }) {
-  if (!item.previewUrl) return null;
+  const src = item.imageUrl || item.previewUrl;
+  if (!src) return null;
   return (
     <img
-      src={item.previewUrl}
+      src={src}
       alt={item.name || ""}
       style={{
         width: "100%",
@@ -1202,17 +948,18 @@ function PieceCard({ role, item }) {
       <div
         className="piece-visual"
         style={{
-          background: item.previewUrl
-            ? "#ede9e3"
-            : `${item.color || item.colorHex || "#ccc"}22`,
+          background:
+            item.imageUrl || item.previewUrl
+              ? "#ede9e3"
+              : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}22`,
           padding: 0,
           overflow: "hidden",
         }}
       >
-        {item.previewUrl ? (
+        {item.imageUrl || item.previewUrl ? (
           <WardrobeImage item={item} />
         ) : (
-          <span style={{ fontSize: 32 }}>{item.emoji}</span>
+          <span style={{ fontSize: 32 }}>{item.emoji || "👗"}</span>
         )}
       </div>
       <div className="piece-label">{role}</div>
@@ -1222,28 +969,49 @@ function PieceCard({ role, item }) {
 }
 
 // ===================== TODAY PAGE =====================
-function TodayPage({ onWear, savedItems }) {
+function TodayPage({ onWear, wardrobeTotal, onGoToUpload }) {
   const [outfit, setOutfit] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [shuffleCount, setShuffleCount] = useState(0);
   const [previousIds, setPreviousIds] = useState([]);
   const [animKey, setAnimKey] = useState(0);
+  const [savedOutfitId, setSavedOutfitId] = useState(null);
+  const [savingOutfit, setSavingOutfit] = useState(false);
 
-  const allItems =
-    savedItems.length >= 2 ? savedItems : [...savedItems, ...WARDROBE_ITEMS];
+  const hasWardrobe = wardrobeTotal >= 2;
   const greeting = getHourGreeting();
 
   const generateOutfit = async (isShuffle = false) => {
+    if (!hasWardrobe) return;
     setLoading(true);
     setError(null);
     const vibe = isShuffle
       ? SHUFFLE_VIBES[shuffleCount % SHUFFLE_VIBES.length]
       : null;
     try {
-      const result = await generateOutfitWithAI(allItems, previousIds, vibe);
-      setOutfit(result);
-      setPreviousIds(result.pieces.map((p) => String(p.item.id)));
+      const response = await apiClient.outfit.generateOutfit({
+        occasion: undefined,
+        season: undefined,
+        mood: vibe || undefined,
+      });
+      if (!response.success || !response.data)
+        throw new Error(response.error || "No outfit returned");
+      const result = response.data;
+      // Normalize API items → pieces shape expected by PieceCard
+      const pieces = (result.items || []).map((outfitItem) => ({
+        role: outfitItem.role || "item",
+        item: {
+          id: outfitItem.wardrobeItem?.id || outfitItem.wardrobeItemId,
+          name: outfitItem.wardrobeItem?.name || "Item",
+          previewUrl: outfitItem.wardrobeItem?.imageUrl || null,
+          colors: outfitItem.wardrobeItem?.colors || [],
+          colorHex: outfitItem.wardrobeItem?.colors?.[0] || null,
+        },
+      }));
+      setOutfit({ ...result, pieces });
+      setSavedOutfitId(result.outfitId || null);
+      if (result.wardrobeItemIds) setPreviousIds(result.wardrobeItemIds);
       setAnimKey((k) => k + 1);
       if (isShuffle) setShuffleCount((c) => c + 1);
     } catch (err) {
@@ -1254,8 +1022,8 @@ function TodayPage({ onWear, savedItems }) {
   };
 
   useEffect(() => {
-    if (allItems.length >= 2) generateOutfit(false);
-  }, [savedItems.length]);
+    if (hasWardrobe) generateOutfit(false);
+  }, [wardrobeTotal]);
 
   const scores = outfit?.scores || {
     balance: 0,
@@ -1278,7 +1046,7 @@ function TodayPage({ onWear, savedItems }) {
           </div>
           <h1 className="greeting-title">
             {greeting}. <br />
-            <em>Here's your look</em> <br />
+            <em>Here&apos;s your look</em> <br />
             for today.
           </h1>
           <p className="greeting-sub">
@@ -1389,10 +1157,10 @@ function TodayPage({ onWear, savedItems }) {
               <div
                 style={{ display: "flex", gap: 12, justifyContent: "center" }}
               >
-                {allItems.length < 2 && (
+                {!hasWardrobe && (
                   <button
                     className="btn-primary"
-                    onClick={() => setPage("upload")}
+                    onClick={() => onGoToUpload?.()}
                     style={{
                       padding: "12px 28px",
                       fontSize: 11,
@@ -1417,7 +1185,7 @@ function TodayPage({ onWear, savedItems }) {
             </div>
           )}
 
-          {!loading && !error && !outfit && allItems.length < 2 && (
+          {!loading && !error && !outfit && !hasWardrobe && (
             <div
               className="outfit-card"
               style={{ padding: 40, textAlign: "center" }}
@@ -1450,7 +1218,7 @@ function TodayPage({ onWear, savedItems }) {
           {!loading && outfit && (
             <div key={animKey} className="outfit-card fade-up">
               <div className="outfit-card-header">
-                <span className="outfit-card-title">Today's Outfit</span>
+                <span className="outfit-card-title">Today&apos;s Outfit</span>
                 <span className="occasion-tag">{outfit.occasion}</span>
               </div>
               <div
@@ -1496,7 +1264,7 @@ function TodayPage({ onWear, savedItems }) {
               )}
               <div className="outfit-reasoning">
                 <span className="reasoning-icon">✦</span>
-                <p className="reasoning-text">"{outfit.reasoning}"</p>
+                <p className="reasoning-text">&quot;{outfit.reasoning}&quot;</p>
               </div>
               <div className="outfit-actions">
                 <button className="btn-primary" onClick={() => onWear(outfit)}>
@@ -1537,15 +1305,15 @@ function TodayPage({ onWear, savedItems }) {
             <div className="insight-card">
               <div className="insight-label">Collection</div>
               <div className="insight-text">
-                {savedItems.length > 0
-                  ? `${savedItems.length} piece${savedItems.length > 1 ? "s" : ""} saved · outfit engine active`
+                {wardrobeTotal > 0
+                  ? `${wardrobeTotal} piece${wardrobeTotal > 1 ? "s" : ""} saved · outfit engine active`
                   : "Upload your clothes to unlock AI styling"}
               </div>
             </div>
           </div>
           {outfit && (
             <div className="sidebar-section">
-              <p className="sidebar-heading">Today's Pieces</p>
+              <p className="sidebar-heading">Today&apos;s Pieces</p>
               <div className="last-worn-list">
                 {outfit.pieces.map(({ role, item }) => (
                   <div key={item.id} className="last-worn-item">
@@ -1569,11 +1337,11 @@ function TodayPage({ onWear, savedItems }) {
 }
 
 // ===================== WARDROBE PAGE =====================
-function WardrobePage({ savedItems, onRemoveItem }) {
+function WardrobePage({ savedItems, onRemoveItem, onFilterChange, isLoading }) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const allItems = [...savedItems, ...WARDROBE_ITEMS];
+  const allItems = savedItems;
 
   const filtered = allItems.filter((item) => {
     if (activeFilter === "All") return true;
@@ -1587,8 +1355,7 @@ function WardrobePage({ savedItems, onRemoveItem }) {
         <p className="page-eyebrow">Your Collection</p>
         <h1 className="page-title">Wardrobe</h1>
         <p className="page-count">
-          {allItems.length} pieces · {savedItems.length} yours ·{" "}
-          {WARDROBE_ITEMS.length} demo
+          {allItems.length} piece{allItems.length !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -1598,66 +1365,130 @@ function WardrobePage({ savedItems, onRemoveItem }) {
           <button
             key={cat}
             className={`filter-chip ${activeFilter === cat ? "active" : ""}`}
-            onClick={() => setActiveFilter(cat)}
+            onClick={() => {
+              setActiveFilter(cat);
+              onFilterChange?.(cat === "All" ? undefined : cat.toLowerCase());
+            }}
           >
             {cat}
           </button>
         ))}
       </div>
 
-      <div className="wardrobe-grid">
-        {filtered.map((item, i) => (
-          <div
-            key={item.id}
-            className="wardrobe-item"
-            style={{ animationDelay: `${i * 0.04}s` }}
-            onClick={() => setSelectedItem(item)}
-          >
+      {/* INT-04: skeleton loader */}
+      {isLoading && (
+        <div className="wardrobe-grid">
+          {[...Array(6)].map((_, i) => (
             <div
-              className="item-image"
-              style={{
-                background: item.previewUrl
-                  ? "#f0ece6"
-                  : `${item.color || item.colorHex || "#ccc"}18`,
-              }}
+              key={i}
+              className="wardrobe-item"
+              style={{ opacity: 0.35, pointerEvents: "none" }}
             >
-              {item.previewUrl ? (
-                <WardrobeImage
-                  item={item}
-                  style={{ position: "absolute", inset: 0 }}
-                />
-              ) : (
-                <span style={{ fontSize: 44, position: "relative", zIndex: 1 }}>
-                  {item.emoji}
-                </span>
-              )}
-              {item.isUploaded && (
+              <div
+                className="item-image"
+                style={{
+                  background: "var(--linen)",
+                  animation: "pulse 1.4s ease-in-out infinite",
+                }}
+              />
+              <div className="item-info">
                 <div
                   style={{
-                    position: "absolute",
-                    top: 6,
-                    right: 6,
-                    background: "var(--gold)",
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
+                    height: 10,
+                    width: "60%",
+                    background: "var(--linen)",
+                    borderRadius: 4,
+                    marginBottom: 6,
                   }}
                 />
-              )}
-            </div>
-            <div className="item-info">
-              <div className="item-type">{item.type || item.category}</div>
-              <div className="item-name">{item.name}</div>
-              <div className="item-meta">
-                <span className="item-tag">{item.colorName}</span>
-                <span className="item-tag">{item.formality}</span>
+                <div
+                  style={{
+                    height: 12,
+                    width: "80%",
+                    background: "var(--linen)",
+                    borderRadius: 4,
+                  }}
+                />
               </div>
             </div>
-            <div className="item-overlay">
-              <span className="item-overlay-text">View Details</span>
-            </div>
+          ))}
+        </div>
+      )}
+
+      {/* INT-04: empty state */}
+      {!isLoading && allItems.length === 0 && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 20px",
+          }}
+        >
+          <div style={{ fontSize: 40, marginBottom: 16 }}>👗</div>
+          <div
+            style={{
+              fontFamily: "Cormorant Garamond, serif",
+              fontSize: 24,
+              fontWeight: 300,
+              color: "var(--ink)",
+              marginBottom: 8,
+            }}
+          >
+            Your wardrobe is empty.
           </div>
-        ))}
+          <div
+            style={{ fontSize: 12, color: "var(--taupe)", marginBottom: 24 }}
+          >
+            Add your first piece to get started.
+          </div>
+        </div>
+      )}
+
+      <div className="wardrobe-grid">
+        {!isLoading &&
+          filtered.map((item, i) => (
+            <div
+              key={item.id}
+              className="wardrobe-item"
+              style={{ animationDelay: `${i * 0.04}s` }}
+              onClick={() => setSelectedItem(item)}
+            >
+              <div
+                className="item-image"
+                style={{
+                  background:
+                    item.imageUrl || item.previewUrl
+                      ? "#f0ece6"
+                      : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}18`,
+                }}
+              >
+                {item.imageUrl || item.previewUrl ? (
+                  <WardrobeImage
+                    item={item}
+                    style={{ position: "absolute", inset: 0 }}
+                  />
+                ) : (
+                  <span
+                    style={{ fontSize: 44, position: "relative", zIndex: 1 }}
+                  >
+                    {item.emoji || "👗"}
+                  </span>
+                )}
+              </div>
+              <div className="item-info">
+                <div className="item-type">{item.category || item.type}</div>
+                <div className="item-name">{item.name}</div>
+                <div className="item-meta">
+                  <span className="item-tag">
+                    {item.colorNames?.[0] || item.colorName}
+                  </span>
+                  <span className="item-tag">{item.formality}</span>
+                </div>
+              </div>
+              <div className="item-overlay">
+                <span className="item-overlay-text">View Details</span>
+              </div>
+            </div>
+          ))}
       </div>
 
       {selectedItem && (
@@ -1689,27 +1520,25 @@ function WardrobePage({ savedItems, onRemoveItem }) {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                {selectedItem.isUploaded && (
-                  <button
-                    onClick={() => {
-                      onRemoveItem(selectedItem.id);
-                      setSelectedItem(null);
-                    }}
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      background: "none",
-                      border: "1px solid var(--linen)",
-                      color: "var(--taupe)",
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                      fontFamily: "DM Sans, sans-serif",
-                    }}
-                  >
-                    Remove
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    onRemoveItem(selectedItem.id);
+                    setSelectedItem(null);
+                  }}
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    background: "none",
+                    border: "1px solid var(--linen)",
+                    color: "var(--taupe)",
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    fontFamily: "DM Sans, sans-serif",
+                  }}
+                >
+                  Remove
+                </button>
                 <button
                   className="modal-close"
                   onClick={() => setSelectedItem(null)}
@@ -1723,17 +1552,20 @@ function WardrobePage({ savedItems, onRemoveItem }) {
                 <div
                   className="modal-image"
                   style={{
-                    background: selectedItem.previewUrl
-                      ? "#f0ece6"
-                      : `${selectedItem.color || selectedItem.colorHex || "#ccc"}18`,
+                    background:
+                      selectedItem.imageUrl || selectedItem.previewUrl
+                        ? "#f0ece6"
+                        : `${selectedItem.colors?.[0] || selectedItem.color || selectedItem.colorHex || "#ccc"}18`,
                     padding: 0,
                     overflow: "hidden",
                   }}
                 >
-                  {selectedItem.previewUrl ? (
+                  {selectedItem.imageUrl || selectedItem.previewUrl ? (
                     <WardrobeImage item={selectedItem} />
                   ) : (
-                    <span style={{ fontSize: 72 }}>{selectedItem.emoji}</span>
+                    <span style={{ fontSize: 72 }}>
+                      {selectedItem.emoji || "👗"}
+                    </span>
                   )}
                 </div>
               </div>
@@ -1750,7 +1582,7 @@ function WardrobePage({ savedItems, onRemoveItem }) {
                       fontStyle: "italic",
                     }}
                   >
-                    "{selectedItem.note}"
+                    &quot;{selectedItem.note}&quot;
                   </div>
                 </div>
                 <div>
@@ -1878,6 +1710,21 @@ function UploadPage({ onSaveItem, savedItems }) {
       let timer;
       try {
         const { base64, previewDataURL, mediaType } = await prepareImage(file);
+
+        // INT-01: upload original image to Supabase immediately so savePiece
+        // can reuse the URL without a second upload for solo-piece images.
+        let uploadedUrl = null;
+        let uploadedStoragePath = null;
+        try {
+          const uploadRes = await apiClient.upload.uploadImage(file);
+          if (uploadRes.success && uploadRes.data) {
+            uploadedUrl = uploadRes.data.url;
+            uploadedStoragePath = uploadRes.data.path;
+          }
+        } catch {
+          // Non-fatal: savePiece will upload again at save time if needed
+        }
+
         setItems((prev) =>
           prev.map((it) =>
             it.id === id
@@ -1886,6 +1733,8 @@ function UploadPage({ onSaveItem, savedItems }) {
                   previewUrl: previewDataURL,
                   base64,
                   mediaType,
+                  uploadedUrl,
+                  uploadedStoragePath,
                   status: "analyzing",
                   progress: 20,
                 }
@@ -1953,7 +1802,7 @@ function UploadPage({ onSaveItem, savedItems }) {
     if (e.target.files?.length) processFiles(e.target.files);
   };
 
-  const saveFullOutfit = (item) => {
+  const saveFullOutfit = async (item) => {
     const primaryPieces = (item.pieces || []).filter(
       (p) => !["accessory"].includes((p.category || "").toLowerCase()),
     );
@@ -1961,69 +1810,267 @@ function UploadPage({ onSaveItem, savedItems }) {
       primaryPieces.length === 1
         ? (primaryPieces[0].category || "outfit").toLowerCase()
         : "outfit";
-    const derivedType =
-      primaryPieces.length === 1
-        ? primaryPieces[0].type || primaryPieces[0].category
-        : "Full Outfit";
+    const firstName =
+      item.pieces?.map((p) => p.name).join(" + ") ||
+      item.fileName?.replace(/\.[^.]+$/, "") ||
+      "Full Outfit";
 
-    onSaveItem({
-      id: `${item.id}-full`,
-      name: item.pieces?.length
-        ? item.pieces.map((p) => p.name).join(" + ")
-        : item.fileName.replace(/\.[^.]+$/, "") || "Full Outfit",
-      category: derivedCategory,
-      type: derivedType,
-      colorName: item.pieces?.[0]?.colorName || "",
-      colorHex: item.pieces?.[0]?.colorHex || "#888",
-      pattern: item.pieces?.[0]?.pattern || "",
-      formality: item.pieces?.[0]?.formality || "Casual",
-      season: item.pieces?.[0]?.season || "All-Season",
-      note: item.pieces?.[0]?.note || "",
-      pairsWith: item.pieces?.[0]?.pairsWith || [],
-      emoji: item.pieces?.[0]?.emoji || "👗",
-      previewUrl: item.previewUrl,
-      color: item.pieces?.[0]?.colorHex || "#888",
-      wornCount: 0,
-      isUploaded: true,
-      addedAt: new Date().toISOString(),
-    });
+    // Mark item as saving
     setItems((prev) =>
-      prev.map((it) =>
-        it.id === item.id ? { ...it, intent: "full_outfit" } : it,
-      ),
+      prev.map((it) => (it.id === item.id ? { ...it, savingFull: true } : it)),
     );
+
+    try {
+      let uploadedUrl = null;
+      let storagePath = null;
+
+      if (item.uploadedUrl) {
+        // INT-01: reuse original upload from processFiles
+        uploadedUrl = item.uploadedUrl;
+        storagePath = item.uploadedStoragePath;
+      } else if (item.previewUrl) {
+        const res = await fetch(item.previewUrl);
+        const blob = await res.blob();
+        const ext = blob.type === "image/png" ? "png" : "jpg";
+        const file = new File([blob], `outfit-${item.id}.${ext}`, {
+          type: blob.type,
+        });
+        const uploadRes = await apiClient.upload.uploadImage(file);
+        if (uploadRes.success && uploadRes.data) {
+          uploadedUrl = uploadRes.data.url;
+          storagePath = uploadRes.data.path;
+        }
+      }
+
+      if (!uploadedUrl || !storagePath) {
+        throw new Error("Image upload failed");
+      }
+
+      const firstPiece = item.pieces?.[0] || {};
+      const saved = await apiClient.wardrobe.createItem({
+        name: firstName,
+        category: derivedCategory,
+        imageUrl: uploadedUrl,
+        storagePath,
+        colors:
+          firstPiece.colors ||
+          (firstPiece.colorHex ? [firstPiece.colorHex] : []),
+        colorNames:
+          firstPiece.colorNames ||
+          (firstPiece.colorName ? [firstPiece.colorName] : []),
+        pattern: firstPiece.pattern || null,
+        fabric: firstPiece.fabric || null,
+        fit: firstPiece.fit || null,
+        formality:
+          typeof firstPiece.formality === "number" ? firstPiece.formality : 5,
+        season: Array.isArray(firstPiece.season)
+          ? firstPiece.season
+          : firstPiece.season
+            ? [firstPiece.season]
+            : [],
+        occasion: Array.isArray(firstPiece.occasion) ? firstPiece.occasion : [],
+        stylistNote: firstPiece.note || firstPiece.stylistNote || null,
+        tags: firstPiece.tags || [],
+      });
+
+      if (!saved.success)
+        throw new Error(saved.error || "Failed to save outfit");
+
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? { ...it, intent: "full_outfit", savingFull: false }
+            : it,
+        ),
+      );
+      onSaveItem({ name: firstName, imageUrl: uploadedUrl });
+    } catch (err) {
+      console.error("[saveFullOutfit]", err);
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id ? { ...it, savingFull: false } : it,
+        ),
+      );
+    }
   };
 
   const savePiece = async (item, piece, pieceIdx) => {
     const pieceId = `${item.id}-piece-${pieceIdx}`;
-    if ((item.savedPieceIds || []).includes(pieceId)) return;
+    if ((item.savedPieceIds || []).includes(pieceId)) {
+      return item.savedPieceWardrobeIds?.[pieceIdx] || null;
+    }
 
     const primaryPieces = (item.pieces || []).filter(
       (p) => !["accessory"].includes((p.category || "").toLowerCase()),
     );
     const isSoloPiece = primaryPieces.length <= 1;
-    const imageUrl =
-      !isSoloPiece && item.previewUrl
-        ? await cropImageForCategory(item.previewUrl, piece.category)
-        : item.previewUrl;
 
-    onSaveItem({
-      id: pieceId,
-      ...piece,
-      previewUrl: imageUrl,
-      color: piece.colorHex || "#ccc",
-      wornCount: 0,
-      isUploaded: true,
-      sourceUploadId: item.id,
-      addedAt: new Date().toISOString(),
-    });
+    // Mark as saving
     setItems((prev) =>
       prev.map((it) =>
         it.id === item.id
-          ? { ...it, savedPieceIds: [...(it.savedPieceIds || []), pieceId] }
+          ? { ...it, savingPieceIds: [...(it.savingPieceIds || []), pieceId] }
           : it,
       ),
     );
+
+    try {
+      let uploadedUrl = null;
+      let storagePath = null;
+
+      if (isSoloPiece && item.uploadedUrl) {
+        // INT-01: reuse the pre-uploaded original image URL
+        uploadedUrl = item.uploadedUrl;
+        storagePath = item.uploadedStoragePath;
+      } else {
+        // Multi-piece: crop to this piece's region and upload separately
+        const previewSrc =
+          !isSoloPiece && item.previewUrl
+            ? await cropImageForCategory(item.previewUrl, piece.category)
+            : item.previewUrl;
+
+        const dataUrl = previewSrc || item.previewUrl;
+        if (dataUrl) {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const ext = blob.type === "image/png" ? "png" : "jpg";
+          const uploadFile = new File([blob], `piece-${pieceId}.${ext}`, {
+            type: blob.type,
+          });
+          const uploadRes = await apiClient.upload.uploadImage(uploadFile);
+          if (uploadRes.success && uploadRes.data) {
+            uploadedUrl = uploadRes.data.url;
+            storagePath = uploadRes.data.path;
+          }
+        }
+      }
+
+      if (!uploadedUrl || !storagePath) {
+        throw new Error("Image upload failed");
+      }
+
+      // Save to wardrobe DB
+      const saved = await apiClient.wardrobe.createItem({
+        name: piece.name || `${piece.category} piece`,
+        category: (piece.category || "outfit").toLowerCase(),
+        imageUrl: uploadedUrl,
+        storagePath,
+        colors: piece.colors || (piece.colorHex ? [piece.colorHex] : []),
+        colorNames:
+          piece.colorNames || (piece.colorName ? [piece.colorName] : []),
+        pattern: piece.pattern || null,
+        fabric: piece.fabric || null,
+        fit: piece.fit || null,
+        formality: typeof piece.formality === "number" ? piece.formality : 5,
+        season: Array.isArray(piece.season)
+          ? piece.season
+          : piece.season
+            ? [piece.season]
+            : [],
+        occasion: Array.isArray(piece.occasion) ? piece.occasion : [],
+        stylistNote: piece.note || piece.stylistNote || null,
+        tags:
+          piece.tags ||
+          (piece.pairsWith ? piece.pairsWith.map((p) => `pairs:${p}`) : []),
+      });
+
+      if (!saved.success || !saved.data) {
+        throw new Error(saved.error || "Failed to save piece");
+      }
+
+      const wardrobeId = saved.data.id;
+
+      // Update UI — store wardrobe ID keyed by pieceIdx for saveAsOutfit
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? {
+                ...it,
+                savedPieceIds: [...(it.savedPieceIds || []), pieceId],
+                savedPieceWardrobeIds: {
+                  ...(it.savedPieceWardrobeIds || {}),
+                  [pieceIdx]: wardrobeId,
+                },
+                savingPieceIds: (it.savingPieceIds || []).filter(
+                  (id) => id !== pieceId,
+                ),
+              }
+            : it,
+        ),
+      );
+
+      // Notify + trigger wardrobe reload
+      onSaveItem({ name: piece.name || "piece", imageUrl: uploadedUrl });
+      return wardrobeId;
+    } catch (err) {
+      console.error("[savePiece]", err);
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? {
+                ...it,
+                savingPieceIds: (it.savingPieceIds || []).filter(
+                  (id) => id !== pieceId,
+                ),
+              }
+            : it,
+        ),
+      );
+      return null;
+    }
+  };
+
+  // INT-03: Save all detected pieces then create an Outfit record linking them
+  const saveAsOutfit = async (item) => {
+    if ((item.pieces || []).length < 2) return;
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === item.id ? { ...it, savingOutfit: true } : it,
+      ),
+    );
+    try {
+      const wardrobeIds = [];
+      for (let idx = 0; idx < item.pieces.length; idx++) {
+        const existingId = item.savedPieceWardrobeIds?.[idx];
+        if (existingId) {
+          wardrobeIds.push(existingId);
+          continue;
+        }
+        // Read latest item state so we pick up IDs saved by earlier loop iterations
+        const latestItem = await new Promise((resolve) =>
+          setItems((prev) => {
+            const found = prev.find((it) => it.id === item.id) || item;
+            resolve(found);
+            return prev;
+          }),
+        );
+        const wid = await savePiece(latestItem, item.pieces[idx], idx);
+        if (wid) wardrobeIds.push(wid);
+      }
+      if (wardrobeIds.length < 2)
+        throw new Error("Need at least 2 saved pieces");
+
+      const outfitRes = await apiClient.outfit.createOutfit({
+        wardrobeItemIds: wardrobeIds,
+      });
+      if (!outfitRes.success)
+        throw new Error(outfitRes.error || "Failed to create outfit");
+
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id
+            ? { ...it, outfitSaved: true, savingOutfit: false }
+            : it,
+        ),
+      );
+    } catch (err) {
+      console.error("[saveAsOutfit]", err);
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id ? { ...it, savingOutfit: false } : it,
+        ),
+      );
+    }
   };
 
   return (
@@ -2402,6 +2449,7 @@ function UploadPage({ onSaveItem, savedItems }) {
                       >
                         <button
                           onClick={() => saveFullOutfit(item)}
+                          disabled={item.savingFull}
                           style={{
                             background: "var(--ink)",
                             color: "var(--cream)",
@@ -2411,11 +2459,14 @@ function UploadPage({ onSaveItem, savedItems }) {
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
                             fontFamily: "DM Sans, sans-serif",
-                            cursor: "pointer",
+                            cursor: item.savingFull ? "not-allowed" : "pointer",
+                            opacity: item.savingFull ? 0.6 : 1,
                             textAlign: "left",
                           }}
                         >
-                          ✦ Save as Full Outfit
+                          {item.savingFull
+                            ? "Saving…"
+                            : "✦ Save as Full Outfit"}
                           <div
                             style={{
                               fontSize: 10,
@@ -2483,7 +2534,7 @@ function UploadPage({ onSaveItem, savedItems }) {
                     )}
                     {item.intent === "individual" && (
                       <div style={{ fontSize: 12, color: "var(--taupe)" }}>
-                        Tap "+ Save" on the pieces you want below ↓
+                        Tap &quot;+ Save&quot; on the pieces you want below ↓
                       </div>
                     )}
                   </div>
@@ -2660,6 +2711,48 @@ function UploadPage({ onSaveItem, savedItems }) {
                         );
                       })}
                     </div>
+                    {/* INT-03: Save all pieces as a linked outfit */}
+                    {(item.pieces || []).length >= 2 && !item.outfitSaved && (
+                      <div style={{ padding: "12px 0 4px" }}>
+                        <button
+                          onClick={() => saveAsOutfit(item)}
+                          disabled={item.savingOutfit}
+                          style={{
+                            width: "100%",
+                            background: "transparent",
+                            color: "var(--gold)",
+                            border: "1px solid var(--gold)",
+                            padding: "10px 18px",
+                            fontSize: 10,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            fontFamily: "DM Sans, sans-serif",
+                            cursor: item.savingOutfit
+                              ? "not-allowed"
+                              : "pointer",
+                            opacity: item.savingOutfit ? 0.6 : 1,
+                          }}
+                        >
+                          {item.savingOutfit
+                            ? "Saving outfit…"
+                            : "✦ Save all as outfit"}
+                        </button>
+                      </div>
+                    )}
+                    {item.outfitSaved && (
+                      <div
+                        style={{
+                          padding: "10px 0 4px",
+                          fontSize: 10,
+                          letterSpacing: "0.12em",
+                          color: "var(--gold)",
+                          textAlign: "center",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        ✓ Outfit saved
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2917,7 +3010,8 @@ function Onboarding({ onComplete }) {
                 marginBottom: 10,
               }}
             >
-              What's your <em style={{ fontStyle: "italic" }}>aesthetic?</em>
+              What&apos;s your{" "}
+              <em style={{ fontStyle: "italic" }}>aesthetic?</em>
             </h2>
             <p
               style={{
@@ -3040,7 +3134,7 @@ function Onboarding({ onComplete }) {
                 marginBottom: 10,
               }}
             >
-              What's your biggest{" "}
+              What&apos;s your biggest{" "}
               <em style={{ fontStyle: "italic" }}>styling issue?</em>
             </h2>
             <p
@@ -4242,8 +4336,8 @@ function Auth({ onAuth }) {
               textAlign: "center",
             }}
           >
-            By continuing, you agree to ALT FIT's Terms of Service and Privacy
-            Policy.
+            By continuing, you agree to ALT FIT&apos;s Terms of Service and
+            Privacy Policy.
           </p>
         </div>
       </div>
@@ -4258,64 +4352,38 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("today");
   const [toast, setToast] = useState(null);
-  const [savedItems, setSavedItems] = useState([]);
   const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState(null); // null | "monthly" | "yearly"
   const [showPaywall, setShowPaywall] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Real wardrobe state comes from the API, not localStorage
+  const {
+    items: savedItems,
+    total: wardrobeTotal,
+    isLoading: wardrobeLoading,
+    loadItems: loadWardrobeItems,
+    createItem: createWardrobeItem,
+    deleteItem: deleteWardrobeItem,
+  } = useWardrobe();
+
   useEffect(() => {
     async function init() {
       try {
-        // Check if user is already logged in via API client
         const storedUser = localStorage.getItem("user");
         const token = localStorage.getItem("accessToken");
+        const savedProfile = localStorage.getItem("altfit-profile");
+        const planData = localStorage.getItem("altfit-plan");
 
-        // Get wardrobe items and profile from localStorage
-        let wardrobeResult = null;
-        let profileResult = null;
-        let planResult = null;
+        if (planData) setPlan(JSON.parse(planData));
 
-        try {
-          const wardrobeData = localStorage.getItem("wardrobe-items");
-          const profileData = localStorage.getItem("altfit-profile");
-          const planData = localStorage.getItem("altfit-plan");
-
-          wardrobeResult = wardrobeData ? { value: wardrobeData } : null;
-          profileResult = profileData ? { value: profileData } : null;
-          planResult = planData ? { value: planData } : null;
-        } catch (e) {
-          console.error("Failed to read from localStorage:", e);
-        }
-
-        const savedUser = storedUser ? JSON.parse(storedUser) : null;
-        const savedProfile = profileResult?.value
-          ? JSON.parse(profileResult.value)
-          : null;
-
-        if (wardrobeResult?.value) {
-          const items = JSON.parse(wardrobeResult.value);
-          const migrated = items.map((item) =>
-            !item.category || item.category === "full_outfit"
-              ? { ...item, category: inferCategory(item) }
-              : item,
-          );
-          setSavedItems(migrated);
-          if (migrated.some((m, i) => m.category !== items[i].category)) {
-            try {
-              localStorage.setItem("wardrobe-items", JSON.stringify(migrated));
-            } catch (e) {
-              console.error("Failed to save wardrobe items:", e);
-            }
-          }
-        }
-
-        if (planResult?.value) setPlan(JSON.parse(planResult.value));
-
-        if (savedUser && token) {
-          setUser(savedUser);
-          setProfile(savedProfile);
-          setScreen(savedProfile ? "app" : "onboarding");
+        if (storedUser && token) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setProfile(savedProfile ? JSON.parse(savedProfile) : null);
+          // Load wardrobe from API now that user is authenticated
+          await loadWardrobeItems();
+          setScreen(parsedUser.onboarded ? "app" : "onboarding");
         } else {
           setScreen("landing");
         }
@@ -4327,18 +4395,26 @@ export default function App() {
   }, []);
 
   const handleAuth = async (userData) => {
-    // userData already contains the user data from API
     setUser(userData);
-    // Note: API client already stored the token in localStorage automatically
-    setScreen("onboarding");
+    await loadWardrobeItems();
+    setScreen(userData.onboarded ? "app" : "onboarding");
   };
 
   const handleOnboardingComplete = async (profileData) => {
+    // Persist style profile to DB
+    try {
+      await apiClient.user.completeOnboarding(
+        profileData.styleProfiles || [],
+        profileData.styleIssues || [],
+      );
+    } catch (e) {
+      console.error("Failed to save onboarding data to API:", e);
+    }
     setProfile(profileData);
     try {
       localStorage.setItem("altfit-profile", JSON.stringify(profileData));
     } catch (e) {
-      console.error("Failed to save profile:", e);
+      console.error("Failed to save profile locally:", e);
     }
     setScreen("app");
   };
@@ -4360,45 +4436,37 @@ export default function App() {
   };
 
   const handleSaveItem = async (item) => {
-    const userItems = savedItems.filter((i) => i.isUploaded);
+    const userItems = savedItems.filter((i) => i.isUploaded !== false);
     if (!plan && userItems.length >= FREE_LIMIT) {
       setShowPaywall(true);
       return;
     }
-    const updated = [item, ...savedItems.filter((i) => i.id !== item.id)];
-    setSavedItems(updated);
-    try {
-      localStorage.setItem("wardrobe-items", JSON.stringify(updated));
-    } catch (e) {
-      console.error("Failed to save wardrobe items:", e);
-    }
+    // item already saved to DB by UploadPage.savePiece — just reload + notify
+    await loadWardrobeItems();
     showToast(`"${item.name}" saved to your wardrobe`);
     setTimeout(() => setPage("wardrobe"), 1200);
   };
 
   const handleRemoveItem = async (id) => {
-    const updated = savedItems.filter((i) => i.id !== id);
-    setSavedItems(updated);
-    try {
-      localStorage.setItem("wardrobe-items", JSON.stringify(updated));
-    } catch (e) {
-      console.error("Failed to save wardrobe items:", e);
+    const ok = await deleteWardrobeItem(id);
+    if (ok) {
+      showToast("Item removed from wardrobe");
+    } else {
+      showToast("Failed to remove item");
     }
-    showToast("Item removed from wardrobe");
   };
 
   const handleSignOut = async () => {
     try {
-      // Call API logout to invalidate session on backend
       await apiClient.auth.logout();
     } catch (e) {
       console.error("Failed to logout from backend:", e);
     }
-
-    // Clear local UI state
+    localStorage.removeItem("altfit-profile");
+    localStorage.removeItem("altfit-plan");
     setUser(null);
     setProfile(null);
-    setSavedItems([]);
+    setPlan(null);
     setScreen("landing");
   };
 
@@ -4862,16 +4930,26 @@ export default function App() {
             {/* ── PAGES ── */}
             {page === "today" && (
               <TodayPage
-                savedItems={savedItems}
-                onWear={(outfit) =>
-                  showToast(`Look saved — wearing "${outfit.occasion}" today.`)
-                }
+                wardrobeTotal={wardrobeTotal}
+                onGoToUpload={() => setPage("upload")}
+                onWear={async (outfit) => {
+                  if (outfit.outfitId || outfit.id) {
+                    await apiClient.outfit.markOutfitWorn(
+                      outfit.outfitId || outfit.id,
+                    );
+                  }
+                  showToast(
+                    `Look saved — wearing "${outfit.occasion || "your outfit"}" today.`,
+                  );
+                }}
               />
             )}
             {page === "wardrobe" && (
               <WardrobePage
                 savedItems={savedItems}
                 onRemoveItem={handleRemoveItem}
+                isLoading={wardrobeLoading}
+                onFilterChange={(category) => loadWardrobeItems(category)}
               />
             )}
             {page === "upload" && (

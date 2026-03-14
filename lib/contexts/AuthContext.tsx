@@ -55,6 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Listen for token-refresh failures dispatched by apiRequest (AUTH-03)
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+      setIsLoggedIn(false);
+    };
+    window.addEventListener("auth:logout", handleAuthLogout);
+    return () => window.removeEventListener("auth:logout", handleAuthLogout);
+  }, []);
+
   const register = useCallback(
     async (email: string, password: string, name: string): Promise<boolean> => {
       setIsLoading(true);

@@ -69,7 +69,7 @@ export async function PATCH(
     // If outfit is marked as worn, increment wear count for each item
     if (worn) {
       await Promise.all(
-        updatedOutfit.items.map((item: any) =>
+        updatedOutfit.items.map((item) =>
           prisma.wardrobeItem.update({
             where: { id: item.wardrobeItemId },
             data: {

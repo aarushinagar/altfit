@@ -18,7 +18,6 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
@@ -27,8 +26,8 @@ import { uploadImage, generateUserStoragePath } from "@/lib/supabase";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import type { UploadResponse } from "@/types/api";
 
-// Max file size: 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Max file size: 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Validate file
     if (file.size > MAX_FILE_SIZE) {
       console.warn(`[Upload Image] File too large: ${file.size} bytes`);
-      return errorResponse("File size exceeds 10MB limit", 400);
+      return errorResponse("File size exceeds 5MB limit", 400);
     }
 
     const validMimeTypes = [

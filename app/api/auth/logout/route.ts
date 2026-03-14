@@ -16,7 +16,8 @@ import {
   getAuthenticatedUserId,
   authenticateRequest,
 } from "@/lib/auth-middleware";
-import { successResponse, clearRefreshTokenCookie } from "@/lib/api-response";
+import { successResponse } from "@/lib/api-response";
+import { clearRefreshTokenCookie } from "@/lib/jwt";
 
 export async function POST(request: NextRequest) {
   try {

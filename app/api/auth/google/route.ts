@@ -18,8 +18,8 @@
  * }
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { jwtDecode } from "jwt-decode";
+import { NextRequest } from "next/server";
+import { OAuth2Client } from "google-auth-library";
 import prisma from "@/lib/prisma";
 import {
   generateAccessToken,
@@ -40,29 +40,28 @@ interface GooglePayload {
   name?: string;
   picture?: string;
   email_verified?: boolean;
-  [key: string]: any;
 }
 
-/**
- * Verify Google JWT credential
- * Note: In production, you should verify the signature with Google's public keys
- * For now, we trust the credential from the frontend
- */
-function parseGoogleCredential(credential: string): GooglePayload {
-  try {
-    // Decode without verification (frontend should verify)
-    // In production, use google-auth-library to verify properly
-    const decoded = jwtDecode<GooglePayload>(credential);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-    if (!decoded.sub || !decoded.email) {
-      throw new Error("Invalid credential structure");
-    }
-
-    return decoded;
-  } catch (error) {
-    console.error("[Google Auth] Failed to parse credential:", error);
-    throw new Error("Invalid Google credential");
+async function verifyGoogleCredential(
+  credential: string,
+): Promise<GooglePayload> {
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  if (!payload?.sub || !payload.email) {
+    throw new Error("Invalid Google credential payload");
   }
+  return {
+    sub: payload.sub,
+    email: payload.email,
+    name: payload.name,
+    picture: payload.picture,
+    email_verified: payload.email_verified,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -76,10 +75,10 @@ export async function POST(request: NextRequest) {
     const validation = validateRequired(body, ["credential"]);
     if (validation) return validation;
 
-    // Parse and verify credential
+    // Verify credential with Google's public keys
     let googleData;
     try {
-      googleData = parseGoogleCredential(credential);
+      googleData = await verifyGoogleCredential(credential);
     } catch (error) {
       console.warn("[Auth Google] Invalid credential:", error);
       return errorResponse("Invalid Google credential", 400);
