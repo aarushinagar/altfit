@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiClient } from "@/lib/api-client";
 import { useWardrobe } from "@/lib/hooks/useWardrobe";
 
@@ -754,8 +754,7 @@ function logToConsole(context, level, message, data = {}) {
 }
 
 /**
- * Classify clothing using backend API
- * Calls safe backend route that handles Anthropic API securely
+ * Classify clothing using backend API (uses apiClient for auth token)
  */
 async function classifyClothingWithAI(base64, mediaType) {
   const startTime = Date.now();
@@ -775,33 +774,21 @@ async function classifyClothingWithAI(base64, mediaType) {
       throw new Error("Missing media type");
     }
 
-    // Call backend API instead of Anthropic directly
-    const res = await fetch("/api/classify-clothing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64, mediaType }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      logToConsole(context, "error", "Backend API failed", {
-        status: res.status,
-        error: data?.error,
-      });
-      throw new Error(data?.error || `API error: ${res.status}`);
+    const response = await apiClient.ai.classifyClothing(base64, mediaType);
+    if (!response.success) {
+      throw new Error(response.error || "Classification failed");
     }
-
-    if (!data.items || !Array.isArray(data.items)) {
+    const items = response.data;
+    if (!items || !Array.isArray(items)) {
       throw new Error("Invalid response format from API");
     }
 
     logToConsole(context, "info", "Classification completed successfully", {
-      itemCount: data.items.length,
+      itemCount: items.length,
       processingMs: Date.now() - startTime,
     });
 
-    return data.items;
+    return items;
   } catch (error) {
     logToConsole(context, "error", "Failed to classify clothing", {
       message: error.message,
@@ -1715,14 +1702,16 @@ function UploadPage({ onSaveItem, savedItems }) {
         // can reuse the URL without a second upload for solo-piece images.
         let uploadedUrl = null;
         let uploadedStoragePath = null;
-        try {
-          const uploadRes = await apiClient.upload.uploadImage(file);
-          if (uploadRes.success && uploadRes.data) {
-            uploadedUrl = uploadRes.data.url;
-            uploadedStoragePath = uploadRes.data.path;
-          }
-        } catch {
-          // Non-fatal: savePiece will upload again at save time if needed
+        const uploadRes = await apiClient.upload.uploadImage(file);
+        if (!uploadRes.success) {
+          throw new Error(
+            uploadRes.error ||
+              "Failed to upload image. Ensure the wardrobe-images bucket exists in Supabase (Settings → Storage → New Bucket).",
+          );
+        }
+        if (uploadRes.data) {
+          uploadedUrl = uploadRes.data.url;
+          uploadedStoragePath = uploadRes.data.path;
         }
 
         setItems((prev) =>
@@ -3603,14 +3592,18 @@ function Auth({ onAuth }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [clientIdMissing, setClientIdMissing] = useState(false);
+  const isGoogleInitialized = useRef(false);
 
   useEffect(() => {
     if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
       setClientIdMissing(true);
       return;
     }
+    if (isGoogleInitialized.current) return;
+
     loadGisScript()
       .then(() => {
+        if (isGoogleInitialized.current || !window.google?.accounts?.id) return;
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: async (response) => {
@@ -4401,12 +4394,44 @@ export default function App() {
   };
 
   const handleOnboardingComplete = async (profileData) => {
-    // Persist style profile to DB
+    // Persist style profile to DB (API requires exact backend enum values)
+    const selectedProfiles =
+      profileData.styleProfiles ?? profileData.styles ?? [];
+    const selectedIssues = profileData.styleIssues ?? profileData.issues ?? [];
+
+    // 1. Ensure we don't send an empty array (fallback to "classic")
+    const baseProfiles =
+      selectedProfiles.length > 0 ? selectedProfiles : ["Classic"];
+
+    // 2. Map UI labels to exact backend database enum values
+    const VALID_BACKEND = [
+      "minimalist", "classic", "bohemian", "streetwear", "preppy",
+      "romantic", "edgy", "athleisure", "business-casual", "eclectic",
+    ];
+    const formattedProfiles = baseProfiles.map((profile) => {
+      const lower = (profile || "").toLowerCase().trim();
+      if (lower.includes("minimal")) return "minimalist";
+      if (lower.includes("business") || lower === "business casual")
+        return "business-casual";
+      if (lower.includes("street")) return "streetwear";
+      if (lower.includes("bohemian")) return "bohemian";
+      if (lower.includes("preppy")) return "preppy";
+      if (lower.includes("romantic")) return "romantic";
+      if (lower.includes("edgy")) return "edgy";
+      if (lower.includes("athleisure")) return "athleisure";
+      if (lower.includes("eclectic") || lower.includes("avant") || lower.includes("maximalist") ||
+          lower.includes("cottage") || lower.includes("academia") || lower.includes("y2k") || lower.includes("old money"))
+        return "eclectic";
+      // Default: sanitize for single words (e.g., "Classic" -> "classic")
+      const sanitized = lower.replace(/\s+/g, "-");
+      return VALID_BACKEND.includes(sanitized) ? sanitized : "classic";
+    });
+
+    // Dedupe in case multiple UI tags map to same backend value
+    const uniqueProfiles = [...new Set(formattedProfiles)];
+
     try {
-      await apiClient.user.completeOnboarding(
-        profileData.styleProfiles || [],
-        profileData.styleIssues || [],
-      );
+      await apiClient.user.completeOnboarding(uniqueProfiles, selectedIssues);
     } catch (e) {
       console.error("Failed to save onboarding data to API:", e);
     }

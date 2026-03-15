@@ -5,12 +5,7 @@ import {
   authenticateRequest,
 } from "@/lib/auth-middleware";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import {
-  anthropicClient,
-  CLAUDE_MODEL,
-  retryWithBackoff,
-  stripCodeFences,
-} from "@/lib/anthropic";
+import { geminiModel, retryWithBackoff, stripCodeFences } from "@/lib/gemini";
 
 interface AIOutfitPiece {
   role: string;
@@ -118,18 +113,15 @@ Return ONLY a JSON object, no markdown fences:
 All scores are integers 1-10.`;
 
     const result = await retryWithBackoff(() =>
-      anthropicClient.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      geminiModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      })
     );
 
-    const raw = result.content
-      .map((c) => (c.type === "text" ? c.text : ""))
-      .join("")
-      .trim();
-
+    const raw = result.response.text();
     let aiResult: AIOutfitResult;
     try {
       const cleaned = stripCodeFences(raw);
@@ -137,10 +129,7 @@ All scores are integers 1-10.`;
       if (!objMatch) throw new Error("No JSON object in AI response");
       aiResult = JSON.parse(objMatch[0]);
     } catch {
-      console.error(
-        "[AI Outfit] Failed to parse AI response:",
-        raw.slice(0, 300),
-      );
+      console.error("[AI Outfit] Failed to parse AI response:", raw.slice(0, 300));
       return errorResponse(
         "AI returned unparseable response. Please try again.",
         500,

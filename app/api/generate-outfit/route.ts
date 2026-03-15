@@ -6,11 +6,10 @@ import {
 } from "@/lib/auth-middleware";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import {
-  anthropicClient,
-  CLAUDE_MODEL,
+  geminiModel,
   retryWithBackoff,
   stripCodeFences,
-} from "@/lib/anthropic";
+} from "@/lib/gemini";
 
 interface OutfitPiece {
   role: string;
@@ -126,17 +125,15 @@ Return ONLY a JSON object, no markdown fences:
 }`;
 
     const result = await retryWithBackoff(() =>
-      anthropicClient.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
+      geminiModel.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
       }),
     );
 
-    const raw = result.content
-      .map((c) => (c.type === "text" ? c.text : ""))
-      .join("")
-      .trim();
+    const raw = result.response.text();
 
     let outfit: AIOutfitResponse;
     try {

@@ -144,10 +144,13 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("[Auth Register] Error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Registration failed",
-      500,
-    );
+    const msg =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "Registration failed";
+    console.error("[Auth Register] Error:", msg, error);
+    return errorResponse(msg, 500);
   }
 }

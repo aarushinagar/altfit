@@ -117,7 +117,13 @@ async function apiRequest<T>(
       credentials: "include", // Include cookies in request
     });
 
-    const data = await response.json();
+    let data: Record<string, unknown> = {};
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: `Invalid server response (${response.status})` };
+    }
 
     // Handle 401 Unauthorized — attempt one token refresh then retry
     if (
@@ -159,10 +165,16 @@ async function apiRequest<T>(
     }
 
     if (!response.ok) {
-      console.error(`[API Client] Error ${response.status}:`, data);
+      const errorMsg =
+        (data.error as string) ||
+        (data.message as string) ||
+        (response.status === 500
+          ? "Server error. Check the terminal for details—likely a database connection issue."
+          : `HTTP ${response.status}`);
+      console.error(`[API Client] Error ${response.status}:`, errorMsg);
       return {
         success: false,
-        error: data.error || `HTTP ${response.status}`,
+        error: errorMsg,
       };
     }
 
