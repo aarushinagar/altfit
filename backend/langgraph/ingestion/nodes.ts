@@ -5,14 +5,14 @@
  *
  * Node execution order (see graph.ts):
  *   validate_image → vision_parse (→ retry on low confidence) → enrich_metadata → persist_item
+ *
+ * Multi-item: a single photo may yield several clothing pieces. Each piece is
+ * persisted as a separate WardrobeItem. Items within one graph run are processed
+ * sequentially (queue behaviour) to avoid concurrent DB writes.
  */
 
-import prisma from "@/backend/database/prisma";
-import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
-import { generateSnowflakeId } from "@/backend/database/snowflake";
 import { geminiVisionAnalyze } from "../tools/vision";
-import { getModelForTask } from "../shared/models";
-import { FORMALITY_LABEL_TO_INT } from "../shared/types";
+import { upsertWardrobeItem } from "../tools/upsert";
 import type { IngestionState } from "./state";
 import type { WardrobeItemMetadata } from "../shared/types";
 
@@ -83,8 +83,9 @@ export async function validateImageNode(
 
 /**
  * Calls Gemini Vision to analyse the wardrobe item image.
- * On low confidence (< 0.6), sets a retry hint for a second attempt.
- * On error, marks needsReview=true and sets a fallback rawParse so persist still runs.
+ * Returns ALL clothing pieces found in the photo as rawParseItems[].
+ * On low confidence (min across all items < 0.6), sets a retry hint for a
+ * second attempt. On error, marks needsReview=true so persist still runs.
  */
 export async function visionParseNode(
   state: IngestionState,
@@ -92,35 +93,50 @@ export async function visionParseNode(
   const attempts = state.parseAttempts + 1;
 
   try {
-    const { data } = await geminiVisionAnalyze(
+    const result = await geminiVisionAnalyze(
       state.imageUrl,
       state.retryHint ?? "",
     );
 
-    const lowConfidence = data.confidence < 0.6;
+    // Use the lowest confidence across all detected items to drive retry logic
+    const minConfidence =
+      result.items.length > 0
+        ? Math.min(...result.items.map((i) => i.confidence))
+        : 0;
+    const lowConfidence = minConfidence < 0.6;
+
     const hint =
       lowConfidence && attempts < 2
-        ? `Previous attempt returned confidence ${data.confidence.toFixed(2)}. ${data.parse_notes ?? "Please be more precise about category, color, and material."}`
+        ? `Previous attempt returned minimum confidence ${minConfidence.toFixed(2)} across ${result.items.length} item(s). ` +
+          `Please be more precise about category, color, and material for each piece.`
         : null;
+
+    console.log(
+      `[IngestionGraph] vision_parse attempt ${attempts}: detected ${result.items.length} item(s), min confidence ${minConfidence.toFixed(2)}`,
+    );
 
     return {
       parseAttempts: attempts,
-      rawParse: data,
-      confidence: data.confidence,
+      rawParseItems: result.items,
+      confidence: minConfidence,
       retryHint: hint,
       needsReview: lowConfidence,
       status: "enriching",
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[IngestionGraph] vision_parse failed (attempt ${attempts}):`,
+      message,
+    );
 
-    // On vision failure: mark for review but don't abort — persist with minimal data
+    // On vision failure: mark for review but don't abort — persist with null rawParseItems
     return {
       parseAttempts: attempts,
       needsReview: true,
       confidence: 0,
       error: message,
-      status: "persisting", // skip enrich, go straight to persist with null rawParse
+      status: "persisting", // skip enrich, go straight to persist
     };
   }
 }
@@ -128,7 +144,7 @@ export async function visionParseNode(
 // ── Node 3: enrichMetadataNode ─────────────────────────────────────────────
 
 /**
- * Normalises and enriches rawParse before DB insertion.
+ * Normalises and enriches every item in rawParseItems before DB insertion.
  * - Trims / lowercases color names
  * - Validates hex format (nulls out invalid values)
  * - Derives temp range from material if the LLM left it null or reversed
@@ -136,151 +152,129 @@ export async function visionParseNode(
 export async function enrichMetadataNode(
   state: IngestionState,
 ): Promise<Partial<IngestionState>> {
-  if (!state.rawParse) {
+  if (!state.rawParseItems || state.rawParseItems.length === 0) {
     return { status: "persisting" };
   }
 
-  const raw = state.rawParse;
-
-  // Normalize color names
-  const primaryColorName = raw.primary_color_name?.trim().toLowerCase() ?? null;
-  const secondaryColorName =
-    raw.secondary_color_name?.trim().toLowerCase() ?? null;
-
-  // Validate hex (null out if malformed)
   const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
-  const primaryColorHex = HEX_RE.test(raw.primary_color_hex ?? "")
-    ? raw.primary_color_hex
-    : null;
-  const secondaryColorHex =
-    raw.secondary_color_hex && HEX_RE.test(raw.secondary_color_hex)
-      ? raw.secondary_color_hex
-      : null;
 
-  // Derive temp range if missing or inverted
-  let tempMin = raw.suitable_temp_min_c;
-  let tempMax = raw.suitable_temp_max_c;
-  if (tempMin == null || tempMax == null || tempMin >= tempMax) {
-    const derived = deriveTempRange(raw.material ?? "");
-    tempMin = derived.min;
-    tempMax = derived.max;
-  }
+  const enrichedItems: WardrobeItemMetadata[] = state.rawParseItems.map(
+    (raw) => {
+      const primaryColorName =
+        raw.primary_color_name?.trim().toLowerCase() ?? null;
+      const secondaryColorName =
+        raw.secondary_color_name?.trim().toLowerCase() ?? null;
 
-  const enriched: WardrobeItemMetadata = {
-    ...raw,
-    primary_color_name: primaryColorName ?? raw.primary_color_name,
-    primary_color_hex: primaryColorHex ?? raw.primary_color_hex,
-    secondary_color_name: secondaryColorName,
-    secondary_color_hex: secondaryColorHex,
-    suitable_temp_min_c: tempMin,
-    suitable_temp_max_c: tempMax,
-  };
+      const primaryColorHex = HEX_RE.test(raw.primary_color_hex ?? "")
+        ? raw.primary_color_hex
+        : null;
+      const secondaryColorHex =
+        raw.secondary_color_hex && HEX_RE.test(raw.secondary_color_hex)
+          ? raw.secondary_color_hex
+          : null;
 
-  return {
-    enrichedMetadata: enriched,
-    status: "persisting",
-  };
+      let tempMin = raw.suitable_temp_min_c;
+      let tempMax = raw.suitable_temp_max_c;
+      if (tempMin == null || tempMax == null || tempMin >= tempMax) {
+        const derived = deriveTempRange(raw.material ?? "");
+        tempMin = derived.min;
+        tempMax = derived.max;
+      }
+
+      return {
+        ...raw,
+        primary_color_name: primaryColorName ?? raw.primary_color_name,
+        // If hex failed validation, store null rather than the malformed string
+        primary_color_hex: primaryColorHex,
+        secondary_color_name: secondaryColorName,
+        secondary_color_hex: secondaryColorHex,
+        suitable_temp_min_c: tempMin,
+        suitable_temp_max_c: tempMax,
+      };
+    },
+  );
+
+  return { enrichedItems, status: "persisting" };
 }
 
 // ── Node 4: persistItemNode ────────────────────────────────────────────────
 
 /**
- * Creates the WardrobeItem in Prisma and increments the user's wardrobeItemCount.
- * Uses enrichedMetadata when available, falls back to rawParse, then minimal defaults.
+ * Persists each detected clothing piece as a separate WardrobeItem.
  *
- * On failure: deletes the uploaded image from Supabase Storage (no orphaned files).
+ * Items are processed one at a time (sequential queue) to avoid concurrent DB
+ * writes from a single photo upload. Uses upsertWardrobeItem so re-analysing
+ * the same image updates existing records rather than creating duplicates.
+ *
+ * Falls back to rawParseItems if enrichment was skipped (vision error path).
  */
 export async function persistItemNode(
   state: IngestionState,
 ): Promise<Partial<IngestionState>> {
-  const meta = state.enrichedMetadata ?? state.rawParse;
-  const model = getModelForTask("visionAnalysis");
+  const items = state.enrichedItems ?? state.rawParseItems;
 
-  try {
-    let createdItemId: string | bigint | null = null;
-
-    await prisma.$transaction(async (tx) => {
-      const createdItem = await tx.wardrobeItem.create({
-        data: {
-          id: generatePrismaId("WardrobeItem") as never,
-          userId: toPrismaId("WardrobeItem", "userId", state.userId) as never,
-          name:
-            state.itemName ??
-            meta?.subcategory ??
-            meta?.category ??
-            "Wardrobe Item",
-          category: meta?.category ?? "top",
-
-          // Required Prisma fields from existing schema
-          imageUrl: state.imageUrl,
-          storagePath: state.storagePath ?? "",
-
-          // ── New AI metadata fields ──
-          subcategory: meta?.subcategory ?? null,
-          primaryColorName: meta?.primary_color_name ?? null,
-          primaryColorHex: meta?.primary_color_hex ?? null,
-          secondaryColorName: meta?.secondary_color_name ?? null,
-          secondaryColorHex: meta?.secondary_color_hex ?? null,
-          colorPattern: meta?.color_pattern ?? null,
-          fitType: meta?.fit_type ?? null,
-          length: meta?.length ?? null,
-          neckline: meta?.neckline ?? null,
-          material: meta?.material ?? null,
-          texture: meta?.texture ?? null,
-          weight: meta?.weight ?? null,
-          formalityLabel: meta?.formality ?? null,
-
-          // Legacy fields kept for backward compat
-          formality: meta?.formality
-            ? (FORMALITY_LABEL_TO_INT[
-                meta.formality as keyof typeof FORMALITY_LABEL_TO_INT
-              ] ?? 5)
-            : 5,
-          fabric: meta?.material ?? null,
-          fit: meta?.fit_type ?? null,
-          season: meta?.season_tags ?? [],
-          occasion: meta?.occasions ?? [],
-          tags: meta?.style_aesthetic ?? [],
-          colorNames: meta ? [meta.primary_color_name] : [],
-
-          // Weather/season
-          suitableTempMinC: meta?.suitable_temp_min_c ?? null,
-          suitableTempMaxC: meta?.suitable_temp_max_c ?? null,
-          weatherTags: meta?.weather_tags ?? [],
-          styleAesthetic: meta?.style_aesthetic ?? [],
-          brand: meta?.brand ?? null,
-
-          // LLM audit
-          parseConfidence: meta?.confidence ?? null,
-          parseModel: meta ? model : null,
-          parseNotes: meta?.parse_notes ?? null,
-          needsReview: state.needsReview || !meta,
-          isActive: true,
-        },
-      });
-      createdItemId = createdItem.id;
-
-      // Increment the denormalized count (avoids COUNT() on every piano check)
-      await tx.user.update({
-        where: { id: toPrismaId("User", "id", state.userId) as never },
-        data: { wardrobeItemCount: { increment: 1 } },
-      });
-    });
-
+  if (!items || items.length === 0) {
+    console.warn(
+      "[IngestionGraph] persist_item: no items to save — vision analysis returned nothing",
+    );
     return {
-      wardrobeItemId: createdItemId === null ? null : String(createdItemId),
+      wardrobeItemIds: [],
       status: "complete",
-      error: null,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-
-    // Note: Image cleanup for Vercel Blob is handled by the storage service
-    // orphaned images will be cleaned up by blob retention policies
-
-    return {
-      status: "failed",
-      error: `Failed to save wardrobe item: ${message}`,
+      error: "Vision analysis detected no clothing items in the image.",
     };
   }
+
+  console.log(
+    `[IngestionGraph] persist_item: saving ${items.length} item(s) sequentially for user ${state.userId}`,
+  );
+
+  const wardrobeItemIds: string[] = [];
+
+  // ── Sequential queue: process one item at a time ──────────────────────
+  for (let i = 0; i < items.length; i++) {
+    const meta = items[i];
+    const itemLabel = `${meta.category}/${meta.subcategory ?? "?"}`;
+
+    try {
+      const itemName =
+        meta.display_hint ??
+        state.itemName ??
+        meta.subcategory ??
+        meta.category;
+
+      const { wardrobeItemId, wasUpdated } = await upsertWardrobeItem({
+        userId: state.userId,
+        imageUrl: state.imageUrl,
+        storagePath: state.storagePath ?? "",
+        itemName,
+        metadata: meta,
+        needsReview: state.needsReview || meta.confidence < 0.6,
+      });
+
+      wardrobeItemIds.push(wardrobeItemId);
+      console.log(
+        `[IngestionGraph] persist_item [${i + 1}/${items.length}] ${wasUpdated ? "updated" : "created"} ${itemLabel} → ${wardrobeItemId}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[IngestionGraph] persist_item [${i + 1}/${items.length}] FAILED for ${itemLabel}:`,
+        message,
+      );
+      // Continue processing remaining items even if one fails
+    }
+  }
+
+  if (wardrobeItemIds.length === 0) {
+    return {
+      status: "failed",
+      error: `Failed to save any wardrobe items from this image.`,
+    };
+  }
+
+  return {
+    wardrobeItemIds,
+    status: "complete",
+    error: null,
+  };
 }

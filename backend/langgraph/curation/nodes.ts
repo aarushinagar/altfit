@@ -254,10 +254,15 @@ ${buildCandidateSummary(state.candidateItems)}
 
 Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
 
+  const curationModel = getModelForTask("outfitCuration");
+  console.log(
+    `[CurationGraph] curate_outfits: calling Gemini ${curationModel} to select outfits from ${state.candidateItems.length} candidates (weather: ${ctx?.dressing_temp_band ?? "unknown"}, ${ctx?.target_temp_c ?? "?"}°C)`,
+  );
+
   try {
     const raw = await retryWithBackoff(() =>
       callGemini({
-        model: getModelForTask("outfitCuration"),
+        model: curationModel,
         prompt,
         responseSchema: GEMINI_CURATION_OUTPUT_SCHEMA,
       }),
@@ -267,6 +272,10 @@ Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
     if (slots.length !== 3) {
       throw new Error(`Expected 3 slots, got ${slots.length}`);
     }
+
+    console.log(
+      `[CurationGraph] curate_outfits: Gemini returned ${slots.length} slots — vibes: ${slots.map((s) => s.vibe).join(", ")}`,
+    );
 
     return { curatedSlots: slots, status: "validating" };
   } catch (err) {
@@ -453,6 +462,7 @@ export async function hydrateSlotsNode(
         imageUrl: true,
         primaryColorName: true,
         primaryColorHex: true,
+        displayHint: true,
       },
     });
 
@@ -471,6 +481,7 @@ export async function hydrateSlotsNode(
             imageUrl: item.imageUrl,
             primaryColorName: item.primaryColorName,
             primaryColorHex: item.primaryColorHex,
+            displayHint: item.displayHint,
           };
         })
         .filter(
@@ -482,6 +493,7 @@ export async function hydrateSlotsNode(
               imageUrl: string;
               primaryColorName: string | null;
               primaryColorHex: string | null;
+              displayHint: string | null;
             } | null,
           ): item is NonNullable<typeof item> => item !== null,
         ),

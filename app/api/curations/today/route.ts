@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
           imageUrl: true,
           primaryColorName: true,
           primaryColorHex: true,
+          displayHint: true,
         },
       });
       const itemMap = new Map(
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
               imageUrl: item.imageUrl,
               primaryColorName: item.primaryColorName,
               primaryColorHex: item.primaryColorHex,
+              displayHint: item.displayHint,
             };
           })
           .filter((item): item is NonNullable<typeof item> => item !== null),

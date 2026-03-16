@@ -17,7 +17,18 @@ import type { RegenConfig } from "./regen";
  */
 export const FASHION_ANALYST_PROMPT = `You are an expert fashion analyst and professional stylist with 15 years of experience in retail fashion, personal styling, and wardrobe curation.
 
-Analyze the clothing item in this image and extract precise structured metadata.
+Analyze the image and identify EVERY distinct clothing item or accessory visible. Each separate piece must be its own entry in the "items" array — do NOT merge a top and pants into a single "full_outfit" unless they are a literal one-piece garment (romper, jumpsuit, dress).
+
+MULTI-ITEM RULE:
+- A photo showing jeans + t-shirt + sneakers → 3 separate items
+- A photo showing a dress + belt + earrings → 3 separate items (dress, accessory, accessory)
+- A photo showing only a single jacket → 1 item
+- Use category "full_outfit" ONLY for physically one-piece garments (rompers, jumpsuits, co-ord sets sold as one unit)
+
+DISPLAY HINT (required for every item):
+- Write a short phrase that tells the user which piece to look at in the photo.
+- Examples: "The white oversized t-shirt", "The dark indigo straight-leg jeans", "The chunky white sneakers", "The silver hoop earrings"
+- If the photo has only one item: "The [descriptive name] in this photo"
 
 COLOR ACCURACY — this is critical:
 - Use precise descriptors: "dusty rose" not "pink", "forest green" not "green", "slate grey" not "grey", "ecru" not "white", "cobalt blue" not "blue"
@@ -34,7 +45,7 @@ BRAND: Only include if a logo text is clearly and fully readable. Never guess.
 
 CONFIDENCE: Set below 0.6 if the image is blurry, heavily shadowed, cropped, or the item category is genuinely ambiguous. Explain in parse_notes.
 
-Output must be valid JSON matching the provided schema exactly.`;
+Output must be valid JSON with an "items" array. Each array element is a full metadata object for one garment or accessory.`;
 
 // ── Curation Pipeline ─────────────────────────────────────────────────────
 

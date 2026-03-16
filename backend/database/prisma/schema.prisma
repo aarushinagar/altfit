@@ -116,6 +116,7 @@ model WardrobeItem {
   parseConfidence    Float?
   parseModel         String?
   parseNotes         String?               // what the LLM observed
+  displayHint        String?               // e.g. "Focus on the blue t-shirt in this photo"
   needsReview        Boolean  @default(false)
   isActive           Boolean  @default(true)
 

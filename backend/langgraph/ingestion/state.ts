@@ -32,24 +32,30 @@ export const IngestionAnnotation = Annotation.Root({
   parseAttempts: Annotation<number>({ reducer: last, default: () => 0 }),
   /** Retry hint injected into the prompt on the second attempt */
   retryHint: Annotation<string | null>({ reducer: last, default: () => null }),
-  /** Raw validated output from Gemini Vision */
-  rawParse: Annotation<WardrobeItemMetadata | null>({
+  /**
+   * Raw validated output from Gemini Vision — one entry per detected piece.
+   * A single photo may yield multiple items (top + jeans + sneakers → 3 entries).
+   */
+  rawParseItems: Annotation<WardrobeItemMetadata[] | null>({
     reducer: last,
     default: () => null,
   }),
-  /** Parse confidence 0.0–1.0 (from rawParse.confidence) */
+  /** Lowest confidence score across all detected items (drives retry / needsReview) */
   confidence: Annotation<number>({ reducer: last, default: () => 0 }),
 
   // ── Enrich state ─────────────────────────────────────────────
-  /** Normalised / enriched metadata ready for DB insertion */
-  enrichedMetadata: Annotation<WardrobeItemMetadata | null>({
+  /** Normalised / enriched metadata array ready for DB insertion */
+  enrichedItems: Annotation<WardrobeItemMetadata[] | null>({
     reducer: last,
     default: () => null,
   }),
 
   // ── Outputs ──────────────────────────────────────────────────
-  /** Prisma WardrobeItem.id on success, null on failure */
-  wardrobeItemId: Annotation<string | null>({
+  /**
+   * Prisma WardrobeItem IDs created/updated for this upload.
+   * One ID per detected clothing piece.
+   */
+  wardrobeItemIds: Annotation<string[] | null>({
     reducer: last,
     default: () => null,
   }),

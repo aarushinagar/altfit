@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "prisma generate --schema=backend/database/prisma/schema.prisma && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx",
     "postinstall": "prisma generate --schema=backend/database/prisma/schema.prisma",
     "db:push": "prisma db push --schema=backend/database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=backend/database/prisma/schema.prisma",
     "db:studio": "prisma studio --schema=backend/database/prisma/schema.prisma",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "reset:dev": "tsx scripts/reset-dev-data.ts",
+    "reset:dev:force": "tsx scripts/reset-dev-data.ts --force"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -48,6 +50,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.0"
   }

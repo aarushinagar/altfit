@@ -88,6 +88,7 @@ export const GEMINI_WARDROBE_ITEM_SCHEMA: Schema = {
     brand: { type: SchemaType.STRING },
     confidence: { type: SchemaType.NUMBER },
     parse_notes: { type: SchemaType.STRING },
+    display_hint: { type: SchemaType.STRING },
   },
   required: [
     "category",
@@ -108,7 +109,23 @@ export const GEMINI_WARDROBE_ITEM_SCHEMA: Schema = {
     "season_tags",
     "style_aesthetic",
     "confidence",
+    "display_hint",
   ],
+};
+
+/**
+ * Multi-item wrapper: used when a single photo may contain several garments.
+ * The LLM returns a list — one entry per detected clothing piece.
+ */
+export const GEMINI_WARDROBE_ITEMS_SCHEMA: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    items: {
+      type: SchemaType.ARRAY,
+      items: GEMINI_WARDROBE_ITEM_SCHEMA,
+    },
+  },
+  required: ["items"],
 };
 
 // ── Weather Context (for weather interpretation during curation) ──────────

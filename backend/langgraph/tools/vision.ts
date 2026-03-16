@@ -6,7 +6,7 @@
  */
 
 import { callGemini, retryWithBackoff } from "../llm/client";
-import { GEMINI_WARDROBE_ITEM_SCHEMA } from "../llm/geminiSchemas";
+import { GEMINI_WARDROBE_ITEMS_SCHEMA } from "../llm/geminiSchemas";
 import { FASHION_ANALYST_PROMPT } from "../shared/prompts";
 import { getModelForTask } from "../shared/models";
 import type {
@@ -172,18 +172,21 @@ function validateWardrobeItemMetadata(
     brand: (raw.brand as string | null) ?? null,
     confidence: raw.confidence as number,
     parse_notes: (raw.parse_notes as string | null) ?? null,
+    display_hint: (raw.display_hint as string | null) ?? null,
   };
 }
 
 // ── Main export ───────────────────────────────────────────────────────────
 
 export interface VisionAnalysisResult {
-  data: WardrobeItemMetadata;
+  /** One entry per detected clothing piece in the photo. */
+  items: WardrobeItemMetadata[];
   modelUsed: string;
 }
 
 /**
- * Fetches `imageUrl`, sends it to Gemini Vision, validates and returns metadata.
+ * Fetches `imageUrl`, sends it to Gemini Vision, identifies ALL clothing
+ * pieces in the photo and returns one metadata object per piece.
  *
  * @param imageUrl   Public URL of the wardrobe item image
  * @param retryHint  Optional hint appended to the prompt on retry
@@ -193,6 +196,10 @@ export async function geminiVisionAnalyze(
   retryHint = "",
 ): Promise<VisionAnalysisResult> {
   const model = getModelForTask("visionAnalysis");
+
+  console.log(
+    `[Vision] Fetching image for analysis: ${imageUrl.substring(0, 80)}...`,
+  );
 
   // Fetch image bytes
   const imageResponse = await fetch(imageUrl);
@@ -211,21 +218,45 @@ export async function geminiVisionAnalyze(
   const prompt = [
     FASHION_ANALYST_PROMPT,
     retryHint ? `\n\nHINT FOR THIS RETRY: ${retryHint}` : "",
-    "\n\nAnalyze the clothing item in this image and respond with structured JSON.",
+    '\n\nAnalyze ALL clothing items and accessories in this image. Return a JSON object with an "items" array — one entry per distinct piece.',
   ]
     .filter(Boolean)
     .join("");
+
+  console.log(
+    `[Vision] Calling Gemini ${model} for multi-item analysis (mimeType: ${mimeType})`,
+  );
 
   const raw = await retryWithBackoff(() =>
     callGemini({
       model,
       prompt,
-      responseSchema: GEMINI_WARDROBE_ITEM_SCHEMA,
+      responseSchema: GEMINI_WARDROBE_ITEMS_SCHEMA,
       imageBase64,
       imageMimeType: mimeType,
     }),
   );
 
-  const data = validateWardrobeItemMetadata(raw);
-  return { data, modelUsed: model };
+  // Validate: expect { items: [...] }
+  if (!Array.isArray(raw.items) || raw.items.length === 0) {
+    throw new Error(
+      `Vision analysis returned no items. Raw response keys: ${Object.keys(raw).join(", ")}`,
+    );
+  }
+
+  const items = (raw.items as Record<string, unknown>[]).map((item, idx) => {
+    try {
+      return validateWardrobeItemMetadata(item);
+    } catch (err) {
+      throw new Error(
+        `Item ${idx + 1} failed validation: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  console.log(
+    `[Vision] Analysis complete — detected ${items.length} item(s): ${items.map((i) => `${i.category}/${i.subcategory}`).join(", ")}`,
+  );
+
+  return { items, modelUsed: model };
 }

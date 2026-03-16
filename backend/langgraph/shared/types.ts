@@ -67,7 +67,7 @@ export interface WardrobeItemMetadata {
 
   // Color
   primary_color_name: string; // "dusty rose", "forest green"
-  primary_color_hex: string; // "#7D9B76"
+  primary_color_hex: string | null; // "#7D9B76"; null if malformed after enrichment
   secondary_color_name: string | null;
   secondary_color_hex: string | null;
   color_pattern: ColorPattern;
@@ -99,6 +99,11 @@ export interface WardrobeItemMetadata {
   // LLM audit
   confidence: number; // 0.0 – 1.0
   parse_notes: string | null;
+  /**
+   * Human-readable hint shown in the "Today" UI for items that share a photo
+   * with other pieces (multi-item upload). E.g. "Focus on the blue t-shirt".
+   */
+  display_hint: string | null;
 }
 
 // ── Weather ────────────────────────────────────────────────────────────────
@@ -196,6 +201,8 @@ export interface HydratedWardrobeItem {
   imageUrl: string;
   primaryColorName: string | null;
   primaryColorHex: string | null;
+  /** Shown in Today UI when multiple items share the same photo */
+  displayHint: string | null;
 }
 
 // ── Wardrobe Candidates (from Supabase RPC) ────────────────────────────────

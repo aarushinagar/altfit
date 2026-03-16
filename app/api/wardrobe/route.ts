@@ -191,51 +191,56 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the persisted item to return a full response
-    const wardrobeItemId = result.wardrobeItemId;
-    if (!wardrobeItemId) {
+    // Graph returns one ID per detected clothing piece (multi-item photo support)
+    const wardrobeItemIds = result.wardrobeItemIds as string[] | null;
+    if (!wardrobeItemIds || wardrobeItemIds.length === 0) {
       return errorResponse(
         "Item was processed but could not be retrieved",
         500,
       );
     }
 
-    const item = await prisma.wardrobeItem.findUnique({
-      where: { id: BigInt(wardrobeItemId) },
+    // Fetch the first saved item to drive the immediate UI response.
+    // All detected pieces share the same imageUrl and are available in the wardrobe.
+    const primaryItem = await prisma.wardrobeItem.findUnique({
+      where: { id: BigInt(wardrobeItemIds[0]) },
     });
 
-    if (!item) {
+    if (!primaryItem) {
       return errorResponse("Item persisted but not retrievable", 500);
     }
 
     console.log(
-      `[Wardrobe Create] Item created: ${item.id} (needsReview: ${item.needsReview})`,
+      `[Wardrobe Create] Saved ${wardrobeItemIds.length} item(s): ${wardrobeItemIds.join(", ")} (needsReview: ${primaryItem.needsReview})`,
     );
 
     return successResponse(
       {
-        id: item.id.toString(),
-        userId: item.userId.toString(),
-        name: item.name,
-        category: item.category,
-        imageUrl: item.imageUrl,
-        storagePath: item.storagePath,
-        colors: item.colors,
-        colorNames: item.colorNames,
-        pattern: item.pattern || undefined,
-        fabric: item.fabric || undefined,
-        fit: item.fit || undefined,
-        formality: item.formality,
-        season: item.season,
-        occasion: item.occasion,
-        stylistNote: item.stylistNote || undefined,
-        tags: item.tags,
-        wearCount: item.wearCount,
-        lastWornAt: item.lastWornAt?.toISOString() || null,
-        needsReview: item.needsReview,
-        parseConfidence: item.parseConfidence,
-        createdAt: item.createdAt.toISOString(),
-        updatedAt: item.updatedAt.toISOString(),
-      } as WardrobeItemResponse,
+        id: primaryItem.id.toString(),
+        userId: primaryItem.userId.toString(),
+        name: primaryItem.name,
+        category: primaryItem.category,
+        imageUrl: primaryItem.imageUrl,
+        storagePath: primaryItem.storagePath,
+        colors: primaryItem.colors,
+        colorNames: primaryItem.colorNames,
+        pattern: primaryItem.pattern || undefined,
+        fabric: primaryItem.fabric || undefined,
+        fit: primaryItem.fit || undefined,
+        formality: primaryItem.formality,
+        season: primaryItem.season,
+        occasion: primaryItem.occasion,
+        stylistNote: primaryItem.stylistNote || undefined,
+        tags: primaryItem.tags,
+        wearCount: primaryItem.wearCount,
+        lastWornAt: primaryItem.lastWornAt?.toISOString() || null,
+        needsReview: primaryItem.needsReview,
+        parseConfidence: primaryItem.parseConfidence,
+        createdAt: primaryItem.createdAt.toISOString(),
+        updatedAt: primaryItem.updatedAt.toISOString(),
+        // Extra: IDs of all pieces detected in this photo
+        detectedPieceIds: wardrobeItemIds,
+      } as WardrobeItemResponse & { detectedPieceIds: string[] },
       "Item created successfully",
       201,
     );
