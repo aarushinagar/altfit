@@ -55,7 +55,7 @@ export function getMaxRegenForPlan(plan: string): number {
 // ── Wardrobe item cap ─────────────────────────────────────────────────────
 
 /** Maximum wardrobe items allowed on the free plan. */
-export const FREE_WARDROBE_LIMIT = 10;
+export const FREE_WARDROBE_LIMIT = 100;
 
 /**
  * Returns true when the user has reached (or exceeded) the wardrobe item

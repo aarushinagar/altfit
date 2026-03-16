@@ -60,16 +60,16 @@ export async function GET(request: NextRequest) {
       where.category = category;
     }
 
-    // Get items
-    const items = await prisma.wardrobeItem.findMany({
-      where,
-      take: limit,
-      skip: offset,
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Get total count for pagination
-    const total = await prisma.wardrobeItem.count({ where });
+    // Batch queries: fetch items and count in parallel for faster response
+    const [items, total] = await Promise.all([
+      prisma.wardrobeItem.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.wardrobeItem.count({ where }),
+    ]);
 
     console.log(
       `[Wardrobe Get] Retrieved ${items.length} items (total: ${total})`,
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       )
     ) {
       return errorResponse(
-        "Free plan is limited to 10 wardrobe items. Upgrade to Pro for unlimited.",
+        "Free plan is limited to 100 wardrobe items. Upgrade to Pro for unlimited.",
         403,
       );
     }

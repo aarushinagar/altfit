@@ -44,34 +44,34 @@ describe("getMaxRegenForPlan", () => {
 });
 
 describe("FREE_WARDROBE_LIMIT", () => {
-  it("is 10", () => {
-    expect(FREE_WARDROBE_LIMIT).toBe(10);
+  it("is 100", () => {
+    expect(FREE_WARDROBE_LIMIT).toBe(100);
   });
 });
 
 describe("isWardrobeCapExceeded", () => {
   it("returns false when count is below the limit on free plan", () => {
     expect(isWardrobeCapExceeded("free", 0)).toBe(false);
-    expect(isWardrobeCapExceeded("free", 9)).toBe(false);
+    expect(isWardrobeCapExceeded("free", 99)).toBe(false);
   });
 
   it("returns true when count equals the limit on free plan", () => {
-    expect(isWardrobeCapExceeded("free", 10)).toBe(true);
+    expect(isWardrobeCapExceeded("free", 100)).toBe(true);
   });
 
   it("returns true when count exceeds the limit on free plan", () => {
-    expect(isWardrobeCapExceeded("free", 11)).toBe(true);
-    expect(isWardrobeCapExceeded("free", 100)).toBe(true);
+    expect(isWardrobeCapExceeded("free", 101)).toBe(true);
+    expect(isWardrobeCapExceeded("free", 999)).toBe(true);
   });
 
   it("always returns false for pro plan regardless of count", () => {
     expect(isWardrobeCapExceeded("pro", 0)).toBe(false);
-    expect(isWardrobeCapExceeded("pro", 10)).toBe(false);
+    expect(isWardrobeCapExceeded("pro", 100)).toBe(false);
     expect(isWardrobeCapExceeded("pro", 999)).toBe(false);
   });
 
   it("treats unrecognised plan strings as non-pro (cap applies)", () => {
-    expect(isWardrobeCapExceeded("enterprise", 10)).toBe(true);
-    expect(isWardrobeCapExceeded("", 10)).toBe(true);
+    expect(isWardrobeCapExceeded("enterprise", 100)).toBe(true);
+    expect(isWardrobeCapExceeded("", 100)).toBe(true);
   });
 });

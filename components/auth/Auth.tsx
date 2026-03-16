@@ -604,7 +604,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      setEmail("iswapnilaryan@gmail.com");
+                      setEmail("test@gmail.com");
                       setPassword("Password@123$");
                     }}
                     style={{

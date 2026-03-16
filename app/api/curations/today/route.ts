@@ -54,6 +54,19 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return auth.response;
     const { userId } = auth;
 
+    // ── Early check: verify user has images in wardrobe ──────────────────
+    const hasWardrobe = await prisma.wardrobeItem.findFirst({
+      where: { userId: BigInt(userId) },
+      select: { id: true },
+    });
+
+    if (!hasWardrobe) {
+      return errorResponse(
+        "No wardrobe items found. Upload at least 2 pieces to get outfit recommendations.",
+        400,
+      );
+    }
+
     // ── Parse and validate body ─────────────────────────────────────────
     const body = await request.json();
     const { lat, lon, timezone, regenerateSlot } = body as {

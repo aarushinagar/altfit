@@ -25,7 +25,9 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragover, setDragover] = useState(false);
 
-  const MAX_UPLOAD = 100;
+  // MAX_UPLOAD = 10 unique image uploads per session
+  // Total wardrobe items can be 100+ since users can reuse the same image for multiple items
+  const MAX_UPLOAD = 10;
 
   const processFiles = async (files: FileList) => {
     const imageFiles = Array.from(files).filter(

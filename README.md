@@ -123,8 +123,10 @@ root/
 │   │   │   └── bulk/route.ts
 │   │   │
 │   │   ├── outfits/              # Outfit API
-│   │   │   ├── route.ts
-│   │   │   └── [id]/worn/route.ts
+│   │   │   ├── route.ts          # GET/POST outfits
+│   │   │   └── [id]/
+│   │   │       ├── route.ts      # GET/DELETE outfit
+│   │   │       └── worn/route.ts # PATCH mark as worn
 │   │   │
 │   │   ├── user/                 # User API
 │   │   │   ├── profile/route.ts
@@ -134,9 +136,11 @@ root/
 │   │   │
 │   │   ├── upload/image/route.ts # Image upload + Sharp processing
 │   │   │
-│   │   ├── curations/            # Daily curation API (coming)
-│   │   │   ├── today/route.ts
-│   │   │   └── [id]/regen/route.ts
+│   │   ├── curations/            # Daily curation API
+│   │   │   ├── today/route.ts    # POST get daily outfits
+│   │   │   └── [id]/
+│   │   │       ├── route.ts      # PATCH dismiss slot
+│   │   │       └── regen/route.ts # POST regenerate slot
 │   │   │
 │   │   └── razorpay-*/           # Payment routes
 │   │
@@ -221,6 +225,7 @@ root/
 │   ├── hooks/                     # Custom React hooks
 │   │   ├── useAuth.ts
 │   │   ├── useWardrobe.ts
+│   │   ├── useCuration.ts        # Daily curation state + dismissSlot/regenerateSlot
 │   │   ├── useOutfit.ts
 │   │   ├── useUpload.ts
 │   │   └── index.ts (exports)
