@@ -8,7 +8,10 @@ import {
   successResponse,
   errorResponse,
 } from "@/backend/database/api-response";
-import { generateSnowflakeId } from "@/backend/database/snowflake";
+import {
+  generatePrismaId,
+  toPrismaId,
+} from "@/backend/database/prisma-id";
 import type { WardrobeItemRequest } from "@/types/api";
 
 /**
@@ -47,8 +50,8 @@ export async function POST(request: NextRequest) {
       items.map((item) =>
         prisma.wardrobeItem.create({
           data: {
-            id: generateSnowflakeId(),
-            userId: BigInt(userId),
+            id: generatePrismaId("WardrobeItem") as never,
+            userId: toPrismaId("WardrobeItem", "userId", userId) as never,
             name: item.name,
             category: item.category,
             imageUrl: item.imageUrl,

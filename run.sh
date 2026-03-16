@@ -2,8 +2,10 @@
 
 set -e
 
+rm -rf node_modules
+
 echo "Installing dependencies..."
-npm install
+npm install && npm build
 
 echo "Generating Prisma client..."
 npx prisma generate

@@ -30,6 +30,7 @@ export interface UploadItem {
   mediaType?: string | null;
   uploadedUrl?: string | null;
   uploadedStoragePath?: string | null;
+  wardrobeItemId?: string; // set when server has already persisted the item
   pieces?: ClothingPiece[] | null;
   piecePreviews?: string[] | null;
   savedPieceIds?: string[];
@@ -251,6 +252,81 @@ export default function UploadItemCard({
   }
 
   if (item.status !== "ready") return null;
+
+  // Auto-saved by server pipeline — show clean confirmation without piece-detection UI
+  if (item.intent === "full_outfit" && item.wardrobeItemId) {
+    return (
+      <Box
+        sx={{
+          mb: 4,
+          border: "1px solid var(--linen)",
+          background: "var(--paper)",
+        }}
+      >
+        <Stack direction="row">
+          <Box
+            sx={{
+              width: 160,
+              flexShrink: 0,
+              minHeight: 200,
+              background: "var(--linen)",
+              position: "relative",
+            }}
+          >
+            {item.previewUrl && (
+              <img
+                src={item.previewUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                }}
+              />
+            )}
+          </Box>
+          <Box
+            sx={{
+              flex: 1,
+              p: "24px 28px",
+              borderLeft: "1px solid var(--linen)",
+            }}
+          >
+            <Box
+              sx={{
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--gold)",
+                mb: 1,
+              }}
+            >
+              ✓ Saved to wardrobe
+            </Box>
+            <Box
+              sx={{
+                fontFamily: "Cormorant Garamond, serif",
+                fontSize: 20,
+                fontWeight: 300,
+                color: "var(--ink)",
+                mb: 0.75,
+                lineHeight: 1.3,
+              }}
+            >
+              {item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") ||
+                "Clothing Item"}
+            </Box>
+            <Box sx={{ fontSize: 11, color: "var(--taupe)" }}>
+              AI-analysed and added to your wardrobe.
+            </Box>
+          </Box>
+        </Stack>
+      </Box>
+    );
+  }
 
   return (
     <Box

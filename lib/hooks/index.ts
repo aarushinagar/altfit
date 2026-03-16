@@ -11,3 +11,4 @@ export {
 export { useWardrobe, type UseWardrobeReturn } from "./useWardrobe";
 export { useOutfit, type UseOutfitReturn } from "./useOutfit";
 export { useUpload, type UseUploadReturn } from "./useUpload";
+export { useCuration, type UseCurationReturn } from "./useCuration";

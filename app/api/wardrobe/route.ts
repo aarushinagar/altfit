@@ -8,17 +8,16 @@
  * - offset: Pagination offset (default: 0)
  *
  * POST /api/wardrobe
- * Create a new wardrobe item
+ * Upload and AI-analyse a new wardrobe item via the IngestionGraph.
  *
- * Request body:
- * {
- *   "name": "Blue T-Shirt",
- *   "category": "top",
- *   "imageUrl": "https://...",
- *   "storagePath": "wardrobe-images/user_id/...",
- *   "colors": ["blue"],
- *   ...
- * }
+ * Accepts multipart/form-data:
+ *   image    File    — the clothing photo (max 8 MB)
+ *   name     string  — display name
+ *
+ * OR application/json (when the image has already been uploaded separately):
+ *   imageUrl    string
+ *   storagePath string
+ *   name        string
  */
 
 import { NextRequest } from "next/server";
@@ -30,10 +29,12 @@ import {
 import {
   successResponse,
   errorResponse,
-  validateRequired,
 } from "@/backend/database/api-response";
 import { generateSnowflakeId } from "@/backend/database/snowflake";
-import type { WardrobeItemRequest, WardrobeItemResponse } from "@/types/api";
+import { processAndUploadImage } from "@/lib/image/process";
+import { buildIngestionGraph } from "@/backend/langgraph/ingestion/graph";
+import { isWardrobeCapExceeded } from "@/backend/langgraph/shared/regen";
+import type { WardrobeItemResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
   try {
@@ -122,68 +123,98 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[Wardrobe Create] Creating new wardrobe item");
+    console.log("[Wardrobe Create] Received upload request");
 
-    // Authenticate user
     const authError = authenticateRequest(request);
     if (authError) return authError;
 
     const userId = getAuthenticatedUserId(request);
-    const body = await request.json();
 
-    // Validate required fields
-    const validation = validateRequired(body, [
-      "name",
-      "category",
-      "imageUrl",
-      "storagePath",
-    ]);
-    if (validation) return validation;
+    // ── Free-tier wardrobe cap check ────────────────────────────────────────
+    const userRecord = await prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: { plan: true, wardrobeItemCount: true },
+    });
+    if (
+      isWardrobeCapExceeded(
+        userRecord?.plan ?? "free",
+        userRecord?.wardrobeItemCount ?? 0,
+      )
+    ) {
+      return errorResponse(
+        "Free plan is limited to 10 wardrobe items. Upgrade to Pro for unlimited.",
+        403,
+      );
+    }
 
-    const {
-      name,
-      category,
+    let imageUrl: string;
+    let storagePath: string;
+    let name: string;
+
+    const contentType = request.headers.get("content-type") ?? "";
+
+    if (contentType.includes("multipart/form-data")) {
+      // --- Multipart: client is uploading the raw file ---
+      const formData = await request.formData();
+      const file = formData.get("image");
+      name = String(formData.get("name") || "Untitled Item");
+
+      if (!file || !(file instanceof File)) {
+        return errorResponse("Missing required field: image", 400);
+      }
+
+      const itemId = generateSnowflakeId().toString();
+      const processed = await processAndUploadImage(file, userId, itemId);
+      imageUrl = processed.publicUrl;
+      storagePath = processed.storagePath;
+    } else {
+      // --- JSON: client pre-uploaded the image and is passing the URL ---
+      const body = await request.json();
+      if (!body.imageUrl || !body.storagePath || !body.name) {
+        return errorResponse(
+          "Missing required fields: name, imageUrl, storagePath",
+          400,
+        );
+      }
+      ({ imageUrl, storagePath, name } = body);
+    }
+
+    console.log(`[Wardrobe Create] Running IngestionGraph for user ${userId}`);
+
+    const graph = buildIngestionGraph();
+    const result = await graph.invoke({
       imageUrl,
+      userId,
+      itemName: name,
       storagePath,
-      colors = [],
-      colorNames = [],
-      pattern,
-      fabric,
-      fit,
-      formality = 5,
-      season = [],
-      occasion = [],
-      stylistNote,
-      tags = [],
-    } = body as WardrobeItemRequest;
-
-    console.log(
-      `[Wardrobe Create] Creating item: ${name} (${category}) for user ${userId}`,
-    );
-
-    // Create item with user isolation
-    const item = await prisma.wardrobeItem.create({
-      data: {
-        id: generateSnowflakeId(),
-        userId: BigInt(userId),
-        name,
-        category,
-        imageUrl,
-        storagePath,
-        colors,
-        colorNames,
-        pattern,
-        fabric,
-        fit,
-        formality,
-        season,
-        occasion,
-        stylistNote,
-        tags,
-      },
+      parseAttempts: 0,
     });
 
-    console.log(`[Wardrobe Create] Item created: ${item.id}`);
+    if (result.status === "failed" || result.error) {
+      console.error("[Wardrobe Create] IngestionGraph failed:", result.error);
+      return errorResponse(result.error ?? "Ingestion pipeline failed", 422);
+    }
+
+    // Fetch the persisted item to return a full response
+    const wardrobeItemId = result.wardrobeItemId;
+    if (!wardrobeItemId) {
+      return errorResponse(
+        "Item was processed but could not be retrieved",
+        500,
+      );
+    }
+
+    const item = await prisma.wardrobeItem.findUnique({
+      where: { id: BigInt(wardrobeItemId) },
+    });
+
+    if (!item) {
+      return errorResponse("Item persisted but not retrievable", 500);
+    }
+
+    console.log(
+      `[Wardrobe Create] Item created: ${item.id} (needsReview: ${item.needsReview})`,
+    );
 
     return successResponse(
       {
@@ -205,6 +236,8 @@ export async function POST(request: NextRequest) {
         tags: item.tags,
         wearCount: item.wearCount,
         lastWornAt: item.lastWornAt?.toISOString() || null,
+        needsReview: item.needsReview,
+        parseConfidence: item.parseConfidence,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
       } as WardrobeItemResponse,

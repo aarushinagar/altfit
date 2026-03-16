@@ -10,13 +10,16 @@
     "postinstall": "prisma generate --schema=backend/database/prisma/schema.prisma",
     "db:push": "prisma db push --schema=backend/database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=backend/database/prisma/schema.prisma",
-    "db:studio": "prisma studio --schema=backend/database/prisma/schema.prisma"
+    "db:studio": "prisma studio --schema=backend/database/prisma/schema.prisma",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@google/generative-ai": "^0.24.1",
+    "@langchain/langgraph": "^1.2.2",
     "@mui/material": "^7.3.9",
     "@mui/system": "^7.3.9",
     "@prisma/client": "^5.22.0",
@@ -25,13 +28,15 @@
     "cookie": "^1.1.1",
     "dotenv": "^17.3.1",
     "google-auth-library": "^10.6.1",
+    "idb-keyval": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
     "jwt-decode": "^4.0.0",
     "next": "16.1.6",
     "prisma": "^5.22.0",
     "razorpay": "^2.9.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -43,6 +48,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   }
 }

@@ -27,6 +27,14 @@ model User {
   styleIssues   String[] @default([])
   onboarded     Boolean  @default(false)
 
+  // ── Plan & Location ───────────────────────────────────────────
+  plan               String    @default("free")  // "free" | "pro"
+  wardrobeItemCount  Int       @default(0)
+  timezone           String?                     // IANA e.g. "Asia/Kolkata"
+  locationLat        Float?
+  locationLon        Float?
+  locationCity       String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -35,6 +43,7 @@ model User {
   outfits       Outfit[]
   subscription  Subscription?
   sessions      Session[]
+  dailyCurations DailyCuration[]
 
   @@index([email])
   @@index([googleId])
@@ -81,6 +90,35 @@ model WardrobeItem {
   stylistNote String?
   tags       String[] @default([])
 
+  // ── AI Enhanced Metadata ──────────────────────────────────────
+  subcategory        String?               // e.g., "t-shirt", "blazer", "chinos"
+  primaryColorName   String?               // promoted from colorNames[0] pattern
+  primaryColorHex    String?               // hex string e.g. "#4A3B2A"
+  secondaryColorName String?
+  secondaryColorHex  String?
+  colorPattern       String?               // solid|striped|plaid|floral|graphic|animal_print|tie_dye|colorblock|other
+  fitType            String?               // slim|regular|relaxed|oversized|tailored|cropped|unknown
+  length             String?               // short|midi|long|cropped
+  neckline           String?               // crew|v-neck|collared|etc — nullable
+  material           String?               // replaces fabric semantically; keep fabric for compat
+  texture            String?               // smooth|ribbed|woven|fuzzy|sheer|matte|glossy
+  weight             String?               // lightweight|midweight|heavyweight|unknown
+  formalityLabel     String?               // casual|smart_casual|business_casual|formal|athletic|loungewear
+
+  // ── Weather/Season Suitability ────────────────────────────────
+  suitableTempMinC   Int?
+  suitableTempMaxC   Int?
+  weatherTags        String[]  @default([]) // sunny|cloudy|light_rain|windy|snow
+  styleAesthetic     String[]  @default([]) // streetwear|minimalist|bohemian|preppy|workwear|athleisure|classic
+  brand              String?
+
+  // ── LLM Audit Trail ───────────────────────────────────────────
+  parseConfidence    Float?
+  parseModel         String?
+  parseNotes         String?               // what the LLM observed
+  needsReview        Boolean  @default(false)
+  isActive           Boolean  @default(true)
+
   // Usage
   wearCount  Int       @default(0)
   lastWornAt DateTime?
@@ -92,6 +130,7 @@ model WardrobeItem {
 
   @@index([userId])
   @@index([category])
+  @@index([userId, isActive])
 }
 
 // ── OUTFITS ────────────────────────────────────────────────────
@@ -160,4 +199,48 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
+}
+
+// ── DAILY CURATIONS ────────────────────────────────────────────
+// One record per (userId, localDate, userTimezone) — unique constraint enforces once-per-day
+model DailyCuration {
+  id              BigInt   @id
+  userId          BigInt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timezone-aware date key (NOT UTC date)
+  localDate       String   // "YYYY-MM-DD" in user's local timezone
+  userTimezone    String   // IANA, e.g. "Asia/Kolkata"
+
+  // Weather snapshot cached to avoid re-fetching on regen
+  weatherTempC        Float
+  weatherFeelsLikeC   Float?
+  weatherCondition    String
+  weatherHumidityPct  Int?
+  weatherWindKph      Float?
+  weatherLocation     String  // city name
+
+  // 3 curated outfit slots (stored as JSONB)
+  // Each slot: { outfit_ids: string[], rationale, styling_tip, occasion_tags, vibe }
+  slot1           Json
+  slot2           Json
+  slot3           Json
+
+  // Regeneration tracking
+  regenCount      Int       @default(0)
+  regenSlot       Int?      // last regenerated slot: 1 | 2 | 3
+  regenAt         DateTime?
+
+  // Pipeline audit
+  pipelineVersion  String?
+  modelUsed        String?
+  queryTierUsed    Int?      // 1 = weather-filtered, 2 = top 10 fallback
+  totalCandidates  Int?
+  latencyMs        Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, localDate, userTimezone])
+  @@index([userId, localDate])
 }

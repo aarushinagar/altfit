@@ -136,6 +136,86 @@ export async function createWardrobeItem(
   });
 }
 
+/**
+ * Upload a raw image file to POST /api/wardrobe.
+ * The server handles Sharp processing, Supabase upload, Gemini vision analysis,
+ * and DB persistence — all in one request.
+ */
+export async function createWardrobeItemFromFile(
+  file: File,
+  name?: string,
+): Promise<ApiResult<WardrobeItemResponse>> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append(
+    "name",
+    name ||
+      file.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/[-_]+/g, " ")
+        .trim() ||
+      "Clothing Item",
+  );
+
+  try {
+    const res = await fetch(`${BASE}/api/wardrobe`, {
+      method: "POST",
+      headers,
+      body: formData,
+      credentials: "include",
+    });
+
+    let data: Record<string, unknown> = {};
+    try {
+      const text = await res.text();
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: `Invalid server response (${res.status})` };
+    }
+
+    if (res.status === 401 && !isRefreshingToken) {
+      isRefreshingToken = true;
+      try {
+        const refreshRes = await fetch(`${BASE}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          if (refreshData.data?.accessToken) {
+            localStorage.setItem("accessToken", refreshData.data.accessToken);
+            isRefreshingToken = false;
+            return createWardrobeItemFromFile(file, name);
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+      isRefreshingToken = false;
+      return { success: false, error: "Session expired. Please log in again." };
+    }
+
+    if (!res.ok) {
+      const msg =
+        (data.error as string) ||
+        (data.message as string) ||
+        `HTTP ${res.status}`;
+      return { success: false, error: msg };
+    }
+    return data as unknown as ApiResult<WardrobeItemResponse>;
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Upload failed",
+    };
+  }
+}
+
 export async function updateWardrobeItem(
   id: string,
   updates: Partial<WardrobeCreatePayload>,

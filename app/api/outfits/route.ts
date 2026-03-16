@@ -21,7 +21,10 @@ import {
   successResponse,
   errorResponse,
 } from "@/backend/database/api-response";
-import { generateSnowflakeId } from "@/backend/database/snowflake";
+import {
+  generatePrismaId,
+  toPrismaId,
+} from "@/backend/database/prisma-id";
 import type { OutfitResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
@@ -149,11 +152,10 @@ export async function POST(request: NextRequest) {
     }
 
     const outfit = await prisma.$transaction(async (tx) => {
-      const outfitId = generateSnowflakeId();
       const created = await tx.outfit.create({
         data: {
-          id: outfitId,
-          userId: BigInt(userId),
+          id: generatePrismaId("Outfit") as never,
+          userId: toPrismaId("Outfit", "userId", userId) as never,
           occasion: occasion ?? null,
           reasoning: reasoning ?? null,
           colorStory: colorStory ?? null,
@@ -162,9 +164,13 @@ export async function POST(request: NextRequest) {
 
       await tx.outfitItem.createMany({
         data: ownedItems.map((item, i) => ({
-          id: generateSnowflakeId(),
-          outfitId: created.id,
-          wardrobeItemId: item.id,
+          id: generatePrismaId("OutfitItem") as never,
+          outfitId: toPrismaId("OutfitItem", "outfitId", created.id) as never,
+          wardrobeItemId: toPrismaId(
+            "OutfitItem",
+            "wardrobeItemId",
+            item.id,
+          ) as never,
           role:
             i === 0 ? "base" : i === ownedItems.length - 1 ? "accent" : "layer",
         })),

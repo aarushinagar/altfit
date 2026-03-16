@@ -33,7 +33,10 @@ import {
   validateRequired,
   isValidEmail,
 } from "@/backend/database/api-response";
-import { generateSnowflakeId } from "@/backend/database/snowflake";
+import {
+  generatePrismaId,
+  toPrismaId,
+} from "@/backend/database/prisma-id";
 import type { LoginRequest, AuthPayload } from "@/types/api";
 
 export async function POST(request: NextRequest) {
@@ -87,8 +90,8 @@ export async function POST(request: NextRequest) {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 2);
     await prisma.session.create({
       data: {
-        id: generateSnowflakeId(),
-        userId: user.id,
+        id: generatePrismaId("Session") as never,
+        userId: toPrismaId("Session", "userId", user.id) as never,
         token: refreshTokenHash,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
       },
