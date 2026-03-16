@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken, getStoredUser } from "@/lib/utils/authUtils";
-import Landing from "@/components/auth/Landing";
+import Auth from "@/components/auth/Auth";
 
-export default function HomePage() {
+export default function RegisterPage() {
   const router = useRouter();
 
-  // Already logged in? Skip the landing page
+  // Redirect already-authenticated users away from this page
   useEffect(() => {
     const token = getAuthToken();
     const storedUser = getStoredUser();
@@ -17,5 +17,12 @@ export default function HomePage() {
     }
   }, [router]);
 
-  return <Landing onEnter={() => router.push("/signin")} />;
+  return (
+    <Auth
+      defaultMode="email-signup"
+      onAuth={(userData) => {
+        router.push(userData.onboarded ? "/today" : "/onboarding");
+      }}
+    />
+  );
 }

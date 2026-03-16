@@ -10,6 +10,7 @@ import {
 
 interface AuthProps {
   onAuth: (user: Record<string, unknown>) => void;
+  defaultMode?: "choose" | "email-signup" | "email-login";
 }
 
 const BULLET_LINES = [
@@ -18,9 +19,9 @@ const BULLET_LINES = [
   "Learns your style over time",
 ];
 
-export default function Auth({ onAuth }: AuthProps) {
+export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
   const [mode, setMode] = useState<"choose" | "email-signup" | "email-login">(
-    "choose",
+    defaultMode,
   );
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");

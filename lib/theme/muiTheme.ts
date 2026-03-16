@@ -310,7 +310,7 @@ const theme = createTheme({
           fontFamily: FONTS.sans,
           color: COLORS.charcoal,
           overscrollBehavior: "none",
-          "-webkit-font-smoothing": "antialiased",
+          WebkitFontSmoothing: "antialiased",
         },
         "input, button, select, textarea": {
           WebkitAppearance: "none",
