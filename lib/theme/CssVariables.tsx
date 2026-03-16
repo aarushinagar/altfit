@@ -1,58 +1,946 @@
 "use client";
 
 /**
- * CssVariables — injects CSS custom properties from design tokens into :root
+ * CssVariables — injects all global CSS (design tokens, animations, component
+ * styles) via MUI GlobalStyles so emotion handles SSR properly.
  *
- * This bridges the MUI theme (JS values) with any code that uses
- * CSS variables directly (e.g. `color: 'var(--ink)'` in inline styles or
- * legacy className-based CSS strings still in page.jsx).
- *
- * Source of truth: lib/theme/tokens.ts → CSS_VAR_MAP
- * To rename or change a color: edit tokens.ts only.
+ * Source of truth for colors/fonts: lib/theme/tokens.ts
  */
 
 import { GlobalStyles } from "@mui/material";
-import { CSS_VAR_MAP } from "./tokens";
-
-// ─── Keyframe animations ──────────────────────────────────────────────────────
-// Defined here (not in globals.css) so they live alongside the theme system.
-
-const keyframes = {
-  "@keyframes fadeUp": {
-    from: { opacity: 0, transform: "translateY(16px)" },
-    to: { opacity: 1, transform: "translateY(0)" },
-  },
-  "@keyframes fadeIn": {
-    from: { opacity: 0 },
-    to: { opacity: 1 },
-  },
-  "@keyframes spin": {
-    from: { transform: "rotate(0deg)" },
-    to: { transform: "rotate(360deg)" },
-  },
-};
-
-// ─── Utility animation classes ────────────────────────────────────────────────
-
-const animationClasses = {
-  ".fade-up": { animation: "fadeUp 0.5s ease forwards" },
-  ".fade-in": { animation: "fadeIn 0.4s ease forwards" },
-};
-
-// ─── App shell class ──────────────────────────────────────────────────────────
-
-const appShell = {
-  ".app": { minHeight: "100vh", background: "var(--cream)" },
-};
+import { CSS_VAR_MAP, COLORS, FONTS } from "./tokens";
 
 export default function CssVariables() {
   return (
     <GlobalStyles
       styles={{
+        // ── Design tokens → :root CSS variables ────────────────────────────
         ":root": CSS_VAR_MAP,
-        ...keyframes,
-        ...animationClasses,
-        ...appShell,
+
+        // ── Keyframe animations ─────────────────────────────────────────────
+        "@keyframes fadeUp": {
+          from: { opacity: 0, transform: "translateY(14px)" },
+          to: { opacity: 1, transform: "translateY(0)" },
+        },
+        "@keyframes fadeIn": {
+          from: { opacity: 0 },
+          to: { opacity: 1 },
+        },
+        "@keyframes spin": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        "@keyframes pulse": {
+          "0%, 100%": { opacity: 0.35 },
+          "50%": { opacity: 0.65 },
+        },
+
+        // ── Utility classes ─────────────────────────────────────────────────
+        ".fade-up": { animation: "fadeUp 0.5s ease forwards" },
+        ".fade-in": { animation: "fadeIn 0.4s ease forwards" },
+
+        // ── App shell ───────────────────────────────────────────────────────
+        ".app": { minHeight: "100vh", background: `var(--cream)` },
+
+        // ── Desktop sidebar nav ─────────────────────────────────────────────
+        ".nav": {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: 240,
+          height: "100vh",
+          background: COLORS.ink,
+          display: "flex",
+          flexDirection: "column",
+          padding: "36px 0 24px",
+          zIndex: 100,
+          borderRight: "1px solid rgba(255,255,255,0.05)",
+        },
+        ".nav-logo": {
+          fontFamily: FONTS.serif,
+          fontSize: 15,
+          fontWeight: 300,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          color: COLORS.cream,
+          padding: "0 28px",
+          marginBottom: 44,
+          cursor: "pointer",
+          display: "block",
+          border: "none",
+          background: "none",
+          textAlign: "left",
+        },
+        ".nav-logo span": { color: COLORS.gold },
+
+        ".nav-links": {
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: "0 14px",
+        },
+        ".nav-link": {
+          display: "flex",
+          alignItems: "center",
+          padding: "12px 14px",
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          fontWeight: 400,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "rgba(247,243,236,0.42)",
+          background: "none",
+          border: "none",
+          borderLeft: "2px solid transparent",
+          cursor: "pointer",
+          textAlign: "left",
+          width: "100%",
+          transition: "color 0.2s, background 0.2s, border-color 0.2s",
+        },
+        ".nav-link:hover": {
+          color: "rgba(247,243,236,0.8)",
+          background: "rgba(255,255,255,0.04)",
+        },
+        ".nav-link.active": {
+          color: COLORS.cream,
+          borderLeftColor: COLORS.gold,
+          background: "rgba(255,255,255,0.065)",
+        },
+
+        ".nav-bottom": {
+          padding: "16px 14px 0",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        },
+        ".nav-upload": {
+          display: "block",
+          width: "100%",
+          padding: "11px 14px",
+          background: COLORS.gold,
+          color: COLORS.cream,
+          border: "none",
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          fontWeight: 500,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          transition: "background 0.2s",
+          textAlign: "center",
+        },
+        ".nav-upload:hover": { background: COLORS.goldLight },
+
+        ".nav-profile-btn": {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 0",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+        },
+        ".nav-avatar": {
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: FONTS.serif,
+          fontSize: 13,
+          color: COLORS.cream,
+          flexShrink: 0,
+          border: "none",
+        },
+        ".nav-user-name": {
+          fontFamily: FONTS.sans,
+          fontSize: 11,
+          fontWeight: 400,
+          color: "rgba(247,243,236,0.85)",
+          lineHeight: 1.3,
+        },
+        ".nav-user-plan": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: COLORS.gold,
+          marginTop: 1,
+        },
+        ".nav-signout": {
+          display: "block",
+          padding: "6px 0",
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "rgba(247,243,236,0.3)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          transition: "color 0.2s",
+        },
+        ".nav-signout:hover": { color: "rgba(247,243,236,0.65)" },
+
+        // ── Mobile top bar ──────────────────────────────────────────────────
+        ".mobile-topbar": {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 56,
+          background: COLORS.cream,
+          borderBottom: `1px solid ${COLORS.linen}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          zIndex: 100,
+        },
+        ".mobile-logo": {
+          fontFamily: FONTS.serif,
+          fontSize: 14,
+          fontWeight: 300,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          color: COLORS.ink,
+        },
+        ".mobile-logo span": { color: COLORS.gold },
+
+        // ── Mobile tab bar ──────────────────────────────────────────────────
+        ".tab-bar": {
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          paddingBottom: "env(safe-area-inset-bottom)",
+          background: COLORS.cream,
+          borderTop: `1px solid ${COLORS.linen}`,
+          display: "flex",
+          alignItems: "center",
+          zIndex: 100,
+        },
+        ".tab-item": {
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          padding: "8px 0",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: COLORS.taupe,
+          transition: "color 0.2s",
+        },
+        ".tab-item.active": { color: COLORS.ink },
+        ".tab-icon": { fontSize: 18, lineHeight: 1 },
+        ".tab-label": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+        },
+        ".tab-upload-btn": {
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+        },
+        ".tab-upload-inner": {
+          width: 44,
+          height: 44,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 22,
+          fontWeight: 300,
+          color: COLORS.cream,
+          transition: "background 0.2s",
+        },
+
+        // ── Page layout (base — mobile first) ──────────────────────────────
+        ".page": {
+          minHeight: "100vh",
+          paddingTop: 56,
+          paddingBottom: 80,
+        },
+
+        // ── Page header (shared: wardrobe, upload) ──────────────────────────
+        ".page-header": {
+          padding: "32px 20px 24px",
+          borderBottom: `1px solid ${COLORS.linen}`,
+        },
+        ".page-eyebrow": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          fontWeight: 400,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginBottom: 10,
+        },
+        ".page-title": {
+          fontFamily: FONTS.serif,
+          fontSize: 38,
+          fontWeight: 300,
+          color: COLORS.ink,
+          lineHeight: 1.05,
+          marginBottom: 4,
+        },
+        ".page-count": {
+          fontFamily: FONTS.sans,
+          fontSize: 12,
+          color: COLORS.warmGray,
+          marginTop: 4,
+        },
+
+        // ── Common buttons ──────────────────────────────────────────────────
+        ".btn-primary": {
+          flex: "1 1 0",
+          padding: "13px 20px",
+          background: COLORS.ink,
+          color: COLORS.cream,
+          border: "none",
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          fontWeight: 500,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          transition: "background 0.2s",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        ".btn-primary:hover": { background: COLORS.charcoal },
+        ".btn-primary:disabled": {
+          background: COLORS.linen,
+          color: COLORS.taupe,
+          cursor: "not-allowed",
+        },
+        ".btn-secondary": {
+          flex: "1 1 0",
+          padding: "13px 20px",
+          background: "none",
+          color: COLORS.charcoal,
+          border: `1px solid ${COLORS.linen}`,
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          fontWeight: 400,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          cursor: "pointer",
+          transition: "border-color 0.2s, color 0.2s",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        ".btn-secondary:hover": {
+          borderColor: COLORS.taupe,
+          color: COLORS.ink,
+        },
+        ".btn-shuffle": {
+          width: 44,
+          height: 44,
+          background: "none",
+          border: `1px solid ${COLORS.linen}`,
+          cursor: "pointer",
+          fontSize: 18,
+          color: COLORS.taupe,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.2s",
+          flexShrink: 0,
+        },
+        ".btn-shuffle:hover": {
+          borderColor: COLORS.taupe,
+          color: COLORS.charcoal,
+        },
+        ".btn-shuffle.spinning": { animation: "spin 0.8s linear infinite" },
+
+        // ── Today page ──────────────────────────────────────────────────────
+        ".today-hero": {
+          display: "flex",
+          flexDirection: "column",
+        },
+        ".today-greeting": {
+          padding: "28px 20px 32px",
+          borderBottom: `1px solid ${COLORS.linen}`,
+        },
+        ".greeting-eyebrow": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          fontWeight: 400,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: COLORS.gold,
+          marginBottom: 16,
+        },
+        ".greeting-title": {
+          fontFamily: FONTS.serif,
+          fontSize: "clamp(32px, 7vw, 46px)",
+          fontWeight: 300,
+          lineHeight: 1.15,
+          color: COLORS.ink,
+          marginBottom: 14,
+        },
+        ".greeting-title em": { fontStyle: "italic", color: COLORS.gold },
+        ".greeting-sub": {
+          fontFamily: FONTS.sans,
+          fontSize: 13,
+          color: COLORS.warmGray,
+          lineHeight: 1.6,
+          marginBottom: 20,
+        },
+        ".weather-pill": {
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 14px",
+          border: `1px solid ${COLORS.linen}`,
+          fontFamily: FONTS.sans,
+          fontSize: 11,
+          color: COLORS.charcoal,
+          marginBottom: 28,
+        },
+
+        // ── Outfit card ─────────────────────────────────────────────────────
+        ".outfit-card": {
+          border: `1px solid ${COLORS.linen}`,
+          background: COLORS.cream,
+        },
+        ".outfit-card-header": {
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: `1px solid ${COLORS.linen}`,
+        },
+        ".outfit-card-title": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+        },
+        ".occasion-tag": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          padding: "3px 8px",
+          border: `1px solid ${COLORS.linen}`,
+          color: COLORS.charcoal,
+        },
+        ".outfit-pieces": {
+          display: "grid",
+          gap: "1px",
+          background: COLORS.linen,
+        },
+        ".outfit-piece": {
+          background: COLORS.cream,
+          overflow: "hidden",
+        },
+        ".piece-visual": {
+          aspectRatio: "3/4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          background: COLORS.paper,
+        },
+        ".piece-label": {
+          padding: "10px 12px 2px",
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+        },
+        ".piece-name": {
+          padding: "2px 12px 12px",
+          fontFamily: FONTS.serif,
+          fontSize: 14,
+          color: COLORS.charcoal,
+          lineHeight: 1.3,
+        },
+        ".outfit-reasoning": {
+          padding: "14px 20px",
+          display: "flex",
+          gap: 10,
+          background: COLORS.paper,
+          borderTop: `1px solid ${COLORS.linen}`,
+        },
+        ".reasoning-icon": {
+          color: COLORS.gold,
+          fontSize: 10,
+          flexShrink: 0,
+          marginTop: 3,
+          lineHeight: 1.6,
+        },
+        ".reasoning-text": {
+          fontFamily: FONTS.serif,
+          fontSize: 14,
+          fontStyle: "italic",
+          color: COLORS.charcoal,
+          lineHeight: 1.56,
+        },
+        ".outfit-actions": {
+          padding: "14px 20px",
+          display: "flex",
+          gap: 8,
+          borderTop: `1px solid ${COLORS.linen}`,
+        },
+
+        // ── Style sidebar ───────────────────────────────────────────────────
+        ".today-sidebar": {
+          background: COLORS.paper,
+          borderTop: `1px solid ${COLORS.linen}`,
+          animation: "fadeIn 0.4s ease forwards",
+          opacity: 0,
+        },
+        ".sidebar-section": {
+          padding: "24px 20px",
+          borderBottom: `1px solid ${COLORS.linen}`,
+        },
+        ".sidebar-heading": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginBottom: 16,
+        },
+        ".style-score-bar": {
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        },
+        ".score-item": {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        },
+        ".score-label": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: COLORS.warmGray,
+          width: 64,
+          flexShrink: 0,
+        },
+        ".score-track": {
+          flex: 1,
+          height: 2,
+          background: COLORS.linen,
+          position: "relative",
+          overflow: "hidden",
+        },
+        ".score-fill": {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          background: COLORS.gold,
+          transition: "width 0.6s ease",
+        },
+        ".insight-card": {
+          background: COLORS.cream,
+          padding: 16,
+          borderLeft: `2px solid ${COLORS.gold}`,
+        },
+        ".insight-label": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginBottom: 6,
+        },
+        ".insight-text": {
+          fontFamily: FONTS.sans,
+          fontSize: 12,
+          color: COLORS.charcoal,
+          lineHeight: 1.5,
+        },
+        ".last-worn-list": {
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        },
+        ".last-worn-item": { display: "flex", alignItems: "center", gap: 10 },
+        ".last-worn-dot": {
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          flexShrink: 0,
+        },
+        ".last-worn-name": {
+          flex: 1,
+          fontFamily: FONTS.sans,
+          fontSize: 12,
+          color: COLORS.charcoal,
+        },
+        ".last-worn-date": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+        },
+
+        // ── Wardrobe page ───────────────────────────────────────────────────
+        ".filter-bar": {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "16px 20px",
+          borderBottom: `1px solid ${COLORS.linen}`,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        },
+        ".filter-bar::-webkit-scrollbar": { display: "none" },
+        ".filter-label": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginRight: 4,
+          flexShrink: 0,
+        },
+        ".filter-chip": {
+          padding: "6px 14px",
+          border: `1px solid ${COLORS.linen}`,
+          background: "none",
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          cursor: "pointer",
+          transition: "all 0.2s",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+        },
+        ".filter-chip:hover": {
+          borderColor: COLORS.taupe,
+          color: COLORS.charcoal,
+        },
+        ".filter-chip.active": {
+          background: COLORS.ink,
+          borderColor: COLORS.ink,
+          color: COLORS.cream,
+        },
+        ".wardrobe-grid": {
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "1px",
+          background: COLORS.linen,
+        },
+        ".wardrobe-item": {
+          position: "relative",
+          cursor: "pointer",
+          background: COLORS.cream,
+          overflow: "hidden",
+          animation: "fadeUp 0.4s ease forwards",
+          opacity: 0,
+        },
+        ".wardrobe-item:hover .item-overlay": { opacity: 1 },
+        ".item-image": {
+          aspectRatio: "3/4",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          background: COLORS.paper,
+        },
+        ".item-info": {
+          padding: "12px 14px 14px",
+          borderTop: `1px solid ${COLORS.linen}`,
+          background: COLORS.cream,
+        },
+        ".item-type": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginBottom: 3,
+        },
+        ".item-name": {
+          fontFamily: FONTS.serif,
+          fontSize: 15,
+          fontWeight: 400,
+          color: COLORS.ink,
+          lineHeight: 1.2,
+        },
+        ".item-meta": {
+          display: "flex",
+          gap: 6,
+          flexWrap: "wrap",
+          marginTop: 6,
+        },
+        ".item-tag": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: COLORS.warmGray,
+        },
+        ".item-overlay": {
+          position: "absolute",
+          inset: 0,
+          background: "rgba(46,33,24,0.52)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: 0,
+          transition: "opacity 0.22s ease",
+        },
+        ".item-overlay-text": {
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: COLORS.cream,
+        },
+
+        // ── Wardrobe item modal ─────────────────────────────────────────────
+        ".modal-backdrop": {
+          position: "fixed",
+          inset: 0,
+          background: "rgba(46,33,24,0.52)",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          zIndex: 200,
+          animation: "fadeIn 0.2s ease",
+        },
+        ".modal": {
+          background: COLORS.cream,
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          animation: "fadeUp 0.28s ease",
+        },
+        ".modal-header": {
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          padding: "22px 20px 16px",
+          borderBottom: `1px solid ${COLORS.linen}`,
+          position: "sticky",
+          top: 0,
+          background: COLORS.cream,
+          zIndex: 1,
+        },
+        ".modal-close": {
+          background: "none",
+          border: "none",
+          fontSize: 22,
+          cursor: "pointer",
+          color: COLORS.taupe,
+          lineHeight: 1,
+          padding: 0,
+          width: 28,
+          height: 28,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "color 0.15s",
+          flexShrink: 0,
+        },
+        ".modal-close:hover": { color: COLORS.ink },
+        ".modal-body": {
+          display: "flex",
+          flexDirection: "column",
+        },
+        ".modal-image": {
+          minHeight: 220,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          overflow: "hidden",
+          background: COLORS.paper,
+          borderBottom: `1px solid ${COLORS.linen}`,
+        },
+        ".modal-details": {
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+        },
+        ".detail-block-label": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: COLORS.taupe,
+          marginBottom: 10,
+        },
+        ".styling-note": {
+          background: COLORS.paper,
+          padding: 16,
+          borderLeft: `2px solid ${COLORS.gold}`,
+        },
+        ".pairing-chips": { display: "flex", flexWrap: "wrap", gap: 6 },
+        ".pairing-chip": {
+          padding: "4px 10px",
+          border: `1px solid ${COLORS.linen}`,
+          fontFamily: FONTS.sans,
+          fontSize: 10,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: COLORS.charcoal,
+        },
+        ".wear-count": { display: "flex", alignItems: "center", gap: 12 },
+        ".wear-dots": { display: "flex", gap: 4 },
+        ".wear-dot": {
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: COLORS.ink,
+        },
+        ".wear-dot.empty": { background: COLORS.linen },
+
+        // ── Upload page ─────────────────────────────────────────────────────
+        ".upload-body": {
+          padding: "28px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        },
+        ".upload-zone": {
+          display: "block",
+          border: `1px dashed ${COLORS.taupe}`,
+          padding: "52px 32px",
+          textAlign: "center",
+          background: "transparent",
+          cursor: "pointer",
+          transition: "border-color 0.2s, background 0.2s",
+        },
+        ".upload-zone:hover": {
+          borderColor: COLORS.gold,
+          background: "rgba(160,98,44,0.03)",
+        },
+        ".upload-zone.dragover": {
+          borderColor: COLORS.gold,
+          background: "rgba(160,98,44,0.03)",
+        },
+        ".upload-icon": {
+          fontSize: 28,
+          color: COLORS.taupe,
+          marginBottom: 14,
+          fontWeight: 300,
+          lineHeight: 1,
+        },
+        ".upload-title": {
+          fontFamily: FONTS.serif,
+          fontSize: 20,
+          fontWeight: 300,
+          color: COLORS.ink,
+          marginBottom: 8,
+        },
+        ".upload-sub": {
+          fontFamily: FONTS.sans,
+          fontSize: 12,
+          color: COLORS.warmGray,
+          lineHeight: 1.6,
+        },
+        ".progress-bar": {
+          height: 1,
+          background: COLORS.linen,
+          overflow: "hidden",
+        },
+        ".progress-fill": {
+          height: "100%",
+          background: COLORS.gold,
+          transition: "width 0.3s ease",
+        },
+
+        // ── Responsive: tablet / desktop ────────────────────────────────────
+        "@media (min-width: 768px)": {
+          ".mobile-topbar": { display: "none" },
+          ".tab-bar": { display: "none" },
+          ".page": {
+            paddingTop: 0,
+            paddingBottom: 0,
+            paddingLeft: 240,
+          },
+          ".page-header": { padding: "48px 48px 32px" },
+          ".today-hero": {
+            display: "grid",
+            gridTemplateColumns: "1fr 296px",
+            minHeight: "100vh",
+            flexDirection: "unset",
+          },
+          ".today-greeting": {
+            padding: "52px 48px 48px",
+            borderBottom: "none",
+            borderRight: `1px solid ${COLORS.linen}`,
+          },
+          ".today-sidebar": {
+            borderTop: "none",
+          },
+          ".sidebar-section": { padding: "28px" },
+          ".filter-bar": { padding: "18px 48px" },
+          ".wardrobe-grid": {
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          },
+          ".modal-backdrop": {
+            alignItems: "center",
+            padding: 20,
+          },
+          ".modal": {
+            maxWidth: 860,
+            maxHeight: "calc(100vh - 40px)",
+          },
+          ".modal-header": { padding: "28px 32px 20px" },
+          ".modal-body": {
+            flexDirection: "row",
+          },
+          ".modal-image": {
+            width: 280,
+            flexShrink: 0,
+            minHeight: 360,
+            borderBottom: "none",
+            borderRight: `1px solid ${COLORS.linen}`,
+          },
+          ".modal-details": { padding: "24px 32px" },
+          ".upload-body": { padding: "36px 48px" },
+          ".greeting-title": { fontSize: "clamp(36px, 4.5vw, 54px)" },
+          ".outfit-card-header": { padding: "18px 24px" },
+          ".outfit-reasoning": { padding: "16px 24px" },
+          ".outfit-actions": { padding: "16px 24px" },
+          ".today-greeting .outfit-card": { marginTop: 32 },
+        },
+
+        "@media (min-width: 1200px)": {
+          ".today-hero": { gridTemplateColumns: "1fr 320px" },
+          ".wardrobe-grid": {
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          },
+        },
       }}
     />
   );

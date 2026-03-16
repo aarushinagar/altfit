@@ -3,21 +3,6 @@
  *
  * Design tokens (colors, fonts, breakpoints) live in:  lib/theme/tokens.ts
  * MUI theme overrides live in:                         lib/theme/muiTheme.ts
- * CSS custom properties (:root vars) are injected by:  lib/theme/CssVariables.tsx
+ * All CSS custom properties + component CSS live in:   lib/theme/CssVariables.tsx
  * CSS reset + body styles come from:                   MUI CssBaseline
- *
- * Only add truly global styles here that cannot go through MUI.
  */
-
-/* Page-level padding accounts for fixed nav/tab bars */
-.page {
-  min-height: 100vh;
-  padding-top: 60px;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
-}
-@media (min-width: 768px) {
-  .page {
-    padding-top: 72px;
-    padding-bottom: 0;
-  }
-}

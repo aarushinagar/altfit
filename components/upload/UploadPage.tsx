@@ -447,27 +447,29 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
         </p>
       </div>
 
-      <UploadZone
-        dragover={dragover}
-        setDragover={setDragover}
-        onFiles={processFiles}
-      />
+      <div className="upload-body">
+        <UploadZone
+          dragover={dragover}
+          setDragover={setDragover}
+          onFiles={processFiles}
+        />
 
-      {items.length > 0 && (
-        <div style={{ marginTop: 32 }}>
-          {items.map((item) => (
-            <UploadItemCard
-              key={item.id}
-              item={item}
-              onSaveFullOutfit={saveFullOutfit}
-              onSavePiece={savePiece}
-              onSaveAsOutfit={saveAsOutfit}
-              onSetIntent={setIntent}
-              onRemove={removeItem}
-            />
-          ))}
-        </div>
-      )}
+        {items.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {items.map((item) => (
+              <UploadItemCard
+                key={item.id}
+                item={item}
+                onSaveFullOutfit={saveFullOutfit}
+                onSavePiece={savePiece}
+                onSaveAsOutfit={saveAsOutfit}
+                onSetIntent={setIntent}
+                onRemove={removeItem}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -62,9 +62,22 @@ export default function TodayPage({
   const [error, setError] = useState<string | null>(null);
   const [shuffleCount, setShuffleCount] = useState(0);
   const [animKey, setAnimKey] = useState(0);
+  // Defer date/greeting to client to avoid SSR hydration mismatch
+  const [dateStr, setDateStr] = useState("");
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    setDateStr(
+      new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    );
+    setGreeting(getHourGreeting());
+  }, []);
 
   const hasWardrobe = wardrobeTotal >= 2;
-  const greeting = getHourGreeting();
 
   const fetchOutfit = async (isShuffle = false) => {
     if (!hasWardrobe) return;
@@ -116,15 +129,9 @@ export default function TodayPage({
       <div className="today-hero">
         {/* LEFT */}
         <div className="today-greeting fade-up">
-          <div className="greeting-eyebrow">
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </div>
+          <div className="greeting-eyebrow">{dateStr}</div>
           <h1 className="greeting-title">
-            {greeting}. <br />
+            {greeting ? `${greeting}.` : ""} <br />
             <em>Here&apos;s your look</em> <br />
             for today.
           </h1>
