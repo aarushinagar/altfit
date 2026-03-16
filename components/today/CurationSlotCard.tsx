@@ -9,6 +9,7 @@ interface CurationSlotCardProps {
   slotNumber: 1 | 2 | 3;
   onRegenerate: () => void;
   isRegenerating: boolean;
+  onDismiss?: () => void;
 }
 
 const SLOT_LABELS = ["Morning Look", "Daytime Look", "Evening Look"] as const;
@@ -18,6 +19,7 @@ export default function CurationSlotCard({
   slotNumber,
   onRegenerate,
   isRegenerating,
+  onDismiss,
 }: CurationSlotCardProps) {
   const items = slot.items ?? [];
   const label = SLOT_LABELS[slotNumber - 1];
@@ -160,6 +162,32 @@ export default function CurationSlotCard({
             {isRegenerating ? "Refreshing…" : "Refresh Look"}
           </span>
         </button>
+
+        {onDismiss && (
+          <button
+            onClick={() => {
+              if (window.confirm("Dismiss this look for today?")) {
+                onDismiss();
+              }
+            }}
+            title="Dismiss this look"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "0 10px",
+              color: "var(--taupe)",
+              fontSize: 16,
+              lineHeight: 1,
+              opacity: 0.7,
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   );

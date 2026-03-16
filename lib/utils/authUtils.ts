@@ -27,8 +27,15 @@ export function setAuthState(authState: AuthState): void {
 
 export function clearAuthState(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("user");
+  localStorage.clear();
+  sessionStorage.clear();
+  // Expire all document.cookie entries (path=/ covers all routes)
+  document.cookie.split(";").forEach((c) => {
+    const name = c.trim().split("=")[0];
+    if (name) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+  });
 }
 
 export function getStoredUser(): AuthState["user"] | null {

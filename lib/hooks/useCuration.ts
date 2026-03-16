@@ -76,6 +76,7 @@ export interface UseCurationReturn {
   reload: () => void;
   regenerateSlot: (slot: 1 | 2 | 3) => Promise<void>;
   regenLoadingSlot: 1 | 2 | 3 | null;
+  dismissSlot: (slotIndex: number) => Promise<void>;
 }
 
 export function useCuration(userId: string | null): UseCurationReturn {
@@ -252,6 +253,47 @@ export function useCuration(userId: string | null): UseCurationReturn {
     [curationId, userId],
   );
 
+  const dismissSlot = useCallback(
+    async (slotIndex: number) => {
+      if (!curationId || !userId) return;
+
+      // Optimistically remove from local state
+      setSlots((prev) => prev?.filter((_, i) => i !== slotIndex) ?? null);
+
+      // Update IDB cache
+      try {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const localDate = getUserLocalDate(timezone);
+        const key = idbKey(userId, localDate, timezone);
+        const existing = await get<IdbCacheEntry>(key);
+        if (existing) {
+          const updated = existing.slots.filter((_, i) => i !== slotIndex);
+          await set(key, { ...existing, slots: updated });
+        }
+      } catch {
+        // IDB update failure is non-fatal
+      }
+
+      // Persist to backend (slot numbers are 1-indexed)
+      const slotNumber = (slotIndex + 1) as 1 | 2 | 3;
+      try {
+        const token = getAuthToken();
+        await fetch(`${BASE}/api/curations/${curationId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ dismissSlot: slotNumber }),
+          credentials: "include",
+        });
+      } catch {
+        // Backend failure is non-fatal — local state is already updated
+      }
+    },
+    [curationId, userId],
+  );
+
   return {
     slots,
     isLoading,
@@ -263,5 +305,6 @@ export function useCuration(userId: string | null): UseCurationReturn {
     reload,
     regenerateSlot,
     regenLoadingSlot,
+    dismissSlot,
   };
 }

@@ -50,8 +50,12 @@ export default function WardrobeItemModal({
           <Stack direction="row" gap={1.5} alignItems="center">
             <button
               onClick={() => {
-                onRemove(item.id);
-                onClose();
+                if (
+                  window.confirm(`Remove "${item.name}" from your wardrobe?`)
+                ) {
+                  onRemove(item.id);
+                  onClose();
+                }
               }}
               style={{
                 fontSize: 10,

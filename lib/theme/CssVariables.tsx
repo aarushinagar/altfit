@@ -495,6 +495,7 @@ export default function CssVariables() {
         },
         ".piece-visual": {
           aspectRatio: "3/4",
+          maxHeight: 160,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -974,6 +975,7 @@ export default function CssVariables() {
           ".outfit-reasoning": { padding: "16px 24px" },
           ".outfit-actions": { padding: "16px 24px" },
           ".today-greeting .outfit-card": { marginTop: 32 },
+          ".piece-visual": { maxHeight: 200 },
         },
 
         "@media (min-width: 1200px)": {

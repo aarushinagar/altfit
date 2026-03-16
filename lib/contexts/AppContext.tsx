@@ -20,6 +20,7 @@ import {
 import { useWardrobe } from "@/lib/hooks/useWardrobe";
 import { deleteWardrobeItem } from "@/lib/actions/wardrobe";
 import { logoutUser } from "@/lib/actions/auth";
+import { clear as clearIdb } from "idb-keyval";
 import { getStoredUser, getAuthToken } from "@/lib/utils/authUtils";
 import type { WardrobeItem } from "@/components/wardrobe/WardrobeItemCard";
 
@@ -107,12 +108,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleRemoveItem = useCallback(
     async (id: string | number) => {
-      const ok = await deleteWardrobeItem(String(id));
-      if (ok) {
+      const result = await deleteWardrobeItem(String(id));
+      if (result.success) {
         showToast("Item removed from wardrobe");
         await loadWardrobeItems();
       } else {
-        showToast("Failed to remove item");
+        showToast(result.error ?? "Failed to remove item");
       }
     },
     [loadWardrobeItems, showToast],
@@ -124,8 +125,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       /* noop */
     }
-    localStorage.removeItem("altfit-profile");
-    localStorage.removeItem("altfit-plan");
+    // Clear IndexedDB (curation cache) and all localStorage/sessionStorage/cookies
+    try {
+      await clearIdb();
+    } catch {
+      /* noop */
+    }
     setUser(null);
     setPlan(null);
   }, []);

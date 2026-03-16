@@ -82,3 +82,9 @@ export async function markOutfitWorn(
     body: JSON.stringify({ worn, wornAt: new Date().toISOString() }),
   });
 }
+
+export async function deleteOutfit(
+  id: string,
+): Promise<ApiResult<{ message: string }>> {
+  return apiRequest(`/api/outfits/${id}`, { method: "DELETE" });
+}

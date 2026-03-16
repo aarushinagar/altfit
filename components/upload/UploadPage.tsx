@@ -25,6 +25,8 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragover, setDragover] = useState(false);
 
+  const MAX_UPLOAD = 100;
+
   const processFiles = async (files: FileList) => {
     const imageFiles = Array.from(files).filter(
       (f) =>
@@ -33,47 +35,60 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
     );
     if (!imageFiles.length) return;
 
-    for (const file of imageFiles) {
-      const id = Date.now() + Math.random();
-      const realType = await detectRealType(file);
+    // Enforce max 10 total using the current items closure value
+    const filesToProcess = imageFiles.slice(
+      0,
+      Math.max(MAX_UPLOAD - items.length, 0),
+    );
+    if (!filesToProcess.length) return;
 
-      if (realType === "heic" || isHeicFile(file)) {
-        setItems((prev) => [
-          ...prev,
-          {
-            id,
-            fileName: file.name,
-            status: "heic",
-            previewUrl: null,
-            pieces: null,
-            savedPieceIds: [],
-            intent: null,
-          },
-        ]);
-        continue;
-      }
+    // Detect all file types in parallel before adding anything to the queue
+    const fileTypes = await Promise.all(
+      filesToProcess.map((f) => detectRealType(f)),
+    );
 
-      // Generate a local object URL for immediate preview (no base64 overhead)
-      const previewUrl = URL.createObjectURL(file);
+    // Build preview URLs and assign stable IDs for all files upfront
+    const newIds = filesToProcess.map((_, i) => Date.now() + i + Math.random());
+    const previews: (string | null)[] = filesToProcess.map((file, i) => {
+      if (fileTypes[i] === "heic" || isHeicFile(file)) return null;
+      return URL.createObjectURL(file);
+    });
+
+    // Add all files to state at once — non-heic ones appear as "queued"
+    const initialItems: UploadItem[] = filesToProcess.map((file, i) => ({
+      id: newIds[i],
+      fileName: file.name,
+      status:
+        fileTypes[i] === "heic" || isHeicFile(file)
+          ? ("heic" as const)
+          : ("queued" as const),
+      previewUrl: previews[i],
+      pieces: null,
+      savedPieceIds: [],
+      intent: null,
+    }));
+
+    setItems((prev) => [...prev, ...initialItems]);
+
+    // Process non-heic files one-by-one; they transition queued → analyzing → ready/error
+    for (let i = 0; i < filesToProcess.length; i++) {
+      if (initialItems[i].status === "heic") continue;
+
+      const file = filesToProcess[i];
+      const id = newIds[i];
+      const previewUrl = previews[i]!;
       const name =
         file.name
           .replace(/\.[^.]+$/, "")
           .replace(/[-_]+/g, " ")
           .trim() || "Clothing Item";
 
-      setItems((prev) => [
-        ...prev,
-        {
-          id,
-          fileName: file.name,
-          status: "analyzing",
-          progress: 25,
-          previewUrl,
-          pieces: null,
-          savedPieceIds: [],
-          intent: null,
-        },
-      ]);
+      // Transition: queued → analyzing
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === id ? { ...it, status: "analyzing", progress: 25 } : it,
+        ),
+      );
 
       // Fake progress ticks while the server processes (Sharp + Gemini + DB)
       const timer = setInterval(() => {
@@ -152,6 +167,20 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
           setDragover={setDragover}
           onFiles={processFiles}
         />
+
+        {items.length >= MAX_UPLOAD && (
+          <Box
+            sx={{
+              fontSize: 11,
+              color: "var(--taupe)",
+              textAlign: "center",
+              py: 1,
+              letterSpacing: "0.06em",
+            }}
+          >
+            Maximum of {MAX_UPLOAD} images reached. Remove an item to add more.
+          </Box>
+        )}
 
         {items.length > 0 && (
           <Stack gap={2}>

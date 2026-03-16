@@ -223,9 +223,10 @@ model DailyCuration {
 
   // 3 curated outfit slots (stored as JSONB)
   // Each slot: { outfit_ids: string[], rationale, styling_tip, occasion_tags, vibe }
-  slot1           Json
-  slot2           Json
-  slot3           Json
+  // Nullable: becomes null when the user dismisses that slot for the day
+  slot1           Json?
+  slot2           Json?
+  slot3           Json?
 
   // Regeneration tracking
   regenCount      Int       @default(0)

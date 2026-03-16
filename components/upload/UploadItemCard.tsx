@@ -24,7 +24,7 @@ export interface ClothingPiece {
 export interface UploadItem {
   id: number;
   fileName?: string;
-  status: "heic" | "reading" | "analyzing" | "error" | "ready";
+  status: "heic" | "reading" | "analyzing" | "queued" | "error" | "ready";
   previewUrl?: string | null;
   base64?: string | null;
   mediaType?: string | null;
@@ -134,6 +134,62 @@ export default function UploadItemCard({
           </Box>
         </Box>
       </Box>
+    );
+  }
+
+  if (item.status === "queued") {
+    return (
+      <Stack
+        direction="row"
+        sx={{
+          mb: 3,
+          border: "1px solid var(--linen)",
+          background: "var(--paper)",
+          opacity: 0.55,
+          filter: "grayscale(60%)",
+        }}
+      >
+        <Box
+          sx={{
+            width: 120,
+            flexShrink: 0,
+            minHeight: 140,
+            background: "var(--linen)",
+            position: "relative",
+          }}
+        >
+          {item.previewUrl && (
+            <img
+              src={item.previewUrl}
+              alt=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center top",
+              }}
+            />
+          )}
+        </Box>
+        <Box sx={{ flex: 1, p: "20px 24px" }}>
+          <Box
+            sx={{
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--taupe)",
+              mb: 0.75,
+            }}
+          >
+            In Queue
+          </Box>
+          <Box sx={{ fontSize: 12, color: "var(--charcoal)", lineHeight: 1.4 }}>
+            {item.fileName ?? "Waiting to upload…"}
+          </Box>
+        </Box>
+      </Stack>
     );
   }
 

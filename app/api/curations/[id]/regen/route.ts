@@ -103,11 +103,13 @@ export async function POST(
       localDate,
       regenerateSlot: slot,
       excludeWardrobeItemIds: [] as string[],
-      existingSlots: [
-        curation.slot1,
-        curation.slot2,
-        curation.slot3,
-      ] as unknown as CuratedSlot[],
+      existingSlots: (
+        [
+          curation.slot1,
+          curation.slot2,
+          curation.slot3,
+        ] as (CuratedSlot | null)[]
+      ).filter((s): s is CuratedSlot => s !== null),
       regenConfig: REGEN_CONFIG,
       validationAttempts: 0,
       startedAt: Date.now(),

@@ -598,6 +598,33 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                   : "Welcome back."}
               </p>
 
+              {/* Dev-mode autofill — only rendered when NODE_ENV=development */}
+              {process.env.NODE_ENV === "development" &&
+                mode === "email-login" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("iswapnilaryan@gmail.com");
+                      setPassword("Password@123$");
+                    }}
+                    style={{
+                      width: "100%",
+                      background: "rgba(184,142,66,0.08)",
+                      border: "1px dashed var(--gold)",
+                      color: "var(--gold)",
+                      padding: "10px 16px",
+                      fontSize: 10,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      fontFamily: "DM Sans, sans-serif",
+                      cursor: "pointer",
+                      marginBottom: 4,
+                    }}
+                  >
+                    ⚙ Dev: Fill test credentials
+                  </button>
+                )}
+
               <form
                 onSubmit={handleEmailAuth}
                 style={{ display: "flex", flexDirection: "column", gap: 14 }}

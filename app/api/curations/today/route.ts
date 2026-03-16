@@ -88,11 +88,10 @@ export async function POST(request: NextRequest) {
 
     if (cached && regenerateSlot === undefined) {
       // Full cache hit — hydrate slots with wardrobe item data then return
-      const curatedSlots = [
-        cached.slot1,
-        cached.slot2,
-        cached.slot3,
-      ] as unknown as CuratedSlot[];
+      // Filter out null slots (dismissed by the user for today)
+      const curatedSlots = (
+        [cached.slot1, cached.slot2, cached.slot3] as (CuratedSlot | null)[]
+      ).filter((s): s is CuratedSlot => s !== null);
 
       const allIds = [...new Set(curatedSlots.flatMap((s) => s.outfit_ids))];
       const wardrobeItems = await prisma.wardrobeItem.findMany({
@@ -173,12 +172,11 @@ export async function POST(request: NextRequest) {
       excludeWardrobeItemIds: [] as string[],
       regenConfig: REGEN_CONFIG,
       // On regen: carry over existing slots from cache so curate node can avoid repeating items
+      // Filter out nulls (dismissed) so the graph only sees active slots as context
       existingSlots: cached
-        ? ([
-            cached.slot1,
-            cached.slot2,
-            cached.slot3,
-          ] as unknown as CuratedSlot[])
+        ? (
+            [cached.slot1, cached.slot2, cached.slot3] as (CuratedSlot | null)[]
+          ).filter((s): s is CuratedSlot => s !== null)
         : undefined,
       validationAttempts: 0,
       startedAt: Date.now(),

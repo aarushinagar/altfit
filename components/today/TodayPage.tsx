@@ -25,6 +25,7 @@ export default function TodayPage({
     reload,
     regenerateSlot,
     regenLoadingSlot,
+    dismissSlot,
   } = useCuration(user?.id ?? null);
 
   // Defer date/greeting to client to avoid SSR hydration mismatch
@@ -213,6 +214,7 @@ export default function TodayPage({
                   slotNumber={(i + 1) as 1 | 2 | 3}
                   onRegenerate={() => regenerateSlot((i + 1) as 1 | 2 | 3)}
                   isRegenerating={regenLoadingSlot === i + 1}
+                  onDismiss={() => dismissSlot(i)}
                 />
               ))}
             </Stack>

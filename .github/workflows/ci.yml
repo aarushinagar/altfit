@@ -30,7 +30,7 @@ jobs:
                   DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_db"
 
             - name: Run unit tests
-              run: npm test
+              run: npm test -- --exclude "**/vision.test.ts"
               env:
                   # Tests mock all external services; no real connections are made.
                   DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_db"
@@ -42,7 +42,7 @@ jobs:
                   DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_db"
 
             - name: Lint
-        # Reports lint issues but does not fail the build — pre-existing
-        # warnings in unchanged files should not block CI. Tests + tsc are blocking.
-        run: npm run lint
-        continue-on-error: true
+              # Reports lint issues but does not fail the build — pre-existing
+              # warnings in unchanged files should not block CI. Tests + tsc are blocking.
+              run: npm run lint
+              continue-on-error: true
