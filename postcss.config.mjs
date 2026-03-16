@@ -1,7 +1,7 @@
+// Tailwind has been removed — styling is handled by MUI + CSS variables.
+// PostCSS is kept for any future plugins (autoprefixer, etc.).
 const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
+  plugins: {},
 };
 
 export default config;

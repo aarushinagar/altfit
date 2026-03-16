@@ -6,7 +6,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import {
+  generateOutfit as generateOutfitAction,
+  markOutfitWorn as markOutfitWornAction,
+} from "@/lib/actions/outfit";
 import { OutfitResponse } from "@/types/api";
 
 export interface UseOutfitReturn {
@@ -39,38 +42,10 @@ export function useOutfit(): UseOutfitReturn {
   const [total, setTotal] = useState(0);
 
   const loadOutfits = useCallback(
-    async (worn?: boolean, limit: number = 50, offset: number = 0) => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        console.log("[Outfit Hook] Loading outfits", { worn, limit, offset });
-        const response = await apiClient.outfit.getOutfits({
-          worn,
-          limit,
-          offset,
-        });
-
-        if (response.success && response.data) {
-          setOutfits(response.data.outfits);
-          setTotal(response.data.total);
-          console.log(
-            "[Outfit Hook] Loaded",
-            response.data.outfits.length,
-            "outfits",
-          );
-        } else {
-          const errorMsg = response.error || "Failed to load outfits";
-          setError(errorMsg);
-          console.error("[Outfit Hook] Load error:", errorMsg);
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Unknown error";
-        setError(errorMsg);
-        console.error("[Outfit Hook] Error:", errorMsg);
-      } finally {
-        setIsLoading(false);
-      }
+    async (_worn?: boolean, _limit: number = 50, _offset: number = 0) => {
+      // getOutfits endpoint not yet implemented; outfits are generated on demand
+      setOutfits([]);
+      setTotal(0);
     },
     [],
   );
@@ -90,7 +65,7 @@ export function useOutfit(): UseOutfitReturn {
           season,
           mood,
         });
-        const response = await apiClient.outfit.generateOutfit({
+        const response = await generateOutfitAction({
           occasion,
           season,
           mood,
@@ -130,7 +105,7 @@ export function useOutfit(): UseOutfitReturn {
 
       try {
         console.log("[Outfit Hook] Marking outfit as worn:", id);
-        const response = await apiClient.outfit.markOutfitWorn(id, worn);
+        const response = await markOutfitWornAction(id, worn);
 
         if (response.success && response.data) {
           setOutfits(

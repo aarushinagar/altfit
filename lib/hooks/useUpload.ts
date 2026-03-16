@@ -6,7 +6,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { uploadImage as uploadImageAction } from "@/lib/actions/upload";
 import { UploadResponse } from "@/types/api";
 
 export interface UseUploadReturn {
@@ -55,7 +55,7 @@ export function useUpload(): UseUploadReturn {
         );
         setProgress(10);
 
-        const response = await apiClient.upload.uploadImage(file);
+        const response = await uploadImageAction(file);
 
         setProgress(100);
 
@@ -81,31 +81,9 @@ export function useUpload(): UseUploadReturn {
     [],
   );
 
-  const deleteImage = useCallback(async (path: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log("[Upload Hook] Deleting image:", path);
-      const response = await apiClient.upload.deleteImage(path);
-
-      if (response.success) {
-        console.log("[Upload Hook] Image deleted:", path);
-        return true;
-      } else {
-        const errorMsg = response.error || "Delete failed";
-        setError(errorMsg);
-        console.error("[Upload Hook] Delete error:", errorMsg);
-        return false;
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Unknown error";
-      setError(errorMsg);
-      console.error("[Upload Hook] Error:", errorMsg);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
+  const deleteImage = useCallback(async (_path: string): Promise<boolean> => {
+    // delete endpoint not yet implemented
+    return false;
   }, []);
 
   return {

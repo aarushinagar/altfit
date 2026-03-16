@@ -1,26 +1,23 @@
-@import "tailwindcss";
+/*
+ * globals.css — intentionally minimal.
+ *
+ * Design tokens (colors, fonts, breakpoints) live in:  lib/theme/tokens.ts
+ * MUI theme overrides live in:                         lib/theme/muiTheme.ts
+ * CSS custom properties (:root vars) are injected by:  lib/theme/CssVariables.tsx
+ * CSS reset + body styles come from:                   MUI CssBaseline
+ *
+ * Only add truly global styles here that cannot go through MUI.
+ */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Page-level padding accounts for fixed nav/tab bars */
+.page {
+  min-height: 100vh;
+  padding-top: 60px;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@media (min-width: 768px) {
+  .page {
+    padding-top: 72px;
+    padding-bottom: 0;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

@@ -13,16 +13,18 @@ import React, {
   ReactNode,
 } from "react";
 import {
-  apiClient,
-  AuthState,
-  getStoredUser,
-  getAuthToken,
-} from "@/lib/api-client";
+  registerUser,
+  loginUser,
+  googleAuthUser,
+  logoutUser,
+} from "@/lib/actions/auth";
+import { getStoredUser, getAuthToken } from "@/lib/utils/authUtils";
+import type { AuthPayload } from "@/types/api";
 
 export interface UseAuthReturn {
   isLoading: boolean;
   isLoggedIn: boolean;
-  user: AuthState["user"] | null;
+  user: AuthPayload["user"] | null;
   register: (email: string, password: string, name: string) => Promise<boolean>;
   login: (email: string, password: string) => Promise<boolean>;
   googleAuth: (credential: string) => Promise<boolean>;
@@ -41,7 +43,7 @@ const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<AuthState["user"] | null>(null);
+  const [user, setUser] = useState<AuthPayload["user"] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize auth state from localStorage
@@ -71,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const response = await apiClient.auth.register(email, password, name);
+        const response = await registerUser(email, password, name);
 
         if (response.success && response.data) {
           setUser(response.data.user);
@@ -99,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const response = await apiClient.auth.login(email, password);
+        const response = await loginUser(email, password);
 
         if (response.success && response.data) {
           setUser(response.data.user);
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const response = await apiClient.auth.googleAuth(credential);
+        const response = await googleAuthUser(credential);
 
         if (response.success && response.data) {
           setUser(response.data.user);
@@ -154,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      await apiClient.auth.logout();
+      await logoutUser();
       setUser(null);
       setIsLoggedIn(false);
     } catch (err) {

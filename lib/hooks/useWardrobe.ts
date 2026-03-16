@@ -6,7 +6,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { apiClient, WardrobeCreatePayload } from "@/lib/api-client";
+import {
+  getWardrobeItems,
+  getWardrobeItem,
+  createWardrobeItem,
+  updateWardrobeItem,
+  deleteWardrobeItem,
+  type WardrobeCreatePayload,
+} from "@/lib/actions/wardrobe";
 import { WardrobeItemResponse } from "@/types/api";
 
 export interface UseWardrobeReturn {
@@ -49,11 +56,7 @@ export function useWardrobe(): UseWardrobeReturn {
           limit,
           offset,
         });
-        const response = await apiClient.wardrobe.getItems({
-          category,
-          limit,
-          offset,
-        });
+        const response = await getWardrobeItems(category, limit, offset);
 
         if (response.success && response.data) {
           setItems(response.data.items);
@@ -88,7 +91,7 @@ export function useWardrobe(): UseWardrobeReturn {
 
       try {
         console.log("[Wardrobe Hook] Creating item:", payload.name);
-        const response = await apiClient.wardrobe.createItem(payload);
+        const response = await createWardrobeItem(payload);
 
         if (response.success && response.data) {
           setItems([response.data, ...items]);
@@ -123,7 +126,7 @@ export function useWardrobe(): UseWardrobeReturn {
 
       try {
         console.log("[Wardrobe Hook] Updating item:", id);
-        const response = await apiClient.wardrobe.updateItem(id, updates);
+        const response = await updateWardrobeItem(id, updates);
 
         if (response.success && response.data) {
           setItems(
@@ -156,7 +159,7 @@ export function useWardrobe(): UseWardrobeReturn {
 
       try {
         console.log("[Wardrobe Hook] Deleting item:", id);
-        const response = await apiClient.wardrobe.deleteItem(id);
+        const response = await deleteWardrobeItem(id);
 
         if (response.success) {
           setItems(items.filter((item) => item.id !== id));
@@ -188,7 +191,7 @@ export function useWardrobe(): UseWardrobeReturn {
 
       try {
         console.log("[Wardrobe Hook] Getting item:", id);
-        const response = await apiClient.wardrobe.getItem(id);
+        const response = await getWardrobeItem(id);
 
         if (response.success && response.data) {
           console.log("[Wardrobe Hook] Got item:", id);
