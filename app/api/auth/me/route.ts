@@ -18,7 +18,10 @@ import {
   getAuthenticatedUserId,
   authenticateRequest,
 } from "@/backend/database/auth-middleware";
-import { successResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       console.warn(`[Auth Me] User not found: ${userId}`);
-      return successResponse(null, "User not found", 404);
+      return errorResponse("User not found", 404);
     }
 
     console.log(`[Auth Me] Retrieved user: ${user.id}`);
