@@ -11,13 +11,13 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
-import { successResponse } from "@/lib/api-response";
-import { clearRefreshTokenCookie } from "@/lib/jwt";
+} from "@/backend/database/auth-middleware";
+import { successResponse } from "@/backend/database/api-response";
+import { clearRefreshTokenCookie } from "@/backend/database/jwt";
 
 export async function POST(request: NextRequest) {
   try {

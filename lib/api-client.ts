@@ -161,7 +161,11 @@ async function apiRequest<T>(
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("auth:logout"));
       }
-      return { success: false, error: "Session expired. Please log in again." };
+      return {
+        success: false,
+        error: "Session expired. Please log in again.",
+        statusCode: 401,
+      };
     }
 
     if (!response.ok) {
@@ -175,17 +179,19 @@ async function apiRequest<T>(
       return {
         success: false,
         error: errorMsg,
+        statusCode: response.status,
       };
     }
 
     console.log(`[API Client] Success:`, data);
-    return data;
+    return data as unknown as ApiResponse<T>;
   } catch (error) {
     console.error(`[API Client] Request failed:`, error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return {
       success: false,
       error: message,
+      statusCode: 500,
     };
   }
 }

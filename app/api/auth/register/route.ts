@@ -27,19 +27,20 @@
 
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   generateAccessToken,
   generateRefreshToken,
   setRefreshTokenCookie,
-} from "@/lib/jwt";
+} from "@/backend/database/jwt";
 import {
   successResponse,
   errorResponse,
   validateRequired,
   isValidEmail,
   validatePassword,
-} from "@/lib/api-response";
+} from "@/backend/database/api-response";
+import { generateSnowflakeId } from "@/backend/database/snowflake";
 import type { RegisterRequest, AuthPayload } from "@/types/api";
 
 export async function POST(request: NextRequest) {
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     // Create user
     const user = await prisma.user.create({
       data: {
+        id: generateSnowflakeId(),
         email,
         name: name || null,
         passwordHash,
@@ -114,6 +116,7 @@ export async function POST(request: NextRequest) {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 2); // Lower rounds for token storage
     await prisma.session.create({
       data: {
+        id: generateSnowflakeId(),
         userId: user.id,
         token: refreshTokenHash,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days

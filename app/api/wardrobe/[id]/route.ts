@@ -10,14 +10,14 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
   isUserAuthorized,
-} from "@/lib/auth-middleware";
-import { deleteImage } from "@/lib/supabase";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/auth-middleware";
+import { deleteImage } from "@/backend/database/supabase";
+import { successResponse, errorResponse } from "@/backend/database/api-response";
 import type { WardrobeItemResponse } from "@/types/api";
 
 export async function GET(

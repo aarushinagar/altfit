@@ -1,10 +1,14 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/auth-middleware";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
+import { generateSnowflakeId } from "@/backend/database/snowflake";
 import type { WardrobeItemRequest } from "@/types/api";
 
 /**
@@ -43,6 +47,7 @@ export async function POST(request: NextRequest) {
       items.map((item) =>
         prisma.wardrobeItem.create({
           data: {
+            id: generateSnowflakeId(),
             userId,
             name: item.name,
             category: item.category,
@@ -73,7 +78,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("[wardrobe/bulk POST] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Bulk create failed", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Bulk create failed",
+      500,
+    );
   }
 }
 
@@ -109,6 +117,9 @@ export async function DELETE(request: NextRequest) {
     return successResponse({ deleted: count }, `${count} items deleted`);
   } catch (error) {
     console.error("[wardrobe/bulk DELETE] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Bulk delete failed", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Bulk delete failed",
+      500,
+    );
   }
 }

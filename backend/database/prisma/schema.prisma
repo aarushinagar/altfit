@@ -14,7 +14,7 @@ datasource db {
 // ── USERS ──────────────────────────────────────────────────────
 // Row Level Security: Users can only access their own records
 model User {
-  id           String   @id @default(cuid())
+  id           String   @id
   email        String   @unique
   name         String?
   avatar       String?  // Supabase Storage URL or Google picture URL
@@ -43,7 +43,7 @@ model User {
 // ── SESSIONS (for JWT refresh tokens) ──────────────────────────
 // Row Level Security: Users can only access their own sessions
 model Session {
-  id        String   @id @default(cuid())
+  id        String   @id
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique // hashed refresh token
@@ -57,7 +57,7 @@ model Session {
 // ── WARDROBE ITEMS ─────────────────────────────────────────────
 // Row Level Security: Users can only access their own items
 model WardrobeItem {
-  id     String @id @default(cuid())
+  id     String @id
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -97,7 +97,7 @@ model WardrobeItem {
 // ── OUTFITS ────────────────────────────────────────────────────
 // Row Level Security: Users can only access their own outfits
 model Outfit {
-  id     String @id @default(cuid())
+  id     String @id
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -123,7 +123,7 @@ model Outfit {
 // ── OUTFIT ITEMS ───────────────────────────────────────────────
 // Row Level Security: Enforced via Outfit relationship
 model OutfitItem {
-  id             String       @id @default(cuid())
+  id             String       @id
   outfitId       String
   outfit         Outfit       @relation(fields: [outfitId], references: [id], onDelete: Cascade)
   wardrobeItemId String
@@ -137,7 +137,7 @@ model OutfitItem {
 // ── SUBSCRIPTIONS ──────────────────────────────────────────────
 // Row Level Security: Users can only access their own subscriptions
 model Subscription {
-  id     String @id @default(cuid())
+  id     String @id
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 

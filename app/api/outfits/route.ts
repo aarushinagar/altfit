@@ -12,12 +12,16 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/auth-middleware";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
+import { generateSnowflakeId } from "@/backend/database/snowflake";
 import type { OutfitResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
@@ -136,8 +140,10 @@ export async function POST(request: NextRequest) {
     }
 
     const outfit = await prisma.$transaction(async (tx) => {
+      const outfitId = generateSnowflakeId();
       const created = await tx.outfit.create({
         data: {
+          id: outfitId,
           userId,
           occasion: occasion ?? null,
           reasoning: reasoning ?? null,
@@ -147,6 +153,7 @@ export async function POST(request: NextRequest) {
 
       await tx.outfitItem.createMany({
         data: ownedItems.map((item, i) => ({
+          id: generateSnowflakeId(),
           outfitId: created.id,
           wardrobeItemId: item.id,
           role:

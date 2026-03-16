@@ -32,9 +32,9 @@
  */
 
 import { NextRequest } from "next/server";
-import { extractAccessToken } from "@/lib/auth-middleware";
-import { successResponse, errorResponse } from "@/lib/api-response";
-import { verifyToken } from "@/lib/jwt";
+import { extractAccessToken } from "@/backend/database/auth-middleware";
+import { successResponse, errorResponse } from "@/backend/database/api-response";
+import { verifyToken } from "@/backend/database/jwt";
 
 export async function GET(request: NextRequest) {
   try {

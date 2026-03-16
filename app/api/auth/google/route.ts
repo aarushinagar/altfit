@@ -20,17 +20,18 @@
 
 import { NextRequest } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   generateAccessToken,
   generateRefreshToken,
   setRefreshTokenCookie,
-} from "@/lib/jwt";
+} from "@/backend/database/jwt";
 import {
   successResponse,
   errorResponse,
   validateRequired,
-} from "@/lib/api-response";
+} from "@/backend/database/api-response";
+import { generateSnowflakeId } from "@/backend/database/snowflake";
 import bcrypt from "bcryptjs";
 import type { GoogleAuthRequest, AuthPayload } from "@/types/api";
 
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
         console.log(`[Auth Google] Creating new user from Google: ${email}`);
         user = await prisma.user.create({
           data: {
+            id: generateSnowflakeId(),
             email,
             name: name || null,
             avatar: picture || null,
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest) {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 2);
     await prisma.session.create({
       data: {
+        id: generateSnowflakeId(),
         userId: user.id,
         token: refreshTokenHash,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days

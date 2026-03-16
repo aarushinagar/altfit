@@ -10,13 +10,13 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
   isUserAuthorized,
-} from "@/lib/auth-middleware";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/auth-middleware";
+import { successResponse, errorResponse } from "@/backend/database/api-response";
 import type { OutfitResponse } from "@/types/api";
 
 export async function PATCH(

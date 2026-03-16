@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
-import { successResponse, errorResponse } from "@/lib/api-response";
-import { deleteImage } from "@/lib/supabase";
+} from "@/backend/database/auth-middleware";
+import { successResponse, errorResponse } from "@/backend/database/api-response";
+import { deleteImage } from "@/backend/database/supabase";
 
 /**
  * DELETE /api/user/account

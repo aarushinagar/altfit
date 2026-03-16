@@ -22,16 +22,17 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
+} from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
   validateRequired,
-} from "@/lib/api-response";
+} from "@/backend/database/api-response";
+import { generateSnowflakeId } from "@/backend/database/snowflake";
 import type { WardrobeItemRequest, WardrobeItemResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
@@ -161,6 +162,7 @@ export async function POST(request: NextRequest) {
     // Create item with user isolation
     const item = await prisma.wardrobeItem.create({
       data: {
+        id: generateSnowflakeId(),
         userId,
         name,
         category,

@@ -21,9 +21,15 @@ import { NextRequest } from "next/server";
 import {
   getAuthenticatedUserId,
   authenticateRequest,
-} from "@/lib/auth-middleware";
-import { uploadImage, generateUserStoragePath } from "@/lib/supabase";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/auth-middleware";
+import {
+  uploadImage,
+  generateUserStoragePath,
+} from "@/backend/database/supabase";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 import type { UploadResponse } from "@/types/api";
 
 // Max file size: 5MB
@@ -140,7 +146,8 @@ export async function DELETE(request: NextRequest) {
     console.log(`[Upload Delete] Deleting file: ${path}`);
 
     // Delete from Supabase
-    await import("@/lib/supabase").then(({ deleteImage }) => deleteImage(path));
+    const { deleteImage } = await import("@/backend/database/supabase");
+    await deleteImage(path);
 
     console.log(`[Upload Delete] File deleted successfully: ${path}`);
 

@@ -5,7 +5,7 @@
  * Usage: npx ts-node prisma/init-db.ts
  */
 
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 
 async function main() {
   console.log("[DB Init] Starting database initialization...");

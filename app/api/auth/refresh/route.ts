@@ -16,15 +16,15 @@
 
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/prisma";
+import prisma from "@/backend/database/prisma";
 import {
   verifyToken,
   generateAccessToken,
   generateRefreshToken,
   setRefreshTokenCookie,
   getRefreshTokenFromCookie,
-} from "@/lib/jwt";
-import { successResponse, errorResponse } from "@/lib/api-response";
+} from "@/backend/database/jwt";
+import { successResponse, errorResponse } from "@/backend/database/api-response";
 import type { AuthPayload } from "@/types/api";
 
 export async function POST(request: NextRequest) {
