@@ -4,7 +4,10 @@ import {
   getAuthenticatedUserId,
   authenticateRequest,
 } from "@/backend/database/auth-middleware";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 
 /**
  * GET /api/user/subscription
@@ -18,7 +21,7 @@ export async function GET(request: NextRequest) {
     const userId = getAuthenticatedUserId(request);
 
     const subscription = await prisma.subscription.findUnique({
-      where: { userId },
+      where: { userId: BigInt(userId) },
       select: {
         id: true,
         userId: true,
@@ -34,7 +37,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[user/subscription GET] Error:", error);
     return errorResponse(
-      error instanceof Error ? error.message : "Failed to retrieve subscription",
+      error instanceof Error
+        ? error.message
+        : "Failed to retrieve subscription",
       500,
     );
   }

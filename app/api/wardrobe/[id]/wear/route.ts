@@ -5,7 +5,10 @@ import {
   authenticateRequest,
   isUserAuthorized,
 } from "@/backend/database/auth-middleware";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 
 export async function POST(
   request: NextRequest,
@@ -18,16 +21,18 @@ export async function POST(
     const userId = getAuthenticatedUserId(request);
     const { id } = await params;
 
-    const item = await prisma.wardrobeItem.findUnique({ where: { id } });
+    const item = await prisma.wardrobeItem.findUnique({
+      where: { id: BigInt(id) },
+    });
     if (!item) {
       return errorResponse("Wardrobe item not found", 404);
     }
-    if (!isUserAuthorized(userId, item.userId)) {
+    if (!isUserAuthorized(userId, item.userId.toString())) {
       return errorResponse("Forbidden", 403);
     }
 
     const updated = await prisma.wardrobeItem.update({
-      where: { id },
+      where: { id: BigInt(id) },
       data: {
         wearCount: { increment: 1 },
         lastWornAt: new Date(),
@@ -38,6 +43,9 @@ export async function POST(
     return successResponse(updated, "Wear recorded");
   } catch (error) {
     console.error("[wardrobe/wear] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Failed to record wear", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to record wear",
+      500,
+    );
   }
 }

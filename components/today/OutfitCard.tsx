@@ -1,5 +1,6 @@
 "use client";
 
+import { Box, Stack } from "@mui/material";
 import PieceCard from "@/components/today/PieceCard";
 
 interface OutfitPiece {
@@ -48,40 +49,41 @@ export default function OutfitCard({
         <span className="outfit-card-title">Today&apos;s Outfit</span>
         <span className="occasion-tag">{outfit.occasion}</span>
       </div>
-      <div
+      <Box
         className="outfit-pieces"
-        style={{
+        sx={{
           gridTemplateColumns: `repeat(${Math.min(outfit.pieces.length, 4)}, 1fr)`,
         }}
       >
         {outfit.pieces.map(({ role, item }) => (
           <PieceCard key={item.id} role={role} item={item} />
         ))}
-      </div>
+      </Box>
       {outfit.colorStory && (
-        <div
-          style={{
-            padding: "10px 24px",
-            background: "var(--ink)",
-            display: "flex",
-            alignItems: "center",
-          }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          sx={{ padding: "10px 24px", background: "var(--ink)" }}
         >
-          <span
-            style={{
+          <Box
+            component="span"
+            sx={{
               fontSize: 10,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
               color: "var(--gold)",
-              marginRight: 8,
+              mr: 1,
             }}
           >
             Color Story
-          </span>
-          <span style={{ fontSize: 11, color: "var(--cream)", opacity: 0.8 }}>
+          </Box>
+          <Box
+            component="span"
+            sx={{ fontSize: 11, color: "var(--cream)", opacity: 0.8 }}
+          >
             {outfit.colorStory}
-          </span>
-        </div>
+          </Box>
+        </Stack>
       )}
       <div className="outfit-reasoning">
         <span className="reasoning-icon">✦</span>

@@ -17,7 +17,10 @@ import {
   isUserAuthorized,
 } from "@/backend/database/auth-middleware";
 import { deleteImage } from "@/backend/database/supabase";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 import type { WardrobeItemResponse } from "@/types/api";
 
 export async function GET(
@@ -36,7 +39,7 @@ export async function GET(
 
     // Get item
     const item = await prisma.wardrobeItem.findUnique({
-      where: { id },
+      where: { id: BigInt(id) },
     });
 
     if (!item) {
@@ -45,7 +48,7 @@ export async function GET(
     }
 
     // Check user isolation
-    if (!isUserAuthorized(userId, item.userId)) {
+    if (!isUserAuthorized(userId, item.userId.toString())) {
       return errorResponse("Unauthorized", 403);
     }
 
@@ -53,8 +56,8 @@ export async function GET(
 
     return successResponse(
       {
-        id: item.id,
-        userId: item.userId,
+        id: item.id.toString(),
+        userId: item.userId.toString(),
         name: item.name,
         category: item.category,
         imageUrl: item.imageUrl,
@@ -103,7 +106,7 @@ export async function PATCH(
 
     // Get item
     const item = await prisma.wardrobeItem.findUnique({
-      where: { id },
+      where: { id: BigInt(id) },
     });
 
     if (!item) {
@@ -112,7 +115,7 @@ export async function PATCH(
     }
 
     // Check user isolation
-    if (!isUserAuthorized(userId, item.userId)) {
+    if (!isUserAuthorized(userId, item.userId.toString())) {
       return errorResponse("Unauthorized", 403);
     }
 
@@ -120,7 +123,7 @@ export async function PATCH(
 
     // Update item
     const updatedItem = await prisma.wardrobeItem.update({
-      where: { id },
+      where: { id: BigInt(id) },
       data: {
         ...(body.name && { name: body.name }),
         ...(body.category && { category: body.category }),
@@ -143,8 +146,8 @@ export async function PATCH(
 
     return successResponse(
       {
-        id: updatedItem.id,
-        userId: updatedItem.userId,
+        id: updatedItem.id.toString(),
+        userId: updatedItem.userId.toString(),
         name: updatedItem.name,
         category: updatedItem.category,
         imageUrl: updatedItem.imageUrl,
@@ -192,7 +195,7 @@ export async function DELETE(
 
     // Get item
     const item = await prisma.wardrobeItem.findUnique({
-      where: { id },
+      where: { id: BigInt(id) },
     });
 
     if (!item) {
@@ -201,7 +204,7 @@ export async function DELETE(
     }
 
     // Check user isolation
-    if (!isUserAuthorized(userId, item.userId)) {
+    if (!isUserAuthorized(userId, item.userId.toString())) {
       return errorResponse("Unauthorized", 403);
     }
 
@@ -221,7 +224,7 @@ export async function DELETE(
 
     // Delete item from database
     await prisma.wardrobeItem.delete({
-      where: { id },
+      where: { id: BigInt(id) },
     });
 
     console.log(`[Wardrobe Delete Item] Item deleted: ${id}`);

@@ -4,7 +4,10 @@ import {
   getAuthenticatedUserId,
   authenticateRequest,
 } from "@/backend/database/auth-middleware";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 
 /**
  * GET /api/user/profile
@@ -18,7 +21,7 @@ export async function GET(request: NextRequest) {
     const userId = getAuthenticatedUserId(request);
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: BigInt(userId) },
       select: {
         id: true,
         email: true,
@@ -40,7 +43,10 @@ export async function GET(request: NextRequest) {
     return successResponse(user, "Profile retrieved");
   } catch (error) {
     console.error("[user/profile GET] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Failed to retrieve profile", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to retrieve profile",
+      500,
+    );
   }
 }
 
@@ -70,7 +76,7 @@ export async function PATCH(request: NextRequest) {
     if (avatar !== undefined) data.avatar = avatar;
 
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: BigInt(userId) },
       data,
       select: {
         id: true,
@@ -88,6 +94,9 @@ export async function PATCH(request: NextRequest) {
     return successResponse(user, "Profile updated");
   } catch (error) {
     console.error("[user/profile PATCH] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Failed to update profile", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to update profile",
+      500,
+    );
   }
 }

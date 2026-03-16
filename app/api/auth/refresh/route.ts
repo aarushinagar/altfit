@@ -24,7 +24,10 @@ import {
   setRefreshTokenCookie,
   getRefreshTokenFromCookie,
 } from "@/backend/database/jwt";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 import type { AuthPayload } from "@/types/api";
 
 export async function POST(request: NextRequest) {
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Find user and session
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: BigInt(payload.userId) },
     });
 
     if (!user) {
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Generate new tokens
     const newPayload = {
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
       provider: user.provider,
     };
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
       {
         accessToken,
         user: {
-          id: user.id,
+          id: user.id.toString(),
           email: user.email,
           name: user.name,
           avatar: user.avatar,

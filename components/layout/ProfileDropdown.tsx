@@ -1,5 +1,7 @@
 "use client";
 
+import { Box, Stack } from "@mui/material";
+
 interface ProfileDropdownProps {
   user: { name?: string | null; email?: string | null } | null;
   plan: string | null;
@@ -21,12 +23,12 @@ export default function ProfileDropdown({
 }: ProfileDropdownProps) {
   return (
     <>
-      <div
+      <Box
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, zIndex: 149 }}
+        sx={{ position: "fixed", inset: 0, zIndex: 149 }}
       />
-      <div
-        style={{
+      <Box
+        sx={{
           position: "absolute",
           top: "calc(100% + 10px)",
           right: 0,
@@ -39,8 +41,8 @@ export default function ProfileDropdown({
         }}
       >
         {!isMobile && (
-          <div
-            style={{
+          <Box
+            sx={{
               position: "absolute",
               top: -5,
               right: 14,
@@ -54,14 +56,14 @@ export default function ProfileDropdown({
             }}
           />
         )}
-        <div
-          style={{
+        <Box
+          sx={{
             padding: isMobile ? "16px 18px 12px" : "18px 20px 14px",
             borderBottom: "1px solid var(--linen)",
           }}
         >
-          <div
-            style={{
+          <Box
+            sx={{
               fontSize: 13,
               fontWeight: 500,
               color: "var(--ink)",
@@ -69,38 +71,38 @@ export default function ProfileDropdown({
             }}
           >
             {user?.name || "—"}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--taupe)", fontWeight: 300 }}>
+          </Box>
+          <Box sx={{ fontSize: 11, color: "var(--taupe)", fontWeight: 300 }}>
             {user?.email || ""}
-          </div>
+          </Box>
           {plan ? (
-            <div
-              style={{
+            <Box
+              sx={{
                 fontSize: 9,
                 letterSpacing: "0.12em",
-                textTransform: "uppercase" as const,
+                textTransform: "uppercase",
                 color: "var(--gold)",
-                marginTop: 6,
+                marginTop: "6px",
                 fontWeight: isMobile ? undefined : 500,
               }}
             >
               {isMobile ? `Pro · ${plan}` : `✦ Pro · ${plan}`}
-            </div>
+            </Box>
           ) : !isMobile ? (
-            <div
-              style={{
+            <Box
+              sx={{
                 fontSize: 9,
                 letterSpacing: "0.1em",
-                textTransform: "uppercase" as const,
+                textTransform: "uppercase",
                 color: "var(--taupe)",
-                marginTop: 6,
+                marginTop: "6px",
               }}
             >
               Free · {10 - savedItemCount} uploads left
-            </div>
+            </Box>
           ) : null}
-        </div>
-        <div style={{ padding: "8px 0" }}>
+        </Box>
+        <Box sx={{ padding: "8px 0" }}>
           {[
             {
               label: "Style Profile",
@@ -142,14 +144,17 @@ export default function ProfileDropdown({
               }
               onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
             >
-              <span style={{ color: "var(--gold)", fontSize: 13, width: 16 }}>
+              <Box
+                component="span"
+                sx={{ color: "var(--gold)", fontSize: 13, width: 16 }}
+              >
                 {icon}
-              </span>
+              </Box>
               {label}
             </button>
           ))}
-          <div
-            style={{
+          <Box
+            sx={{
               height: 1,
               background: "var(--linen)",
               margin: "6px 0",
@@ -180,11 +185,13 @@ export default function ProfileDropdown({
             }
             onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
           >
-            <span style={{ fontSize: 13, width: 16 }}>↩</span>
+            <Box component="span" sx={{ fontSize: 13, width: 16 }}>
+              ↩
+            </Box>
             Sign Out
           </button>
-        </div>
-      </div>
+        </Box>
+      </Box>
     </>
   );
 }

@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
     );
 
     // Build query
-    const where: { userId: string; worn?: boolean } = { userId };
+    const where: { userId: bigint; worn?: boolean } = {
+      userId: BigInt(userId),
+    };
     if (worn !== null) {
       where.worn = worn === "true";
     }
@@ -69,8 +71,8 @@ export async function GET(request: NextRequest) {
     );
 
     const response: OutfitResponse[] = outfits.map((outfit) => ({
-      id: outfit.id,
-      userId: outfit.userId,
+      id: outfit.id.toString(),
+      userId: outfit.userId.toString(),
       occasion: outfit.occasion,
       reasoning: outfit.reasoning,
       colorStory: outfit.colorStory,
@@ -81,7 +83,11 @@ export async function GET(request: NextRequest) {
       worn: outfit.worn,
       wornAt: outfit.wornAt?.toISOString() || null,
       createdAt: outfit.createdAt.toISOString(),
-      items: outfit.items,
+      items: outfit.items.map((item) => ({
+        id: item.id.toString(),
+        wardrobeItemId: item.wardrobeItemId.toString(),
+        role: item.role,
+      })),
     }));
 
     return successResponse(
@@ -128,7 +134,10 @@ export async function POST(request: NextRequest) {
 
     // Verify all items belong to this user
     const ownedItems = await prisma.wardrobeItem.findMany({
-      where: { id: { in: wardrobeItemIds }, userId },
+      where: {
+        id: { in: wardrobeItemIds.map(BigInt) },
+        userId: BigInt(userId),
+      },
       select: { id: true },
     });
 
@@ -144,7 +153,7 @@ export async function POST(request: NextRequest) {
       const created = await tx.outfit.create({
         data: {
           id: outfitId,
-          userId,
+          userId: BigInt(userId),
           occasion: occasion ?? null,
           reasoning: reasoning ?? null,
           colorStory: colorStory ?? null,

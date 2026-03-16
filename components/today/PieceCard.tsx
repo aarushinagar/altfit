@@ -1,5 +1,6 @@
 "use client";
 
+import { Box } from "@mui/material";
 import WardrobeImage from "@/components/common/WardrobeImage";
 
 interface PieceItem {
@@ -21,23 +22,25 @@ interface PieceCardProps {
 export default function PieceCard({ role, item }: PieceCardProps) {
   return (
     <div className="outfit-piece">
-      <div
+      <Box
         className="piece-visual"
-        style={{
+        sx={{
           background:
             item.imageUrl || item.previewUrl
               ? "#ede9e3"
               : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}22`,
-          padding: 0,
+          p: 0,
           overflow: "hidden",
         }}
       >
         {item.imageUrl || item.previewUrl ? (
           <WardrobeImage item={item} />
         ) : (
-          <span style={{ fontSize: 32 }}>{item.emoji || "👗"}</span>
+          <Box component="span" sx={{ fontSize: 32 }}>
+            {item.emoji || "👗"}
+          </Box>
         )}
-      </div>
+      </Box>
       <div className="piece-label">{role}</div>
       <div className="piece-name">{item.name}</div>
     </div>

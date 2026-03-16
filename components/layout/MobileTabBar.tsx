@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box, Stack } from "@mui/material";
 import ProfileDropdown from "./ProfileDropdown";
 
 interface MobileTabBarProps {
@@ -25,12 +26,12 @@ export default function MobileTabBar({
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <div className="tab-bar">
+    <Box className="tab-bar">
       <button
         className={`tab-item ${page === "today" ? "active" : ""}`}
         onClick={() => onPageChange("today")}
       >
-        <span className="tab-icon">✦</span>
+        <span className="tab-icon">❆</span>
         <span className="tab-label">Today</span>
       </button>
       <button
@@ -43,17 +44,17 @@ export default function MobileTabBar({
         </span>
       </button>
       <button className="tab-upload-btn" onClick={() => onPageChange("upload")}>
-        <div
+        <Box
           className="tab-upload-inner"
-          style={{
+          sx={{
             background: page === "upload" ? "var(--gold)" : "var(--ink)",
           }}
         >
           +
-        </div>
+        </Box>
       </button>
-      <div
-        style={{
+      <Box
+        sx={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
@@ -68,15 +69,16 @@ export default function MobileTabBar({
           style={{ width: "100%", flex: "unset" }}
         >
           <span className="tab-icon" style={{ fontSize: 18 }}>
-            <span
-              style={{
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              component="span"
+              sx={{
                 width: 26,
                 height: 26,
                 borderRadius: "50%",
                 background: "var(--ink)",
                 display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
                 fontFamily: "Cormorant Garamond, serif",
                 fontSize: 13,
                 color: "var(--cream)",
@@ -84,7 +86,7 @@ export default function MobileTabBar({
               }}
             >
               {(user?.name || "U").charAt(0).toUpperCase()}
-            </span>
+            </Stack>
           </span>
           <span className="tab-label">Profile</span>
         </button>
@@ -99,7 +101,7 @@ export default function MobileTabBar({
             isMobile
           />
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Box } from "@mui/material";
 import WardrobeImage from "@/components/common/WardrobeImage";
 
 export interface WardrobeItem {
@@ -35,14 +36,14 @@ export default function WardrobeItemCard({
   onClick,
 }: WardrobeItemCardProps) {
   return (
-    <div
+    <Box
       className="wardrobe-item"
-      style={{ animationDelay: `${animDelay}s` }}
+      sx={{ animationDelay: `${animDelay}s` }}
       onClick={() => onClick(item)}
     >
-      <div
+      <Box
         className="item-image"
-        style={{
+        sx={{
           background:
             item.imageUrl || item.previewUrl
               ? "#f0ece6"
@@ -55,11 +56,14 @@ export default function WardrobeItemCard({
             style={{ position: "absolute", inset: 0 }}
           />
         ) : (
-          <span style={{ fontSize: 44, position: "relative", zIndex: 1 }}>
+          <Box
+            component="span"
+            sx={{ fontSize: 44, position: "relative", zIndex: 1 }}
+          >
             {item.emoji || "👗"}
-          </span>
+          </Box>
         )}
-      </div>
+      </Box>
       <div className="item-info">
         <div className="item-type">{item.category || item.type}</div>
         <div className="item-name">{item.name}</div>
@@ -73,6 +77,6 @@ export default function WardrobeItemCard({
       <div className="item-overlay">
         <span className="item-overlay-text">View Details</span>
       </div>
-    </div>
+    </Box>
   );
 }

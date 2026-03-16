@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Box, Stack } from "@mui/material";
 import { generateOutfit as generateOutfitAction } from "@/lib/actions/outfit";
 import { getHourGreeting } from "@/lib/utils/clothing";
 import { SHUFFLE_VIBES } from "@/lib/constants";
@@ -125,10 +126,10 @@ export default function TodayPage({
   };
 
   return (
-    <div className="today-page page">
-      <div className="today-hero">
+    <Box className="today-page page">
+      <Box className="today-hero">
         {/* LEFT */}
-        <div className="today-greeting fade-up">
+        <Box className="today-greeting fade-up">
           <div className="greeting-eyebrow">{dateStr}</div>
           <h1 className="greeting-title">
             {greeting ? `${greeting}.` : ""} <br />
@@ -178,72 +179,70 @@ export default function TodayPage({
           )}
 
           {!loading && error && (
-            <div
-              className="outfit-card"
-              style={{ padding: 40, textAlign: "center" }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 16 }}>⚠️</div>
-              <div
-                style={{
+            <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>
+              <Box
+                component="span"
+                sx={{ fontSize: 32, mb: 2, display: "block" }}
+              >
+                ⚠️
+              </Box>
+              <Box
+                sx={{
                   fontFamily: "Cormorant Garamond, serif",
                   fontSize: 22,
                   fontWeight: 300,
                   color: "var(--ink)",
-                  marginBottom: 12,
+                  mb: 1.5,
                 }}
               >
                 Could not generate outfit
-              </div>
-              <div
-                style={{
+              </Box>
+              <Box
+                sx={{
                   fontSize: 12,
                   color: "var(--taupe)",
-                  marginBottom: 20,
+                  mb: 2.5,
                   lineHeight: 1.6,
                   background: "rgba(196,184,164,0.3)",
-                  padding: "12px 16px",
+                  p: "12px 16px",
                   borderLeft: "2px solid var(--gold)",
                 }}
               >
                 {error.includes("No matching items") ||
                 error === "AI returned no matching items" ? (
                   <>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                    <Box sx={{ fontWeight: 500, mb: 0.5 }}>
                       No matching items in wardrobe
-                    </div>
-                    <div>Try adding more pieces to get started.</div>
+                    </Box>
+                    <Box>Try adding more pieces to get started.</Box>
                   </>
                 ) : error.includes("Rate limit") ? (
                   <>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                    <Box sx={{ fontWeight: 500, mb: 0.5 }}>
                       Too many requests
-                    </div>
-                    <div>Please wait a few minutes before trying again.</div>
+                    </Box>
+                    <Box>Please wait a few minutes before trying again.</Box>
                   </>
                 ) : error.includes("No wardrobe items") ? (
                   <>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                    <Box sx={{ fontWeight: 500, mb: 0.5 }}>
                       Your wardrobe is empty
-                    </div>
-                    <div>
+                    </Box>
+                    <Box>
                       Upload your first pieces to unlock outfit generation.
-                    </div>
+                    </Box>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
-                      Error: {error}
-                    </div>
-                    <div>
+                    <Box sx={{ fontWeight: 500, mb: 0.5 }}>Error: {error}</Box>
+                    <Box>
                       Please try again or contact support if the problem
                       persists.
-                    </div>
+                    </Box>
                   </>
                 )}
-              </div>
-              <div
-                style={{ display: "flex", gap: 12, justifyContent: "center" }}
-              >
+              </Box>
+              <Stack direction="row" gap={1.5} justifyContent="center">
                 {!hasWardrobe && (
                   <button
                     className="btn-primary"
@@ -268,38 +267,40 @@ export default function TodayPage({
                 >
                   RETRY
                 </button>
-              </div>
-            </div>
+              </Stack>
+            </Box>
           )}
 
           {!loading && !error && !outfit && !hasWardrobe && (
-            <div
-              className="outfit-card"
-              style={{ padding: 40, textAlign: "center" }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 16 }}>👗</div>
-              <div
-                style={{
+            <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>
+              <Box
+                component="span"
+                sx={{ fontSize: 32, mb: 2, display: "block" }}
+              >
+                👗
+              </Box>
+              <Box
+                sx={{
                   fontFamily: "Cormorant Garamond, serif",
                   fontSize: 22,
                   fontWeight: 300,
                   color: "var(--ink)",
-                  marginBottom: 8,
+                  mb: 1,
                 }}
               >
                 Your wardrobe is waiting.
-              </div>
-              <div
-                style={{
+              </Box>
+              <Box
+                sx={{
                   fontSize: 12,
                   color: "var(--taupe)",
-                  marginBottom: 24,
+                  mb: 3,
                   lineHeight: 1.6,
                 }}
               >
                 Add at least 2 pieces to get your first AI-curated outfit.
-              </div>
-            </div>
+              </Box>
+            </Box>
           )}
 
           {!loading && outfit && (
@@ -313,7 +314,7 @@ export default function TodayPage({
               onShuffle={() => fetchOutfit(true)}
             />
           )}
-        </div>
+        </Box>
 
         {/* RIGHT SIDEBAR */}
         <StyleSidebar
@@ -321,7 +322,7 @@ export default function TodayPage({
           wardrobeTotal={wardrobeTotal}
           outfit={outfit}
         />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

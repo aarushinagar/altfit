@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Stack, Box } from "@mui/material";
 
 interface ScoreBarProps {
   label: string;
@@ -16,14 +17,19 @@ export default function ScoreBar({ label, value }: ScoreBarProps) {
   }, [value]);
 
   return (
-    <div className="score-item">
-      <span className="score-label">{label}</span>
-      <div className="score-track">
-        <div className="score-fill" style={{ width: `${width}%` }} />
-      </div>
-      <span style={{ fontSize: 10, color: "var(--taupe)", minWidth: 28 }}>
+    <Stack direction="row" alignItems="center" className="score-item">
+      <Box component="span" className="score-label">
+        {label}
+      </Box>
+      <Box className="score-track">
+        <Box className="score-fill" sx={{ width: `${width}%` }} />
+      </Box>
+      <Box
+        component="span"
+        sx={{ fontSize: 10, color: "var(--taupe)", minWidth: 28 }}
+      >
         {value}%
-      </span>
-    </div>
+      </Box>
+    </Stack>
   );
 }

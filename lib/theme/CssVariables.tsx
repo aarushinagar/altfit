@@ -53,8 +53,46 @@ export default function CssVariables() {
           display: "flex",
           flexDirection: "column",
           padding: "36px 0 24px",
-          zIndex: 100,
+          zIndex: 300,
           borderRight: "1px solid rgba(255,255,255,0.05)",
+          transform: "translateX(-100%)",
+          transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+        },
+        ".nav.nav-open": {
+          transform: "translateX(0)",
+        },
+        ".nav-overlay": {
+          display: "none",
+          position: "fixed",
+          inset: 0,
+          background: "rgba(46,33,24,0.48)",
+          zIndex: 299,
+          animation: "fadeIn 0.2s ease",
+        },
+        ".nav-overlay.nav-open": {
+          display: "block",
+        },
+        // ── Hamburger button (mobile only) ──────────────────────────────────
+        ".hamburger-btn": {
+          display: "flex",
+          flexDirection: "column",
+          gap: 5,
+          width: 34,
+          height: 34,
+          alignItems: "center",
+          justifyContent: "center",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          flexShrink: 0,
+        },
+        ".hamburger-line": {
+          display: "block",
+          width: 20,
+          height: 1,
+          background: COLORS.ink,
+          transition: "opacity 0.2s",
         },
         ".nav-logo": {
           fontFamily: FONTS.serif,
@@ -882,6 +920,9 @@ export default function CssVariables() {
         "@media (min-width: 768px)": {
           ".mobile-topbar": { display: "none" },
           ".tab-bar": { display: "none" },
+          ".hamburger-btn": { display: "none" },
+          ".nav": { transform: "translateX(0)" },
+          ".nav-overlay": { display: "none !important" },
           ".page": {
             paddingTop: 0,
             paddingBottom: 0,

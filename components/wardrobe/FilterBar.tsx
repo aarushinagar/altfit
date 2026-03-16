@@ -1,5 +1,6 @@
 "use client";
 
+import { Stack } from "@mui/material";
 import { CATEGORIES } from "@/lib/constants";
 
 interface FilterBarProps {
@@ -9,7 +10,7 @@ interface FilterBarProps {
 
 export default function FilterBar({ activeFilter, onChange }: FilterBarProps) {
   return (
-    <div className="filter-bar">
+    <Stack direction="row" className="filter-bar">
       <span className="filter-label">Filter</span>
       {CATEGORIES.map((cat) => (
         <button
@@ -20,6 +21,6 @@ export default function FilterBar({ activeFilter, onChange }: FilterBarProps) {
           {cat}
         </button>
       ))}
-    </div>
+    </Stack>
   );
 }

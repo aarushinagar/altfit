@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Box, Stack } from "@mui/material";
 import { loginUser, registerUser, googleAuthUser } from "@/lib/actions/auth";
 import {
   loadGisScript,
@@ -195,28 +196,19 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--cream)",
-        display: "flex",
-      }}
+    <Box
+      sx={{ minHeight: "100vh", background: "var(--cream)", display: "flex" }}
     >
-      <style>{`
-        @media (min-width: 768px) { .auth-left-panel { display: flex !important; } }
-        @media (min-width: 768px) { .auth-right-panel { width: 460px !important; } }
-      `}</style>
-
       {/* Left editorial panel */}
-      <div
+      <Box
         className="auth-left-panel"
-        style={{
+        sx={{
           flex: 1,
           background: "var(--sand)",
-          display: "none",
+          display: { xs: "none", md: "flex" },
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: 48,
+          padding: 6,
           position: "relative",
           overflow: "hidden",
         }}
@@ -234,7 +226,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
           ALT <span style={{ color: "var(--gold)" }}>F</span>IT
         </div>
 
-        <div style={{ animation: "fadeUp 0.7s ease forwards" }}>
+        <Box sx={{ animation: "fadeUp 0.7s ease forwards" }}>
           <div
             style={{
               fontSize: 10,
@@ -264,12 +256,9 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
             <br />
             Every day.
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Stack gap={1.75}>
             {BULLET_LINES.map((line) => (
-              <div
-                key={line}
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
+              <Stack key={line} direction="row" alignItems="center" gap={1.25}>
                 <span style={{ color: "var(--gold)", fontSize: 10 }}>✦</span>
                 <span
                   style={{
@@ -280,10 +269,10 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                 >
                   {line}
                 </span>
-              </div>
+              </Stack>
             ))}
-          </div>
-        </div>
+          </Stack>
+        </Box>
 
         <div
           style={{
@@ -296,8 +285,8 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
         </div>
 
         {/* Decorative circles */}
-        <div
-          style={{
+        <Box
+          sx={{
             position: "absolute",
             right: -60,
             top: "30%",
@@ -308,8 +297,8 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
             pointerEvents: "none",
           }}
         />
-        <div
-          style={{
+        <Box
+          sx={{
             position: "absolute",
             right: -20,
             top: "38%",
@@ -320,13 +309,13 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
             pointerEvents: "none",
           }}
         />
-      </div>
+      </Box>
 
       {/* Right form panel */}
-      <div
+      <Box
         className="auth-right-panel"
-        style={{
-          width: "100%",
+        sx={{
+          width: { xs: "100%", md: 460 },
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -337,8 +326,8 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
           minHeight: "100vh",
         }}
       >
-        <div
-          style={{
+        <Box
+          sx={{
             width: "100%",
             maxWidth: 360,
             animation: "fadeUp 0.5s ease forwards",
@@ -370,12 +359,12 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
               </p>
 
               {clientIdMissing && (
-                <div
-                  style={{
+                <Box
+                  sx={{
                     background: "var(--paper)",
                     border: "1px solid var(--linen)",
-                    padding: "14px 16px",
-                    marginBottom: 20,
+                    p: "14px 16px",
+                    mb: 2.5,
                     fontSize: 11,
                     color: "var(--charcoal)",
                     lineHeight: 1.7,
@@ -420,7 +409,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                       in your .env
                     </li>
                   </ol>
-                </div>
+                </Box>
               )}
 
               <button
@@ -483,30 +472,29 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                 {loading ? "Opening Google..." : "Continue with Google"}
               </button>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  margin: "20px 0",
-                }}
+              <Stack
+                direction="row"
+                alignItems="center"
+                gap={1.5}
+                sx={{ my: 2.5 }}
               >
-                <div
-                  style={{ flex: 1, height: 1, background: "var(--linen)" }}
+                <Box
+                  sx={{ flex: 1, height: "1px", background: "var(--linen)" }}
                 />
-                <span
-                  style={{
+                <Box
+                  component="span"
+                  sx={{
                     fontSize: 11,
                     color: "var(--taupe)",
                     letterSpacing: "0.06em",
                   }}
                 >
                   or
-                </span>
-                <div
-                  style={{ flex: 1, height: 1, background: "var(--linen)" }}
+                </Box>
+                <Box
+                  sx={{ flex: 1, height: "1px", background: "var(--linen)" }}
                 />
-              </div>
+              </Stack>
 
               <button
                 onClick={() => setMode("email-signup")}
@@ -651,17 +639,17 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                 </div>
 
                 {error && (
-                  <div
-                    style={{
+                  <Box
+                    sx={{
                       fontSize: 12,
                       color: "#c0392b",
-                      padding: "8px 12px",
+                      p: "8px 12px",
                       background: "rgba(192,57,43,0.06)",
                       border: "1px solid rgba(192,57,43,0.2)",
                     }}
                   >
                     {error}
-                  </div>
+                  </Box>
                 )}
 
                 <button
@@ -689,7 +677,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                       : "Sign In"}
                 </button>
 
-                <div style={{ textAlign: "center", marginTop: 4 }}>
+                <Box sx={{ textAlign: "center", mt: 0.5 }}>
                   <span style={{ fontSize: 12, color: "var(--taupe)" }}>
                     {mode === "email-signup"
                       ? "Already have an account? "
@@ -717,7 +705,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                   >
                     {mode === "email-signup" ? "Sign in" : "Create account"}
                   </button>
-                </div>
+                </Box>
               </form>
             </>
           )}
@@ -734,8 +722,8 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
             By continuing, you agree to ALT FIT&apos;s Terms of Service and
             Privacy Policy.
           </p>
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }

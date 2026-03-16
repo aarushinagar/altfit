@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // Generate tokens
     const payload = {
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
       provider: user.provider,
     };
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       {
         accessToken,
         user: {
-          id: user.id,
+          id: user.id.toString(),
           email: user.email,
           name: user.name,
           avatar: user.avatar,

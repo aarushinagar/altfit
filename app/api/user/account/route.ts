@@ -5,7 +5,10 @@ import {
   getAuthenticatedUserId,
   authenticateRequest,
 } from "@/backend/database/auth-middleware";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 import { deleteImage } from "@/backend/database/supabase";
 
 /**
@@ -21,7 +24,7 @@ export async function DELETE(request: NextRequest) {
     const userId = getAuthenticatedUserId(request);
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: BigInt(userId) },
       select: { id: true, provider: true, passwordHash: true },
     });
 
@@ -44,7 +47,7 @@ export async function DELETE(request: NextRequest) {
     // Clean up Supabase storage — best effort, don't block deletion on storage errors
     try {
       const items = await prisma.wardrobeItem.findMany({
-        where: { userId },
+        where: { userId: BigInt(userId) },
         select: { storagePath: true },
       });
       await Promise.allSettled(items.map((i) => deleteImage(i.storagePath)));
@@ -53,12 +56,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Cascade delete handles sessions, wardrobeItems, outfits, subscription
-    await prisma.user.delete({ where: { id: userId } });
+    await prisma.user.delete({ where: { id: BigInt(userId) } });
 
     console.log(`[user/account DELETE] User ${userId} deleted`);
     return successResponse({ deleted: true }, "Account deleted");
   } catch (error) {
     console.error("[user/account DELETE] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Account deletion failed", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Account deletion failed",
+      500,
+    );
   }
 }

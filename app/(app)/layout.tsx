@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AppProvider, useAppContext } from "@/lib/contexts/AppContext";
 import { getAuthToken, getStoredUser } from "@/lib/utils/authUtils";
@@ -36,6 +36,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
     handleUpgrade,
     showToast,
   } = useAppContext();
+
+  const [navOpen, setNavOpen] = useState(false);
 
   // Auth guard — synchronous; localStorage is always available client-side
   useEffect(() => {
@@ -64,6 +66,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         savedItemCount={savedItems.length}
         onSignOut={onSignOut}
         onShowToast={showToast}
+        onToggleNav={() => setNavOpen((o) => !o)}
       />
 
       <AppNav
@@ -71,9 +74,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
         savedItemCount={savedItems.length}
         plan={plan}
         user={user}
+        isOpen={navOpen}
         onPageChange={onPageChange}
         onSignOut={onSignOut}
         onShowToast={showToast}
+        onClose={() => setNavOpen(false)}
       />
 
       {children}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Box, Stack } from "@mui/material";
 import WardrobeItemCard, {
   WardrobeItem,
 } from "@/components/wardrobe/WardrobeItemCard";
@@ -17,69 +18,71 @@ export default function WardrobeGrid({
 }: WardrobeGridProps) {
   if (isLoading) {
     return (
-      <div className="wardrobe-grid">
+      <Box className="wardrobe-grid">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
+          <Box
             key={i}
             className="wardrobe-item"
-            style={{ opacity: 0.35, pointerEvents: "none" }}
+            sx={{ opacity: 0.35, pointerEvents: "none" }}
           >
-            <div
+            <Box
               className="item-image"
-              style={{
+              sx={{
                 background: "var(--linen)",
                 animation: "pulse 1.4s ease-in-out infinite",
               }}
             />
-            <div className="item-info">
-              <div
-                style={{
+            <Box className="item-info">
+              <Box
+                sx={{
                   height: 10,
                   width: "60%",
                   background: "var(--linen)",
-                  borderRadius: 4,
-                  marginBottom: 6,
+                  borderRadius: 0.5,
+                  mb: 0.75,
                 }}
               />
-              <div
-                style={{
+              <Box
+                sx={{
                   height: 12,
                   width: "80%",
                   background: "var(--linen)",
-                  borderRadius: 4,
+                  borderRadius: 0.5,
                 }}
               />
-            </div>
-          </div>
+            </Box>
+          </Box>
         ))}
-      </div>
+      </Box>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>👗</div>
-        <div
-          style={{
+      <Stack alignItems="center" sx={{ textAlign: "center", py: 7.5, px: 2.5 }}>
+        <Box component="span" sx={{ fontSize: 40, mb: 2 }}>
+          👗
+        </Box>
+        <Box
+          sx={{
             fontFamily: "Cormorant Garamond, serif",
             fontSize: 24,
             fontWeight: 300,
             color: "var(--ink)",
-            marginBottom: 8,
+            mb: 1,
           }}
         >
           Your wardrobe is empty.
-        </div>
-        <div style={{ fontSize: 12, color: "var(--taupe)", marginBottom: 24 }}>
+        </Box>
+        <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 3 }}>
           Add your first piece to get started.
-        </div>
-      </div>
+        </Box>
+      </Stack>
     );
   }
 
   return (
-    <div className="wardrobe-grid">
+    <Box className="wardrobe-grid">
       {items.map((item, i) => (
         <WardrobeItemCard
           key={item.id}
@@ -88,6 +91,6 @@ export default function WardrobeGrid({
           onClick={onItemClick}
         />
       ))}
-    </div>
+    </Box>
   );
 }

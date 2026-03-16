@@ -16,7 +16,10 @@ import {
   authenticateRequest,
   isUserAuthorized,
 } from "@/backend/database/auth-middleware";
-import { successResponse, errorResponse } from "@/backend/database/api-response";
+import {
+  successResponse,
+  errorResponse,
+} from "@/backend/database/api-response";
 import type { OutfitResponse } from "@/types/api";
 
 export async function PATCH(
@@ -38,7 +41,7 @@ export async function PATCH(
 
     // Get outfit
     const outfit = await prisma.outfit.findUnique({
-      where: { id },
+      where: { id: BigInt(id) },
       include: { items: true },
     });
 
@@ -48,7 +51,7 @@ export async function PATCH(
     }
 
     // Check user isolation
-    if (!isUserAuthorized(userId, outfit.userId)) {
+    if (!isUserAuthorized(userId, outfit.userId.toString())) {
       return errorResponse("Unauthorized", 403);
     }
 
@@ -58,7 +61,7 @@ export async function PATCH(
 
     // Update outfit
     const updatedOutfit = await prisma.outfit.update({
-      where: { id },
+      where: { id: BigInt(id) },
       data: {
         worn,
         wornAt: worn ? new Date(wornAt) : null,
@@ -84,8 +87,8 @@ export async function PATCH(
     console.log(`[Outfits Mark Worn] Outfit updated: ${updatedOutfit.id}`);
 
     const response: OutfitResponse = {
-      id: updatedOutfit.id,
-      userId: updatedOutfit.userId,
+      id: updatedOutfit.id.toString(),
+      userId: updatedOutfit.userId.toString(),
       occasion: updatedOutfit.occasion,
       reasoning: updatedOutfit.reasoning,
       colorStory: updatedOutfit.colorStory,
@@ -96,7 +99,11 @@ export async function PATCH(
       worn: updatedOutfit.worn,
       wornAt: updatedOutfit.wornAt?.toISOString() || null,
       createdAt: updatedOutfit.createdAt.toISOString(),
-      items: updatedOutfit.items,
+      items: updatedOutfit.items.map((item) => ({
+        id: item.id.toString(),
+        wardrobeItemId: item.wardrobeItemId.toString(),
+        role: item.role,
+      })),
     };
 
     return successResponse(response, "Outfit updated successfully", 200);

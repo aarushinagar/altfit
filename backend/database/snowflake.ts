@@ -1,9 +1,9 @@
 /**
  * Snowflake ID Generator
- * 
+ *
  * Generates 64-bit distributed IDs suitable for distributed systems.
  * Format: [timestamp (42 bits) | workerId (10 bits) | sequence (12 bits)]
- * 
+ *
  * Properties:
  * - Sortable by timestamp
  * - Unique within a datacenter/process
@@ -11,8 +11,8 @@
  */
 
 const EPOCH = 1704067200000; // 2024-01-01 00:00:00 UTC
-const WORKER_ID = BigInt(process.env.WORKER_ID || '1');
-const DATA_CENTER_ID = BigInt(process.env.DATA_CENTER_ID || '1');
+const WORKER_ID = BigInt(process.env.WORKER_ID || "1");
+const DATA_CENTER_ID = BigInt(process.env.DATA_CENTER_ID || "1");
 
 let sequence = 0n;
 let lastTimestamp = 0n;
@@ -27,7 +27,9 @@ const MAX_DATA_CENTER_ID = (1n << DATA_CENTER_BITS) - 1n;
 const MAX_WORKER_ID = (1n << WORKER_BITS) - 1n;
 
 if (DATA_CENTER_ID > MAX_DATA_CENTER_ID) {
-  throw new Error(`DATA_CENTER_ID must be less than ${MAX_DATA_CENTER_ID + 1n}`);
+  throw new Error(
+    `DATA_CENTER_ID must be less than ${MAX_DATA_CENTER_ID + 1n}`,
+  );
 }
 
 if (WORKER_ID > MAX_WORKER_ID) {
@@ -37,7 +39,7 @@ if (WORKER_ID > MAX_WORKER_ID) {
 /**
  * Generates a new Snowflake ID
  */
-export function generateSnowflakeId(): string {
+export function generateSnowflakeId(): bigint {
   let timestamp = BigInt(Date.now() - EPOCH);
 
   if (timestamp === lastTimestamp) {
@@ -60,7 +62,7 @@ export function generateSnowflakeId(): string {
     (WORKER_ID << SEQUENCE_BITS) |
     sequence;
 
-  return id.toString();
+  return id;
 }
 
 /**
@@ -71,8 +73,11 @@ export function parseSnowflakeId(id: string) {
 
   const sequence = Number(bigId & MAX_SEQUENCE);
   const workerId = Number((bigId >> SEQUENCE_BITS) & MAX_WORKER_ID);
-  const dataCenterId = Number((bigId >> (WORKER_BITS + SEQUENCE_BITS)) & MAX_DATA_CENTER_ID);
-  const timestamp = Number(bigId >> (DATA_CENTER_BITS + WORKER_BITS + SEQUENCE_BITS)) + EPOCH;
+  const dataCenterId = Number(
+    (bigId >> (WORKER_BITS + SEQUENCE_BITS)) & MAX_DATA_CENTER_ID,
+  );
+  const timestamp =
+    Number(bigId >> (DATA_CENTER_BITS + WORKER_BITS + SEQUENCE_BITS)) + EPOCH;
 
   return {
     timestamp: new Date(timestamp),

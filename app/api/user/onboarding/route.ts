@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: BigInt(userId) },
       data: {
         styleProfiles,
         styleIssues: Array.isArray(styleIssues) ? styleIssues : [],
@@ -80,6 +80,9 @@ export async function POST(request: NextRequest) {
     return successResponse(user, "Onboarding complete", 200);
   } catch (error) {
     console.error("[user/onboarding] Error:", error);
-    return errorResponse(error instanceof Error ? error.message : "Onboarding failed", 500);
+    return errorResponse(
+      error instanceof Error ? error.message : "Onboarding failed",
+      500,
+    );
   }
 }

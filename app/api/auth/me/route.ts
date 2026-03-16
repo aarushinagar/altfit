@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // Get user from database
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: BigInt(userId) },
     });
 
     if (!user) {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return successResponse(
       {
         user: {
-          id: user.id,
+          id: user.id.toString(),
           email: user.email,
           name: user.name,
           avatar: user.avatar,

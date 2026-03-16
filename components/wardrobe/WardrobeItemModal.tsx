@@ -1,5 +1,6 @@
 "use client";
 
+import { Box, Stack } from "@mui/material";
 import WardrobeImage from "@/components/common/WardrobeImage";
 import type { WardrobeItem } from "@/components/wardrobe/WardrobeItemCard";
 
@@ -22,21 +23,21 @@ export default function WardrobeItemModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>
-            <div
-              style={{
+          <Box>
+            <Box
+              sx={{
                 fontSize: 10,
                 letterSpacing: "0.18em",
                 textTransform: "uppercase",
                 color: "var(--taupe)",
-                marginBottom: 6,
+                mb: 0.75,
                 fontWeight: 400,
               }}
             >
               {item.category}
-            </div>
-            <div
-              style={{
+            </Box>
+            <Box
+              sx={{
                 fontFamily: "Cormorant Garamond, serif",
                 fontSize: 28,
                 fontWeight: 300,
@@ -44,9 +45,9 @@ export default function WardrobeItemModal({
               }}
             >
               {item.name}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            </Box>
+          </Box>
+          <Stack direction="row" gap={1.5} alignItems="center">
             <button
               onClick={() => {
                 onRemove(item.id);
@@ -69,28 +70,30 @@ export default function WardrobeItemModal({
             <button className="modal-close" onClick={onClose}>
               ×
             </button>
-          </div>
+          </Stack>
         </div>
         <div className="modal-body">
-          <div>
-            <div
+          <Box>
+            <Box
               className="modal-image"
-              style={{
+              sx={{
                 background:
                   item.imageUrl || item.previewUrl
                     ? "#f0ece6"
                     : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}18`,
-                padding: 0,
+                p: 0,
                 overflow: "hidden",
               }}
             >
               {item.imageUrl || item.previewUrl ? (
                 <WardrobeImage item={item} />
               ) : (
-                <span style={{ fontSize: 72 }}>{item.emoji || "👗"}</span>
+                <Box component="span" sx={{ fontSize: 72 }}>
+                  {item.emoji || "👗"}
+                </Box>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
           <div className="modal-details">
             {item.note && (
               <div className="styling-note">
@@ -111,8 +114,8 @@ export default function WardrobeItemModal({
             )}
             <div>
               <div className="detail-block-label">Details</div>
-              <div
-                style={{
+              <Box
+                sx={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
                   gap: "8px 16px",
@@ -127,24 +130,24 @@ export default function WardrobeItemModal({
                 ]
                   .filter(([, v]) => v)
                   .map(([k, v]) => (
-                    <div key={k}>
-                      <div
-                        style={{
+                    <Box key={k}>
+                      <Box
+                        sx={{
                           fontSize: 9,
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
                           color: "var(--taupe)",
-                          marginBottom: 2,
+                          mb: 0.25,
                         }}
                       >
                         {k}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--charcoal)" }}>
+                      </Box>
+                      <Box sx={{ fontSize: 12, color: "var(--charcoal)" }}>
                         {v}
-                      </div>
-                    </div>
+                      </Box>
+                    </Box>
                   ))}
-              </div>
+              </Box>
             </div>
             {item.pairsWith && item.pairsWith.length > 0 && (
               <div>
@@ -169,9 +172,12 @@ export default function WardrobeItemModal({
                     />
                   ))}
                 </div>
-                <span style={{ fontSize: 11, color: "var(--taupe)" }}>
+                <Box
+                  component="span"
+                  sx={{ fontSize: 11, color: "var(--taupe)" }}
+                >
                   {item.wornCount || 0}× worn
-                </span>
+                </Box>
               </div>
             </div>
           </div>

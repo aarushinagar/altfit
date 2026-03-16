@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box, Stack } from "@mui/material";
 import { STYLE_TAGS, STYLE_ISSUES } from "@/lib/constants";
 
 interface OnboardingResult {
@@ -37,15 +38,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const canFinish = issues.length >= 1;
 
   return (
-    <div
-      style={{
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      sx={{
         minHeight: "100vh",
         background: "var(--cream)",
-        display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "40px 24px",
+        p: "40px 24px",
       }}
     >
       {/* Logo */}
@@ -64,11 +64,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </div>
 
       {/* Progress dots */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 48 }}>
+      <Stack direction="row" gap={0.75} sx={{ mb: 6 }}>
         {[1, 2].map((n) => (
-          <div
+          <Box
             key={n}
-            style={{
+            sx={{
               width: n === step ? 28 : 6,
               height: 2,
               background: n <= step ? "var(--gold)" : "var(--linen)",
@@ -76,18 +76,18 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             }}
           />
         ))}
-      </div>
+      </Stack>
 
       {/* Step 1 — Style aesthetics */}
       {step === 1 && (
-        <div
-          style={{
+        <Box
+          sx={{
             maxWidth: 640,
             width: "100%",
             animation: "fadeUp 0.5s ease forwards",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <Box sx={{ textAlign: "center", mb: 5 }}>
             <div
               style={{
                 fontSize: 10,
@@ -122,15 +122,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               Pick everything that resonates. Your AI stylist uses this to
               understand your eye.
             </p>
-          </div>
+          </Box>
 
-          <div
-            style={{
-              display: "flex",
+          <Stack
+            direction="row"
+            sx={{
               flexWrap: "wrap",
-              gap: 10,
+              gap: 1.25,
               justifyContent: "center",
-              marginBottom: 48,
+              mb: 6,
             }}
           >
             {STYLE_TAGS.map((tag) => {
@@ -155,14 +155,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 </button>
               );
             })}
-          </div>
+          </Stack>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
           >
             <button
               onClick={() => onComplete({ styles: [], issues: [] })}
@@ -197,20 +195,20 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             >
               Continue →
             </button>
-          </div>
-        </div>
+          </Stack>
+        </Box>
       )}
 
       {/* Step 2 — Styling issues */}
       {step === 2 && (
-        <div
-          style={{
+        <Box
+          sx={{
             maxWidth: 640,
             width: "100%",
             animation: "fadeUp 0.5s ease forwards",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <Box sx={{ textAlign: "center", mb: 5 }}>
             <div
               style={{
                 fontSize: 10,
@@ -259,16 +257,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   ? "Maximum selected"
                   : `${issues.length} selected — pick up to ${4 - issues.length} more`}
             </div>
-          </div>
+          </Box>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              marginBottom: 48,
-            }}
-          >
+          <Stack gap={1} sx={{ mb: 6 }}>
             {STYLE_ISSUES.map((bt) => {
               const selected = issues.includes(bt.id);
               const maxed = issues.length >= 4 && !selected;
@@ -342,7 +333,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 </button>
               );
             })}
-          </div>
+          </Stack>
 
           <div
             style={{
@@ -385,8 +376,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               Enter ALT FIT →
             </button>
           </div>
-        </div>
+        </Box>
       )}
-    </div>
+    </Stack>
   );
 }

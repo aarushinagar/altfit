@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box, Stack } from "@mui/material";
 import ProfileDropdown from "./ProfileDropdown";
 
 interface MobileTopBarProps {
@@ -9,6 +10,7 @@ interface MobileTopBarProps {
   savedItemCount: number;
   onSignOut: () => void;
   onShowToast: (msg: string) => void;
+  onToggleNav: () => void;
 }
 
 export default function MobileTopBar({
@@ -17,15 +19,28 @@ export default function MobileTopBar({
   savedItemCount,
   onSignOut,
   onShowToast,
+  onToggleNav,
 }: MobileTopBarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <div className="mobile-topbar">
-      <div className="mobile-logo">
-        ALT <span>F</span>IT
-      </div>
-      <div style={{ position: "relative" }}>
+    <Box className="mobile-topbar">
+      <Stack direction="row" alignItems="center" gap={1.5}>
+        <button
+          className="hamburger-btn"
+          onClick={onToggleNav}
+          aria-label="Open navigation"
+        >
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+        </button>
+        <Box className="mobile-logo">
+          ALT <span>F</span>IT
+        </Box>
+      </Stack>
+
+      <Box sx={{ position: "relative" }}>
         <button
           onClick={() => setProfileOpen((o) => !o)}
           style={{
@@ -59,7 +74,7 @@ export default function MobileTopBar({
             isMobile
           />
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

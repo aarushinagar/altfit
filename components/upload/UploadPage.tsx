@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box, Stack } from "@mui/material";
 import UploadZone from "@/components/upload/UploadZone";
 import UploadItemCard, {
   UploadItem,
@@ -438,16 +439,16 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
   };
 
   return (
-    <div className="upload-page page">
-      <div className="page-header fade-up">
+    <Box className="upload-page page">
+      <Box className="page-header fade-up">
         <p className="page-eyebrow">Build Your Wardrobe</p>
         <h1 className="page-title">Add Pieces</h1>
         <p className="page-count">
           Upload any photo — you choose how to save it
         </p>
-      </div>
+      </Box>
 
-      <div className="upload-body">
+      <Box className="upload-body">
         <UploadZone
           dragover={dragover}
           setDragover={setDragover}
@@ -455,7 +456,7 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
         />
 
         {items.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Stack gap={2}>
             {items.map((item) => (
               <UploadItemCard
                 key={item.id}
@@ -467,9 +468,9 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
                 onRemove={removeItem}
               />
             ))}
-          </div>
+          </Stack>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

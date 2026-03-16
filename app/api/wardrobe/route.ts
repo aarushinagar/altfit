@@ -56,7 +56,9 @@ export async function GET(request: NextRequest) {
     );
 
     // Build query
-    const where: { userId: string; category?: string } = { userId };
+    const where: { userId: bigint; category?: string } = {
+      userId: BigInt(userId),
+    };
     if (category) {
       where.category = category;
     }
@@ -77,8 +79,8 @@ export async function GET(request: NextRequest) {
     );
 
     const response: WardrobeItemResponse[] = items.map((item) => ({
-      id: item.id,
-      userId: item.userId,
+      id: item.id.toString(),
+      userId: item.userId.toString(),
       name: item.name,
       category: item.category,
       imageUrl: item.imageUrl,
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
     const item = await prisma.wardrobeItem.create({
       data: {
         id: generateSnowflakeId(),
-        userId,
+        userId: BigInt(userId),
         name,
         category,
         imageUrl,
@@ -185,8 +187,8 @@ export async function POST(request: NextRequest) {
 
     return successResponse(
       {
-        id: item.id,
-        userId: item.userId,
+        id: item.id.toString(),
+        userId: item.userId.toString(),
         name: item.name,
         category: item.category,
         imageUrl: item.imageUrl,

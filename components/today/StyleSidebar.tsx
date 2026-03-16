@@ -1,5 +1,6 @@
 "use client";
 
+import { Box } from "@mui/material";
 import ScoreBar from "@/components/common/ScoreBar";
 
 interface Scores {
@@ -31,7 +32,7 @@ export default function StyleSidebar({
   outfit,
 }: StyleSidebarProps) {
   return (
-    <div className="today-sidebar" style={{ animationDelay: "0.15s" }}>
+    <Box className="today-sidebar" sx={{ animationDelay: "0.15s" }}>
       <div className="sidebar-section">
         <p className="sidebar-heading">Style Score</p>
         <div className="style-score-bar">
@@ -69,6 +70,6 @@ export default function StyleSidebar({
           </div>
         </div>
       )}
-    </div>
+    </Box>
   );
 }

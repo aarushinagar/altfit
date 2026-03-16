@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box } from "@mui/material";
 import FilterBar from "@/components/wardrobe/FilterBar";
 import WardrobeGrid from "@/components/wardrobe/WardrobeGrid";
 import WardrobeItemModal from "@/components/wardrobe/WardrobeItemModal";
@@ -35,7 +36,7 @@ export default function WardrobePage({
   };
 
   return (
-    <div className="wardrobe-page page">
+    <Box className="wardrobe-page page">
       <div className="page-header fade-up">
         <p className="page-eyebrow">Your Collection</p>
         <h1 className="page-title">Wardrobe</h1>
@@ -62,6 +63,6 @@ export default function WardrobePage({
           }}
         />
       )}
-    </div>
+    </Box>
   );
 }

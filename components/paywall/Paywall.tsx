@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Box, Stack } from "@mui/material";
 import { FREE_LIMIT } from "@/lib/constants";
 
 interface PaywallProps {
@@ -137,21 +138,20 @@ export default function Paywall({
   };
 
   return (
-    <div
-      style={{
+    <Stack
+      alignItems={{ xs: "flex-end", sm: "center" }}
+      justifyContent="center"
+      sx={{
         position: "fixed",
         inset: 0,
         background: "rgba(46,33,24,0.55)",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
         zIndex: 300,
         animation: "fadeIn 0.2s ease",
       }}
       onClick={onClose}
     >
-      <div
-        style={{
+      <Box
+        sx={{
           background: "var(--cream)",
           width: "100%",
           maxWidth: 480,
@@ -162,9 +162,9 @@ export default function Paywall({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "32px 36px 28px",
+        <Box
+          sx={{
+            p: "32px 36px 28px",
             borderBottom: "1px solid var(--linen)",
             position: "relative",
           }}
@@ -185,18 +185,18 @@ export default function Paywall({
           >
             ×
           </button>
-          <div
-            style={{
+          <Box
+            sx={{
               fontSize: 10,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
               color: "var(--gold)",
-              marginBottom: 12,
+              mb: 1.5,
               fontWeight: 400,
             }}
           >
             ALT FIT Pro
-          </div>
+          </Box>
           <h2
             style={{
               fontFamily: "Cormorant Garamond, serif",
@@ -222,17 +222,10 @@ export default function Paywall({
             You&apos;ve added {itemCount} pieces — the free limit is{" "}
             {FREE_LIMIT}. Upgrade to keep building.
           </p>
-        </div>
+        </Box>
 
         {/* Plan Selection */}
-        <div
-          style={{
-            padding: "24px 36px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
+        <Stack gap={1.25} sx={{ p: "24px 36px" }}>
           {PLANS.map((plan) => (
             <button
               key={plan.id}
@@ -251,17 +244,16 @@ export default function Paywall({
                 fontFamily: "DM Sans, sans-serif",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
+              <Stack direction="row" alignItems="center" gap={1.5}>
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{
                     width: 16,
                     height: 16,
                     border: `1px solid ${selected === plan.id ? "var(--gold)" : "var(--linen)"}`,
                     background:
                       selected === plan.id ? "var(--gold)" : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
                     flexShrink: 0,
                     transition: "all 0.2s",
                   }}
@@ -277,17 +269,13 @@ export default function Paywall({
                       ✓
                     </span>
                   )}
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
+                </Stack>
+                <Box>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    gap={1}
+                    sx={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}
                   >
                     {plan.label}
                     {plan.badge && (
@@ -304,20 +292,20 @@ export default function Paywall({
                         {plan.badge}
                       </span>
                     )}
-                  </div>
-                  <div
-                    style={{
+                  </Stack>
+                  <Box
+                    sx={{
                       fontSize: 11,
                       color: "var(--warm-gray)",
                       fontWeight: 300,
-                      marginTop: 2,
+                      mt: 0.25,
                     }}
                   >
                     {plan.sub}
-                  </div>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
+                  </Box>
+                </Box>
+              </Stack>
+              <Box sx={{ textAlign: "right" }}>
                 <span
                   style={{
                     fontFamily: "Cormorant Garamond, serif",
@@ -333,23 +321,15 @@ export default function Paywall({
                 >
                   {plan.per}
                 </span>
-              </div>
+              </Box>
             </button>
           ))}
-        </div>
+        </Stack>
 
         {/* Features */}
-        <div style={{ padding: "0 36px 24px" }}>
+        <Stack gap={1} sx={{ p: "0 36px 24px" }}>
           {FEATURES.map((f) => (
-            <div
-              key={f}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 8,
-              }}
-            >
+            <Stack key={f} direction="row" alignItems="center" gap={1.25}>
               <span style={{ color: "var(--gold)", fontSize: 10 }}>✦</span>
               <span
                 style={{
@@ -360,12 +340,12 @@ export default function Paywall({
               >
                 {f}
               </span>
-            </div>
+            </Stack>
           ))}
-        </div>
+        </Stack>
 
         {/* CTA */}
-        <div style={{ padding: "0 36px 32px" }}>
+        <Box sx={{ p: "0 36px 32px" }}>
           <button
             onClick={handleUpgrade}
             disabled={loading}
@@ -389,17 +369,17 @@ export default function Paywall({
               : `Continue — ${selected === "yearly" ? "₹699/yr" : "₹199/mo"}`}
           </button>
           {error && (
-            <div
-              style={{
+            <Box
+              sx={{
                 fontSize: 12,
                 color: "#c0392b",
-                marginTop: 10,
+                mt: 1.25,
                 textAlign: "center",
                 lineHeight: 1.4,
               }}
             >
               ⚠ {error}
-            </div>
+            </Box>
           )}
           <p
             style={{
@@ -411,8 +391,8 @@ export default function Paywall({
           >
             Secure payment via Razorpay · Cancel anytime · No hidden fees
           </p>
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Stack>
   );
 }

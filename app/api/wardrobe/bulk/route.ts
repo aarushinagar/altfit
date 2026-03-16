@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         prisma.wardrobeItem.create({
           data: {
             id: generateSnowflakeId(),
-            userId,
+            userId: BigInt(userId),
             name: item.name,
             category: item.category,
             imageUrl: item.imageUrl,
@@ -108,7 +108,7 @@ export async function DELETE(request: NextRequest) {
 
     // Only delete items that belong to this user (enforces user isolation)
     const { count } = await prisma.wardrobeItem.deleteMany({
-      where: { id: { in: ids }, userId },
+      where: { id: { in: ids.map(BigInt) }, userId: BigInt(userId) },
     });
 
     console.log(

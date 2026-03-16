@@ -1,5 +1,7 @@
 "use client";
 
+import { Box, Stack } from "@mui/material";
+
 export interface ClothingPiece {
   name?: string;
   category?: string;
@@ -72,42 +74,33 @@ export default function UploadItemCard({
 }: UploadItemCardProps) {
   if (item.status === "heic") {
     return (
-      <div
-        style={{
-          marginBottom: 24,
+      <Box
+        sx={{
+          mb: 3,
           border: "1px solid var(--gold)",
           background: "var(--paper)",
-          padding: "24px 28px",
+          p: "24px 28px",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            alignItems: "flex-start",
-            marginBottom: 16,
-          }}
-        >
-          <div style={{ fontSize: 28 }}>📸</div>
-          <div>
-            <div
-              style={{
+        <Stack direction="row" gap={2} alignItems="flex-start" sx={{ mb: 2 }}>
+          <Box sx={{ fontSize: 28 }}>📸</Box>
+          <Box>
+            <Box
+              sx={{
                 fontFamily: "Cormorant Garamond, serif",
                 fontSize: 18,
                 color: "var(--ink)",
-                marginBottom: 4,
+                mb: 0.5,
               }}
             >
               iPhone HEIC photo — needs conversion
-            </div>
-            <div style={{ fontSize: 12, color: "var(--taupe)" }}>
+            </Box>
+            <Box sx={{ fontSize: 12, color: "var(--taupe)" }}>
               <strong>{item.fileName}</strong> — convert then re-upload.
-            </div>
-          </div>
-        </div>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-        >
+            </Box>
+          </Box>
+        </Stack>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
           <a
             href="https://heictojpeg.net"
             target="_blank"
@@ -126,9 +119,9 @@ export default function UploadItemCard({
           >
             Convert Online →
           </a>
-          <div
-            style={{
-              padding: "12px",
+          <Box
+            sx={{
+              p: "12px",
               background: "var(--linen)",
               fontSize: 11,
               color: "var(--charcoal)",
@@ -137,24 +130,24 @@ export default function UploadItemCard({
           >
             Permanent fix: iPhone Settings → Camera → Formats →{" "}
             <strong>Most Compatible</strong>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   if (item.status === "reading" || item.status === "analyzing") {
     return (
-      <div
-        style={{
-          marginBottom: 24,
+      <Stack
+        direction="row"
+        sx={{
+          mb: 3,
           border: "1px solid var(--linen)",
           background: "var(--paper)",
-          display: "flex",
         }}
       >
-        <div
-          style={{
+        <Box
+          sx={{
             width: 120,
             flexShrink: 0,
             minHeight: 140,
@@ -176,62 +169,53 @@ export default function UploadItemCard({
               }}
             />
           )}
-        </div>
-        <div style={{ flex: 1, padding: "20px 24px" }}>
-          <div
-            style={{ fontSize: 12, color: "var(--taupe)", marginBottom: 10 }}
-          >
+        </Box>
+        <Box sx={{ flex: 1, p: "20px 24px" }}>
+          <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 1.25 }}>
             {item.status === "reading"
               ? "Preparing image..."
               : `Identifying garments... ${Math.round(item.progress ?? 0)}%`}
-          </div>
-          <div className="progress-bar">
-            <div
+          </Box>
+          <Box className="progress-bar">
+            <Box
               className="progress-fill"
-              style={{ width: `${item.progress ?? 0}%` }}
+              sx={{ width: `${item.progress ?? 0}%` }}
             />
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Stack>
     );
   }
 
   if (item.status === "error") {
     return (
-      <div
-        style={{
-          marginBottom: 24,
+      <Box
+        sx={{
+          mb: 3,
           border: "1px solid #ecc",
           background: "var(--paper)",
           overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 16,
-            padding: "20px 24px",
-          }}
+        <Stack
+          direction="row"
+          alignItems="flex-start"
+          gap={2}
+          sx={{ p: "20px 24px" }}
         >
-          <div style={{ fontSize: 28, flexShrink: 0 }}>⚠️</div>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#c0392b",
-                marginBottom: 6,
-              }}
+          <Box sx={{ fontSize: 28, flexShrink: 0 }}>⚠️</Box>
+          <Box sx={{ flex: 1 }}>
+            <Box
+              sx={{ fontSize: 13, fontWeight: 600, color: "#c0392b", mb: 0.75 }}
             >
               Analysis failed
-            </div>
-            <div
-              style={{
+            </Box>
+            <Box
+              sx={{
                 fontSize: 12,
                 color: "#a93226",
                 wordBreak: "break-word",
-                marginBottom: 12,
+                mb: 1.5,
                 lineHeight: 1.5,
               }}
             >
@@ -243,7 +227,7 @@ export default function UploadItemCard({
                   : item.error?.includes("Invalid image")
                     ? "Invalid image format. Please use JPG, PNG, or WebP files."
                     : `Error: ${item.error}`}
-            </div>
+            </Box>
             <button
               onClick={() => onRemove(item.id)}
               style={{
@@ -260,25 +244,25 @@ export default function UploadItemCard({
             >
               Remove
             </button>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Stack>
+      </Box>
     );
   }
 
   if (item.status !== "ready") return null;
 
   return (
-    <div
-      style={{
-        marginBottom: 32,
+    <Box
+      sx={{
+        mb: 4,
         border: "1px solid var(--linen)",
         background: "var(--paper)",
       }}
     >
-      <div style={{ display: "flex" }}>
-        <div
-          style={{
+      <Stack direction="row">
+        <Box
+          sx={{
             width: 160,
             flexShrink: 0,
             minHeight: 210,
@@ -300,50 +284,50 @@ export default function UploadItemCard({
               }}
             />
           )}
-        </div>
-        <div
-          style={{
+        </Box>
+        <Box
+          sx={{
             flex: 1,
-            padding: "24px 28px",
+            p: "24px 28px",
             borderLeft: "1px solid var(--linen)",
           }}
         >
-          <div
-            style={{
+          <Box
+            sx={{
               fontSize: 10,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
               color: "var(--gold)",
-              marginBottom: 8,
+              mb: 1,
             }}
           >
             {`✦ ${item.pieces?.length || 0} piece${(item.pieces?.length || 0) !== 1 ? "s" : ""} detected`}
-          </div>
-          <div
-            style={{
+          </Box>
+          <Box
+            sx={{
               fontFamily: "Cormorant Garamond, serif",
               fontSize: 21,
               fontWeight: 300,
               color: "var(--ink)",
-              marginBottom: 6,
+              mb: 0.75,
               lineHeight: 1.3,
             }}
           >
             {item.pieces?.map((p) => p.name).join(", ")}
-          </div>
-          <div
-            style={{
+          </Box>
+          <Box
+            sx={{
               fontSize: 11,
               color: "var(--taupe)",
-              marginBottom: 20,
+              mb: 2.5,
               lineHeight: 1.6,
             }}
           >
             How would you like to save this?
-          </div>
+          </Box>
 
           {!item.intent && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Stack gap={1.25}>
               <button
                 onClick={() => onSaveFullOutfit(item)}
                 disabled={item.savingFull}
@@ -402,12 +386,12 @@ export default function UploadItemCard({
                   Pick which pieces to save · each gets its own cropped image
                 </div>
               </button>
-            </div>
+            </Stack>
           )}
 
           {item.intent === "full_outfit" && (
-            <div
-              style={{
+            <Box
+              sx={{
                 fontSize: 11,
                 color: "var(--gold)",
                 letterSpacing: "0.1em",
@@ -416,21 +400,21 @@ export default function UploadItemCard({
               }}
             >
               ✓ Full outfit saved to wardrobe
-            </div>
+            </Box>
           )}
           {item.intent === "individual" && (
-            <div style={{ fontSize: 12, color: "var(--taupe)" }}>
-              Tap &quot;+ Save&quot; on the pieces you want below ↓
-            </div>
+            <Box sx={{ fontSize: 12, color: "var(--taupe)" }}>
+              Tap &quot;+ Save&quot; on the pieces you want below ⇓
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Stack>
 
       {item.intent === "individual" && (item.pieces?.length ?? 0) > 0 && (
-        <div style={{ borderTop: "1px solid var(--linen)" }}>
-          <div
-            style={{
-              padding: "14px 20px 10px",
+        <Box sx={{ borderTop: "1px solid var(--linen)" }}>
+          <Box
+            sx={{
+              p: "14px 20px 10px",
               fontSize: 9,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
@@ -438,12 +422,12 @@ export default function UploadItemCard({
             }}
           >
             Save only what you want — accessories are optional
-          </div>
-          <div
-            style={{
+          </Box>
+          <Box
+            sx={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
-              gap: 1,
+              gap: "1px",
               background: "var(--linen)",
             }}
           >
@@ -454,16 +438,12 @@ export default function UploadItemCard({
                 OBJ_POS[(piece.category || "").toLowerCase()] || "50% 40%";
               const previewSrc = item.piecePreviews?.[idx] || item.previewUrl;
               return (
-                <div
+                <Stack
                   key={idx}
-                  style={{
-                    background: "var(--paper)",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
+                  sx={{ background: "var(--paper)", flexDirection: "column" }}
                 >
-                  <div
-                    style={{
+                  <Box
+                    sx={{
                       width: "100%",
                       aspectRatio: "1/1",
                       overflow: "hidden",
@@ -486,42 +466,39 @@ export default function UploadItemCard({
                       />
                     )}
                     {isSaved && (
-                      <div
-                        style={{
+                      <Stack
+                        alignItems="center"
+                        justifyContent="center"
+                        sx={{
                           position: "absolute",
                           inset: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
                         }}
                       >
-                        <div
-                          style={{
+                        <Box
+                          sx={{
                             background: "var(--gold)",
                             color: "var(--ink)",
                             fontSize: 9,
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
                             fontWeight: 600,
-                            padding: "5px 12px",
+                            p: "5px 12px",
                           }}
                         >
                           ✓ Saved
-                        </div>
-                      </div>
+                        </Box>
+                      </Stack>
                     )}
-                  </div>
-                  <div
-                    style={{
-                      padding: "10px 12px",
+                  </Box>
+                  <Stack
+                    gap={0.5}
+                    sx={{
+                      p: "10px 12px",
                       flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 4,
                     }}
                   >
-                    <div
-                      style={{
+                    <Box
+                      sx={{
                         fontSize: 9,
                         letterSpacing: "0.12em",
                         textTransform: "uppercase",
@@ -529,9 +506,9 @@ export default function UploadItemCard({
                       }}
                     >
                       {piece.category}
-                    </div>
-                    <div
-                      style={{
+                    </Box>
+                    <Box
+                      sx={{
                         fontFamily: "Cormorant Garamond, serif",
                         fontSize: 14,
                         color: "var(--ink)",
@@ -539,8 +516,8 @@ export default function UploadItemCard({
                       }}
                     >
                       {piece.name}
-                    </div>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    </Box>
+                    <Stack direction="row" gap={0.5} sx={{ flexWrap: "wrap" }}>
                       {[piece.colorName, piece.formality]
                         .filter(Boolean)
                         .map((t) => (
@@ -552,7 +529,7 @@ export default function UploadItemCard({
                             {String(t)}
                           </span>
                         ))}
-                    </div>
+                    </Stack>
                     {!isSaved && (
                       <button
                         onClick={() => onSavePiece(item, piece, idx)}
@@ -574,14 +551,14 @@ export default function UploadItemCard({
                         + Save this piece
                       </button>
                     )}
-                  </div>
-                </div>
+                  </Stack>
+                </Stack>
               );
             })}
-          </div>
+          </Box>
 
           {(item.pieces?.length ?? 0) >= 2 && !item.outfitSaved && (
-            <div style={{ padding: "12px 0 4px" }}>
+            <Box sx={{ p: "12px 0 4px" }}>
               <button
                 onClick={() => onSaveAsOutfit(item)}
                 disabled={item.savingOutfit}
@@ -601,12 +578,12 @@ export default function UploadItemCard({
               >
                 {item.savingOutfit ? "Saving outfit…" : "✦ Save all as outfit"}
               </button>
-            </div>
+            </Box>
           )}
           {item.outfitSaved && (
-            <div
-              style={{
-                padding: "10px 0 4px",
+            <Box
+              sx={{
+                p: "10px 0 4px",
                 fontSize: 10,
                 letterSpacing: "0.12em",
                 color: "var(--gold)",
@@ -615,10 +592,10 @@ export default function UploadItemCard({
               }}
             >
               ✓ Outfit saved
-            </div>
+            </Box>
           )}
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

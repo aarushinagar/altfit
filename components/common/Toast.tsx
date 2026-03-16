@@ -1,5 +1,7 @@
 "use client";
 
+import { Box } from "@mui/material";
+
 interface ToastProps {
   message: string | null;
 }
@@ -7,8 +9,8 @@ interface ToastProps {
 export default function Toast({ message }: ToastProps) {
   if (!message) return null;
   return (
-    <div
-      style={{
+    <Box
+      sx={{
         position: "fixed",
         bottom: 80,
         left: "50%",
@@ -19,11 +21,11 @@ export default function Toast({ message }: ToastProps) {
         fontSize: 12,
         letterSpacing: "0.06em",
         animation: "fadeUp 0.3s ease",
-        zIndex: 300,
+        zIndex: 400,
         whiteSpace: "nowrap",
       }}
     >
       {message}
-    </div>
+    </Box>
   );
 }

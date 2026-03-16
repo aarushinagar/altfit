@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Delete all sessions for this user
     await prisma.session.deleteMany({
-      where: { userId },
+      where: { userId: BigInt(userId) },
     });
 
     console.log(`[Auth Logout] Sessions deleted for user: ${userId}`);
