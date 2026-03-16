@@ -4,9 +4,44 @@
  * Provides middleware functions to protect API routes and extract user context
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, extractUserIdFromToken } from "./jwt";
 import { errorResponse } from "./api-response";
+import type { ApiResponse } from "@/types/api";
+
+type RequireAuthResult =
+  | { ok: true; userId: string }
+  | { ok: false; response: NextResponse<ApiResponse> };
+
+/**
+ * Combined auth guard + userId extractor.
+ *
+ * Verifies the JWT exactly ONCE. Returns the authenticated userId on
+ * success, or a 401 error response that the route should return directly.
+ *
+ * Usage:
+ *   const auth = requireAuth(request);
+ *   if (!auth.ok) return auth.response;
+ *   const { userId } = auth;
+ */
+export function requireAuth(request: NextRequest): RequireAuthResult {
+  const token = extractAccessToken(request);
+  if (!token) {
+    return {
+      ok: false,
+      response: errorResponse("Unauthorized: No access token provided", 401),
+    };
+  }
+  try {
+    const payload = verifyToken(token);
+    console.log(`[Auth] Authenticated user: ${payload.userId}`);
+    return { ok: true, userId: payload.userId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unauthorized";
+    console.error(`[Auth] Authentication failed: ${message}`);
+    return { ok: false, response: errorResponse(message, 401) };
+  }
+}
 
 /**
  * Extract JWT access token from Authorization header

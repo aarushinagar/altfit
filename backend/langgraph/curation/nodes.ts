@@ -11,8 +11,10 @@
 import prisma from "@/backend/database/prisma";
 import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
 import { generateSnowflakeId } from "@/backend/database/snowflake";
-import { supabaseAdmin } from "@/backend/database/supabase";
-import { getWeatherTool } from "../tools/weather";
+import {
+  getWeatherTool,
+  getGenericIndianWeatherFallback,
+} from "../tools/weather";
 import { queryWardrobeCandidates } from "../tools/query";
 import { callGemini, retryWithBackoff } from "../llm/client";
 import {
@@ -62,14 +64,18 @@ export async function fetchWeatherNode(
       2,
       1000,
     );
-    return { weatherRaw: weather, status: "interpreting_weather" };
+    return {
+      weatherRaw: weather,
+      weatherAvailable: true,
+      status: "interpreting_weather",
+    };
   } catch (err) {
-    // Non-fatal: fall back to user's saved city name for the LLM prompt
+    // Non-fatal: use generic Indian weather fallback
     console.error("[fetchWeatherNode] Weather fetch failed:", err);
     return {
-      weatherRaw: null,
+      weatherRaw: getGenericIndianWeatherFallback(),
+      weatherAvailable: false,
       status: "interpreting_weather",
-      // error is not set — we degrade gracefully to text-only curation
     };
   }
 }
@@ -80,7 +86,7 @@ export async function interpretWeatherNode(
   state: CurationState,
 ): Promise<Partial<CurationState>> {
   if (!state.weatherRaw) {
-    // No weather data — build a minimal context from the timezone season
+    // This shouldn't happen now (we always have a fallback), but handle it just in case
     const season = getCurrentSeason(state.userTimezone);
     const fallbackContext: WeatherContext = {
       season_context: "transitional",
@@ -88,10 +94,14 @@ export async function interpretWeatherNode(
       target_temp_c: 20,
       layering_needed: false,
       rain_protection_needed: false,
-      weather_notes: "No weather data available. Suggesting versatile outfits.",
+      weather_notes: "Weather data unavailable. Suggesting versatile outfits.",
       formality_suggestion: "none",
     };
-    return { weatherContext: fallbackContext, status: "querying_wardrobe" };
+    return {
+      weatherContext: fallbackContext,
+      weatherAvailable: false,
+      status: "querying_wardrobe",
+    };
   }
 
   try {
@@ -128,10 +138,14 @@ Respond with a single JSON object matching the schema.`;
         "none",
     };
 
-    return { weatherContext: ctx, status: "querying_wardrobe" };
+    return {
+      weatherContext: ctx,
+      weatherAvailable: state.weatherAvailable,
+      status: "querying_wardrobe",
+    };
   } catch (err) {
     console.error("[interpretWeatherNode] LLM call failed:", err);
-    // Degrade gracefully
+    // Degrade gracefully to weather data without LLM interpretation
     return {
       weatherContext: {
         season_context: "transitional",
@@ -142,6 +156,7 @@ Respond with a single JSON object matching the schema.`;
         weather_notes: state.weatherRaw.description,
         formality_suggestion: "none",
       },
+      weatherAvailable: state.weatherAvailable,
       status: "querying_wardrobe",
     };
   }
@@ -170,6 +185,7 @@ export async function queryWardrobeNode(
       return {
         status: "failed",
         error: "No wardrobe items found. Upload some clothing items first.",
+        errorCode: "no_wardrobe",
       };
     }
 
@@ -182,6 +198,7 @@ export async function queryWardrobeNode(
     return {
       status: "failed",
       error: `Failed to query wardrobe: ${err instanceof Error ? err.message : String(err)}`,
+      errorCode: "system_error",
     };
   }
 }
@@ -256,6 +273,7 @@ Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
     return {
       status: "failed",
       error: `Outfit curation failed: ${err instanceof Error ? err.message : String(err)}`,
+      errorCode: "system_error",
     };
   }
 }
@@ -344,7 +362,11 @@ export async function persistCurationNode(
   state: CurationState,
 ): Promise<Partial<CurationState>> {
   if (!state.curatedSlots || state.curatedSlots.length !== 3) {
-    return { status: "failed", error: "Cannot persist: missing curated slots" };
+    return {
+      status: "failed",
+      error: "Cannot persist: missing curated slots",
+      errorCode: "system_error",
+    };
   }
 
   const [slot1, slot2, slot3] = state.curatedSlots;
@@ -411,7 +433,11 @@ export async function hydrateSlotsNode(
   state: CurationState,
 ): Promise<Partial<CurationState>> {
   if (!state.curatedSlots) {
-    return { status: "failed", error: "Cannot hydrate: missing curated slots" };
+    return {
+      status: "failed",
+      error: "Cannot hydrate: missing curated slots",
+      errorCode: "system_error",
+    };
   }
 
   // Collect all unique wardrobe item IDs across all slots

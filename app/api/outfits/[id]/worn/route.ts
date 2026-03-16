@@ -12,8 +12,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
 import {
-  getAuthenticatedUserId,
-  authenticateRequest,
+  requireAuth,
   isUserAuthorized,
 } from "@/backend/database/auth-middleware";
 import {
@@ -31,10 +30,9 @@ export async function PATCH(
     console.log(`[Outfits Mark Worn] Marking outfit ${id} as worn`);
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json();
 
     const { worn = true, wornAt = new Date() } = body;

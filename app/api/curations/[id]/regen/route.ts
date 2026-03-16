@@ -22,10 +22,7 @@
 
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  authenticateRequest,
-  getAuthenticatedUserId,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   errorResponse,
   successResponse,
@@ -48,10 +45,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     const { slot, timezone, lat, lon } = (await request.json()) as {
       slot: 1 | 2 | 3;

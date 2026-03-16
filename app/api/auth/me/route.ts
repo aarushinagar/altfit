@@ -14,10 +14,7 @@
 
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
@@ -27,11 +24,9 @@ export async function GET(request: NextRequest) {
   try {
     console.log("[Auth Me] Getting current user");
 
-    // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Get user from database
     const user = await prisma.user.findUnique({

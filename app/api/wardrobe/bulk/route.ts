@@ -1,17 +1,11 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
 } from "@/backend/database/api-response";
-import {
-  generatePrismaId,
-  toPrismaId,
-} from "@/backend/database/prisma-id";
+import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
 import type { WardrobeItemRequest } from "@/types/api";
 
 /**
@@ -21,10 +15,9 @@ import type { WardrobeItemRequest } from "@/types/api";
  */
 export async function POST(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json().catch(() => null);
 
     if (!body || !Array.isArray(body.items) || body.items.length === 0) {
@@ -94,10 +87,9 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json().catch(() => null);
 
     if (!body || !Array.isArray(body.ids) || body.ids.length === 0) {

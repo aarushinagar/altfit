@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
@@ -15,10 +12,9 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     const subscription = await prisma.subscription.findUnique({
       where: { userId: BigInt(userId) },

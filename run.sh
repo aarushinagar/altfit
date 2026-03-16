@@ -5,7 +5,7 @@ set -e
 rm -rf .next .turbo node_modules/.cache
 
 echo "Installing dependencies..."
-npm install && npm build
+npm install && npm run build
 
 echo "Generating Prisma client..."
 npx prisma generate

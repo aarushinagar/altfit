@@ -22,10 +22,7 @@
 
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
@@ -41,10 +38,9 @@ export async function GET(request: NextRequest) {
     console.log("[Wardrobe Get] Fetching wardrobe items");
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Get query parameters
     const url = new URL(request.url);
@@ -125,10 +121,9 @@ export async function POST(request: NextRequest) {
   try {
     console.log("[Wardrobe Create] Received upload request");
 
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // ── Free-tier wardrobe cap check ────────────────────────────────────────
     const userRecord = await prisma.user.findUnique({

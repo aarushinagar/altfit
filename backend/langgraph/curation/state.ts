@@ -66,6 +66,11 @@ export const CurationAnnotation = Annotation.Root({
     reducer: last,
     default: () => null,
   }),
+  /** True if weather was successfully fetched; false if using fallback */
+  weatherAvailable: Annotation<boolean>({
+    reducer: last,
+    default: () => true,
+  }),
 
   // ── Wardrobe candidates ──────────────────────────────────────
   candidateItems: Annotation<WardrobeCandidate[]>({
@@ -104,6 +109,11 @@ export const CurationAnnotation = Annotation.Root({
   latencyMs: Annotation<number | null>({ reducer: last, default: () => null }),
   startedAt: Annotation<number>({ reducer: last, default: () => Date.now() }),
   error: Annotation<string | null>({ reducer: last, default: () => null }),
+  /** Error code for HTTP status mapping: "no_wardrobe" → 400, "invalid_input" → 400, "system_error" → 500 */
+  errorCode: Annotation<string | null>({
+    reducer: last,
+    default: () => null,
+  }),
   status: Annotation<
     | "fetching_weather"
     | "interpreting_weather"

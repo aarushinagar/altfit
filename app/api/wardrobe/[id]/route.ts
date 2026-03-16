@@ -12,8 +12,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
 import {
-  getAuthenticatedUserId,
-  authenticateRequest,
+  requireAuth,
   isUserAuthorized,
 } from "@/backend/database/auth-middleware";
 import { deleteImage } from "@/backend/database/supabase";
@@ -32,10 +31,9 @@ export async function GET(
     console.log(`[Wardrobe Get Item] Fetching item ${id}`);
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Get item
     const item = await prisma.wardrobeItem.findUnique({
@@ -98,10 +96,9 @@ export async function PATCH(
     console.log(`[Wardrobe Update Item] Updating item ${id}`);
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json();
 
     // Get item
@@ -188,10 +185,9 @@ export async function DELETE(
     console.log(`[Wardrobe Delete Item] Deleting item ${id}`);
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Get item
     const item = await prisma.wardrobeItem.findUnique({

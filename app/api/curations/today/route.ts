@@ -14,10 +14,11 @@
  *
  * Response:
  * {
- *   slots:    HydratedSlot[3]
- *   cached:   boolean         — true if returned from DB cache
- *   curationId: string | null
- *   weatherContext: WeatherContext | null
+ *   slots:           HydratedSlot[3]
+ *   cached:          boolean         — true if returned from DB cache
+ *   curationId:      string | null
+ *   weatherContext:  WeatherContext | null
+ *   weatherAvailable: boolean        — true if real weather was fetched; false if using fallback
  * }
  *
  * Cache strategy (three layers):
@@ -27,10 +28,7 @@
  */
 
 import { NextRequest } from "next/server";
-import {
-  authenticateRequest,
-  getAuthenticatedUserId,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   errorResponse,
   successResponse,
@@ -52,10 +50,9 @@ export const maxDuration = 60; // seconds — Vercel Pro / self-hosted
 
 export async function POST(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // ── Parse and validate body ─────────────────────────────────────────
     const body = await request.json();
@@ -136,6 +133,7 @@ export async function POST(request: NextRequest) {
           cached: true,
           curationId: cached.id.toString(),
           weatherContext: null,
+          weatherAvailable: true,
           localDate,
         },
         "Today's outfits retrieved from cache",
@@ -188,7 +186,12 @@ export async function POST(request: NextRequest) {
 
     if (result.status === "failed" || result.error) {
       console.error("[CurationsToday] Graph failed:", result.error);
-      return errorResponse(result.error ?? "Curation pipeline failed", 500);
+      // Determine HTTP status code based on error type
+      const statusCode = result.errorCode === "no_wardrobe" ? 400 : 500;
+      return errorResponse(
+        result.error ?? "Curation pipeline failed",
+        statusCode,
+      );
     }
 
     const hydratedSlots: HydratedSlot[] = result.hydratedSlots ?? [];
@@ -202,6 +205,7 @@ export async function POST(request: NextRequest) {
         cached: false,
         curationId: result.curationId ?? null,
         weatherContext: (result.weatherContext as WeatherContext) ?? null,
+        weatherAvailable: result.weatherAvailable ?? true,
         localDate,
       },
       "Today's outfits generated successfully",

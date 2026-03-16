@@ -18,10 +18,7 @@
  */
 
 import { NextRequest } from "next/server";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   uploadImage,
   generateUserStoragePath,
@@ -40,10 +37,9 @@ export async function POST(request: NextRequest) {
     console.log("[Upload Image] Processing image upload");
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Parse form data
     const formData = await request.formData();
@@ -123,10 +119,9 @@ export async function DELETE(request: NextRequest) {
     console.log("[Upload Delete] Processing image deletion");
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json();
     const { path } = body;
 

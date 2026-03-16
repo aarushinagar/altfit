@@ -10,7 +10,6 @@
 import prisma from "@/backend/database/prisma";
 import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
 import { generateSnowflakeId } from "@/backend/database/snowflake";
-import { supabaseAdmin } from "@/backend/database/supabase";
 import { geminiVisionAnalyze } from "../tools/vision";
 import { getModelForTask } from "../shared/models";
 import { FORMALITY_LABEL_TO_INT } from "../shared/types";
@@ -276,18 +275,8 @@ export async function persistItemNode(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
 
-    // Attempt to clean up the orphaned image from Supabase Storage
-    if (state.storagePath && supabaseAdmin) {
-      await supabaseAdmin.storage
-        .from("wardrobe-images")
-        .remove([state.storagePath])
-        .catch(() => {
-          // Non-fatal — log only
-          console.error(
-            `[persistItemNode] Failed to delete orphaned image: ${state.storagePath}`,
-          );
-        });
-    }
+    // Note: Image cleanup for Vercel Blob is handled by the storage service
+    // orphaned images will be cleaned up by blob retention policies
 
     return {
       status: "failed",

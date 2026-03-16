@@ -1,10 +1,7 @@
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
@@ -18,10 +15,9 @@ import { deleteImage } from "@/backend/database/supabase";
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     const user = await prisma.user.findUnique({
       where: { id: BigInt(userId) },

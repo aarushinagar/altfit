@@ -2,18 +2,17 @@
  * Server-side image processing utility.
  *
  * Converts uploaded files to WebP Q80, max 1200px on the long edge,
- * strips EXIF, flattens transparency, then writes to Supabase Storage.
+ * strips EXIF, flattens transparency, then uploads to Supabase Storage.
  *
  * Only import this from API route files — sharp is a server-only module.
  */
 
 import sharp from "sharp";
-import { supabaseAdmin } from "@/backend/database/supabase";
+import { uploadImage } from "@/backend/database/supabase";
 
 const MAX_PX = 1200;
 const WEBP_QUALITY = 80;
 const WEBP_EFFORT = 4;
-const BUCKET = "wardrobe-images";
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
 
 export interface ProcessedImage {
@@ -59,33 +58,26 @@ export async function processAndUploadImage(
     resolveWithObject: true,
   });
 
-  // Upload to Supabase Storage under users/{userId}/{itemId}.webp
+  // Upload to Supabase Storage under wardrobe-images/users/{userId}/{itemId}.webp
   const storagePath = `users/${userId}/${itemId}.webp`;
 
-  if (!supabaseAdmin) {
-    throw new Error("Supabase admin client is not initialized");
+  try {
+    const publicUrl = await uploadImage(
+      processedBuffer,
+      storagePath,
+      "image/webp",
+    );
+
+    return {
+      storagePath,
+      publicUrl,
+      widthPx: info.width,
+      heightPx: info.height,
+      byteSize: info.size,
+    };
+  } catch (error) {
+    throw new Error(
+      `Storage upload failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  const { error: uploadError } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .upload(storagePath, processedBuffer, {
-      contentType: "image/webp",
-      upsert: true,
-    });
-
-  if (uploadError) {
-    throw new Error(`Storage upload failed: ${uploadError.message}`);
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(storagePath);
-
-  return {
-    storagePath,
-    publicUrl,
-    widthPx: info.width,
-    heightPx: info.height,
-    byteSize: info.size,
-  };
 }

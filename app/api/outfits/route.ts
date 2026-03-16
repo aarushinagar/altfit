@@ -13,18 +13,12 @@
 
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
-import {
-  getAuthenticatedUserId,
-  authenticateRequest,
-} from "@/backend/database/auth-middleware";
+import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
   errorResponse,
 } from "@/backend/database/api-response";
-import {
-  generatePrismaId,
-  toPrismaId,
-} from "@/backend/database/prisma-id";
+import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
 import type { OutfitResponse } from "@/types/api";
 
 export async function GET(request: NextRequest) {
@@ -32,10 +26,9 @@ export async function GET(request: NextRequest) {
     console.log("[Outfits Get] Fetching outfit history");
 
     // Authenticate user
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
 
     // Get query parameters
     const url = new URL(request.url);
@@ -118,10 +111,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authError = authenticateRequest(request);
-    if (authError) return authError;
-
-    const userId = getAuthenticatedUserId(request);
+    const auth = requireAuth(request);
+    if (!auth.ok) return auth.response;
+    const { userId } = auth;
     const body = await request.json().catch(() => ({}));
 
     const { wardrobeItemIds, occasion, reasoning, colorStory } = body as {

@@ -54,8 +54,14 @@ async function requestGeolocation(): Promise<{ lat: number; lon: number }> {
   });
 }
 
-function weatherSummaryFromContext(ctx: WeatherContext | null): string | null {
+function weatherSummaryFromContext(
+  ctx: WeatherContext | null,
+  available: boolean = true,
+): string | null {
   if (!ctx) return null;
+  if (!available) {
+    return "Weather currently unavailable · using generic fallback";
+  }
   return `${ctx.target_temp_c}°C · ${ctx.dressing_temp_band.replace(/_/g, " ")}`;
 }
 
@@ -66,6 +72,7 @@ export interface UseCurationReturn {
   curationId: string | null;
   fromCache: boolean;
   weatherSummary: string | null;
+  weatherAvailable: boolean;
   reload: () => void;
   regenerateSlot: (slot: 1 | 2 | 3) => Promise<void>;
   regenLoadingSlot: 1 | 2 | 3 | null;
@@ -78,6 +85,7 @@ export function useCuration(userId: string | null): UseCurationReturn {
   const [curationId, setCurationId] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const [weatherSummary, setWeatherSummary] = useState<string | null>(null);
+  const [weatherAvailable, setWeatherAvailable] = useState(true);
   const [regenLoadingSlot, setRegenLoadingSlot] = useState<1 | 2 | 3 | null>(
     null,
   );
@@ -149,17 +157,20 @@ export function useCuration(userId: string | null): UseCurationReturn {
           slots: newSlots,
           curationId: newId,
           weatherContext,
+          weatherAvailable: available,
         } = data.data as {
           slots: HydratedSlot[];
           curationId: string | null;
           weatherContext: WeatherContext | null;
+          weatherAvailable: boolean;
         };
 
-        const summary = weatherSummaryFromContext(weatherContext);
+        const summary = weatherSummaryFromContext(weatherContext, available);
 
         setSlots(newSlots);
         setCurationId(newId);
         setWeatherSummary(summary);
+        setWeatherAvailable(available);
         setFromCache(false);
 
         // 4. Store in IndexedDB
@@ -248,6 +259,7 @@ export function useCuration(userId: string | null): UseCurationReturn {
     curationId,
     fromCache,
     weatherSummary,
+    weatherAvailable,
     reload,
     regenerateSlot,
     regenLoadingSlot,

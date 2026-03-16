@@ -8,6 +8,32 @@
 import type { WeatherOutput, WeatherCondition } from "../shared/types";
 import { wmoToCondition } from "../shared/types";
 
+// ── Generic Indian weather fallback ────────────────────────────────────────
+
+/**
+ * Returns a generic fallback weather for India (defaults to mild Delhi-like conditions).
+ * Used when real weather fetch fails or is unavailable.
+ */
+export function getGenericIndianWeatherFallback(
+  cityName = "your location",
+): WeatherOutput {
+  return {
+    temp_c: 25,
+    feels_like_c: 26,
+    condition: "cloudy" as WeatherCondition,
+    wmo_code: 2, // WMO code for "cloudy"
+    humidity_pct: 60,
+    wind_kph: 12,
+    uv_index: 6,
+    is_daytime: true,
+    city_name: cityName,
+    iana_timezone: "Asia/Kolkata",
+    description:
+      "Mild and pleasant. Generic Indian weather—consider layers for morning/evening.",
+    fetched_at_utc: new Date().toISOString(),
+  };
+}
+
 // ── Open-Meteo fetch ───────────────────────────────────────────────────────
 
 async function fetchOpenMeteo(lat: number, lon: number) {

@@ -186,6 +186,19 @@ export default function TodayPage({
                 >
                   RETRY
                 </button>
+                {error?.includes("No wardrobe items found") && (
+                  <button
+                    className="btn-secondary"
+                    onClick={onGoToUpload}
+                    style={{
+                      padding: "12px 28px",
+                      fontSize: 11,
+                      letterSpacing: "0.12em",
+                    }}
+                  >
+                    UPLOAD ITEMS
+                  </button>
+                )}
               </Stack>
             </Box>
           )}
