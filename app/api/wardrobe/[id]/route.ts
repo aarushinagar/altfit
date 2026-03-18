@@ -9,6 +9,9 @@
  * Delete a wardrobe item (with user isolation)
  */
 
+// Force dynamic rendering — prevent static generation attempts on [id] routes
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from "next/server";
 import prisma from "@/backend/database/prisma";
 import {
