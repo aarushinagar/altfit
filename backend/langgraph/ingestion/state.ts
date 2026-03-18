@@ -6,7 +6,7 @@
  */
 
 import { Annotation } from "@langchain/langgraph";
-import type { WardrobeItemMetadata } from "../shared/types";
+import type { WardrobeItemMetadata, DetectedPiece } from "../shared/types";
 
 // Shared last-value reducer (replace with latest value)
 function last<T>(_prev: T, next: T): T {
@@ -56,6 +56,14 @@ export const IngestionAnnotation = Annotation.Root({
    * One ID per detected clothing piece.
    */
   wardrobeItemIds: Annotation<string[] | null>({
+    reducer: last,
+    default: () => null,
+  }),
+  /**
+   * Per-piece metadata including bounding boxes — returned to the client so it
+   * can crop the original photo down to each individual item.
+   */
+  detectedPieces: Annotation<DetectedPiece[] | null>({
     reducer: last,
     default: () => null,
   }),

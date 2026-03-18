@@ -1,106 +1,154 @@
 /**
  * Supabase Storage & Admin Client Helper
  *
- * Note: Do NOT use this on the frontend. This uses the service role key
- * and should only be used in server-side API routes.
+ * Server-side only — never import on the frontend.
  *
- * This ensures proper security isolation and prevents token exposure.
+ * IMPORTANT: Set SUPABASE_SERVICE_KEY to your project's service_role key
+ * (Supabase Dashboard → Settings → API → service_role).
+ * Using the anon key here will cause uploads to fail with RLS errors.
+ * Run setup/supabase-storage-policies.sql in your Supabase SQL editor to
+ * configure the wardrobe-images bucket policies.
  */
 
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// Check both SUPABASE_SERVICE_ROLE_KEY (preferred) and SUPABASE_SERVICE_KEY (fallback)
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn(
+    "[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set. " +
+    "Image uploads will fail. Set both variables in .env.local.",
+  );
+}
 
 /**
- * Supabase admin client - use service role key for server-side operations
- * This has unrestricted access for file operations
+ * Server-side Supabase client.
+ * Uses service_role key to bypass RLS for server-side file operations.
+ * Falls back to anon key if service_role is not set — uploads will only
+ * succeed if the bucket has permissive INSERT/UPDATE policies.
  */
 export const supabaseAdmin =
   supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey)
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
     : null;
 
+// Hard guard: never start production without a configured Supabase client.
+if (process.env.NODE_ENV === "production" && !supabaseAdmin) {
+  throw new Error(
+    "[Supabase] FATAL: Running in production without SUPABASE_URL / SUPABASE_SERVICE_KEY. " +
+    "Set both variables in your deployment environment.",
+  );
+}
+
 /**
- * Upload an image to Supabase Storage with user isolation
+ * Upload an image buffer to Supabase Storage (wardrobe-images bucket).
  *
- * @param buffer - The image file as a Buffer
- * @param path - Storage path (e.g., "wardrobe-images/user_id/item_id.jpg")
- * @param contentType - MIME type (e.g., "image/jpeg")
- * @returns The public CDN URL of the uploaded image
- * @throws Error if upload fails or Supabase is not configured
+ * @param buffer       Raw image bytes
+ * @param storagePath  Path inside the bucket, e.g. "users/123/item.webp"
+ * @param contentType  MIME type, e.g. "image/webp"
+ * @returns            Permanent public CDN URL (always starts with https://)
  */
 export async function uploadImage(
   buffer: Buffer,
-  path: string,
+  storagePath: string,
   contentType: string,
 ): Promise<string> {
   if (!supabaseAdmin) {
     throw new Error(
-      "Supabase is not configured. Check SUPABASE_URL and SUPABASE_SERVICE_KEY env vars",
+      "[Supabase] Client not initialised — check SUPABASE_URL and SUPABASE_SERVICE_KEY",
     );
   }
 
-  console.log(`[Supabase] Uploading image to path: ${path}`);
+  console.log(`[Upload] Uploading to Supabase Storage: ${storagePath}`);
 
-  const { data, error } = await supabaseAdmin.storage
+  // Ensure bucket exists — idempotent, no-op if already present.
+  // With service_role key this creates the bucket on first run.
+  // With anon key it will fail silently (bucket must be created manually in Dashboard).
+  const { error: bucketErr } = await supabaseAdmin.storage.createBucket(
+    "wardrobe-images",
+    {
+      public: true,
+      fileSizeLimit: 10 * 1024 * 1024,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"],
+    },
+  );
+  if (
+    bucketErr &&
+    !bucketErr.message.toLowerCase().includes("already exist") &&
+    !bucketErr.message.toLowerCase().includes("duplicate")
+  ) {
+    console.warn(
+      `[Upload] Bucket ensure failed (anon key or other): ${bucketErr.message}. ` +
+      "The bucket must be created manually in the Supabase Dashboard → Storage.",
+    );
+  }
+
+  const { error } = await supabaseAdmin.storage
     .from("wardrobe-images")
-    .upload(path, buffer, {
+    .upload(storagePath, buffer, {
       contentType,
-      upsert: false,
+      upsert: true,   // allow re-uploading the same path (crop fixes, re-attaches)
       cacheControl: "3600",
     });
 
   if (error) {
-    console.error(`[Supabase] Upload error: ${error.message}`);
-    throw new Error(`Failed to upload image: ${error.message}`);
-  }
-
-  // Get the public URL for this file
-  const { data: publicUrlData } = supabaseAdmin.storage
-    .from("wardrobe-images")
-    .getPublicUrl(path);
-
-  console.log(
-    `[Supabase] Image uploaded successfully: ${publicUrlData.publicUrl}`,
-  );
-  return publicUrlData.publicUrl;
-}
-
-/**
- * Delete an image from Supabase Storage
- *
- * @param path - Storage path of the file to delete
- * @throws Error if deletion fails or Supabase is not configured
- */
-export async function deleteImage(path: string): Promise<void> {
-  if (!supabaseAdmin) {
+    console.error(`[Upload] Supabase Storage error: ${error.message}`);
+    const msg = error.message;
+    const isSetup =
+      msg.toLowerCase().includes("bucket") ||
+      msg.toLowerCase().includes("not found") ||
+      msg.toLowerCase().includes("row-level security") ||
+      msg.toLowerCase().includes("unauthorized");
     throw new Error(
-      "Supabase is not configured. Check SUPABASE_URL and SUPABASE_SERVICE_KEY env vars",
+      isSetup
+        ? `Storage not configured: ${msg}. Create the "wardrobe-images" bucket in Supabase Dashboard → Storage and set SUPABASE_SERVICE_KEY to your service_role key.`
+        : `Storage upload failed: ${msg}`,
     );
   }
 
-  console.log(`[Supabase] Deleting image from path: ${path}`);
+  const { data: { publicUrl } } = supabaseAdmin.storage
+    .from("wardrobe-images")
+    .getPublicUrl(storagePath);
 
+  // Hard validation — publicUrl must be an absolute Supabase CDN URL
+  if (!publicUrl.startsWith("https://")) {
+    throw new Error(
+      `[Upload] Unexpected public URL format: "${publicUrl}". Expected https://...supabase.co/...`,
+    );
+  }
+
+  console.log(`[Upload] Saved to Supabase: ${publicUrl}`);
+  return publicUrl;
+}
+
+/**
+ * Delete an image from Supabase Storage.
+ */
+export async function deleteImage(storagePath: string): Promise<void> {
+  if (!supabaseAdmin) {
+    throw new Error("[Supabase] Client not initialised");
+  }
+
+  console.log(`[Supabase] Deleting: ${storagePath}`);
   const { error } = await supabaseAdmin.storage
     .from("wardrobe-images")
-    .remove([path]);
+    .remove([storagePath]);
 
   if (error) {
     console.error(`[Supabase] Deletion error: ${error.message}`);
     throw new Error(`Failed to delete image: ${error.message}`);
   }
 
-  console.log(`[Supabase] Image deleted successfully: ${path}`);
+  console.log(`[Supabase] Deleted: ${storagePath}`);
 }
 
 /**
- * Upload a profile avatar to Supabase Storage
- *
- * @param buffer - The image file as a Buffer
- * @param userId - User ID for path organization
- * @param contentType - MIME type
- * @returns The public CDN URL of the uploaded avatar
+ * Upload a profile avatar to Supabase Storage (profile-avatars bucket).
  */
 export async function uploadAvatar(
   buffer: Buffer,
@@ -108,53 +156,38 @@ export async function uploadAvatar(
   contentType: string,
 ): Promise<string> {
   if (!supabaseAdmin) {
-    throw new Error(
-      "Supabase is not configured. Check SUPABASE_URL and SUPABASE_SERVICE_KEY env vars",
-    );
+    throw new Error("[Supabase] Client not initialised");
   }
 
-  const path = `profile-avatars/${userId}/avatar-${Date.now()}`;
-  console.log(`[Supabase] Uploading avatar for user: ${userId}`);
+  const storagePath = `profile-avatars/${userId}/avatar-${Date.now()}`;
+  console.log(`[Supabase] Uploading avatar → ${storagePath}`);
 
-  const { data, error } = await supabaseAdmin.storage
+  const { error } = await supabaseAdmin.storage
     .from("profile-avatars")
-    .upload(path, buffer, {
-      contentType,
-      upsert: false,
-      cacheControl: "3600",
-    });
+    .upload(storagePath, buffer, { contentType, upsert: true, cacheControl: "3600" });
 
   if (error) {
     console.error(`[Supabase] Avatar upload error: ${error.message}`);
     throw new Error(`Failed to upload avatar: ${error.message}`);
   }
 
-  const { data: publicUrlData } = supabaseAdmin.storage
+  const { data: { publicUrl } } = supabaseAdmin.storage
     .from("profile-avatars")
-    .getPublicUrl(path);
+    .getPublicUrl(storagePath);
 
-  console.log(
-    `[Supabase] Avatar uploaded successfully: ${publicUrlData.publicUrl}`,
-  );
-  return publicUrlData.publicUrl;
+  console.log(`[Supabase] Avatar uploaded: ${publicUrl}`);
+  return publicUrl;
 }
 
 /**
- * Generate a secure user-isolated storage path
- * Prevents users from accessing other users' files
- *
- * @param userId - User ID for path organization
- * @param fileName - Original filename
- * @returns Safe storage path
+ * Generate a scoped, unique storage path for a wardrobe image.
+ * Path format: users/{userId}/{randomId}.{ext}
  */
-export function generateUserStoragePath(
-  userId: string,
-  fileName: string,
-): string {
-  // Use CUID-like random string + original extension
+export function generateUserStoragePath(userId: string, fileName: string): string {
   const ext = fileName.split(".").pop() || "jpg";
   const id =
     Math.random().toString(36).substring(2, 15) +
     Math.random().toString(36).substring(2, 15);
-  return `wardrobe-images/${userId}/${id}.${ext}`;
+  return `users/${userId}/${id}.${ext}`;
 }
+

@@ -9,12 +9,20 @@ interface WardrobeGridProps {
   items: WardrobeItem[];
   isLoading: boolean;
   onItemClick: (item: WardrobeItem) => void;
+  onReupload?: (id: string | number, file: File) => void;
+  /** Fired once per card whose image fails to load */
+  onImageBroken?: () => void;
+  /** ID of the item currently being reuploaded (shows spinner on that card) */
+  reuploadingId?: string | number | null;
 }
 
 export default function WardrobeGrid({
   items,
   isLoading,
   onItemClick,
+  onReupload,
+  onImageBroken,
+  reuploadingId,
 }: WardrobeGridProps) {
   if (isLoading) {
     return (
@@ -89,6 +97,9 @@ export default function WardrobeGrid({
           item={item}
           animDelay={i * 0.04}
           onClick={onItemClick}
+          onReupload={onReupload}
+          onImageBroken={onImageBroken}
+          isReuploading={reuploadingId !== undefined && reuploadingId !== null && reuploadingId === item.id}
         />
       ))}
     </Box>

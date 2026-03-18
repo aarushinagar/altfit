@@ -68,6 +68,10 @@ export async function processAndUploadImage(
       "image/webp",
     );
 
+    console.log(
+      `[Upload] ✅ Complete — image_url saved: ${publicUrl} (${info.width}×${info.height}, ${(info.size / 1024).toFixed(0)} KB)`,
+    );
+
     return {
       storagePath,
       publicUrl,

@@ -89,6 +89,15 @@ export const GEMINI_WARDROBE_ITEM_SCHEMA: Schema = {
     confidence: { type: SchemaType.NUMBER },
     parse_notes: { type: SchemaType.STRING },
     display_hint: { type: SchemaType.STRING },
+    boundingBox: {
+      type: SchemaType.OBJECT,
+      properties: {
+        top: { type: SchemaType.NUMBER },
+        left: { type: SchemaType.NUMBER },
+        width: { type: SchemaType.NUMBER },
+        height: { type: SchemaType.NUMBER },
+      },
+    },
   },
   required: [
     "category",
@@ -97,9 +106,9 @@ export const GEMINI_WARDROBE_ITEM_SCHEMA: Schema = {
     "primary_color_hex",
     "color_pattern",
     "fit_type",
-    "length",
+    // "length" is intentionally optional — meaningless for footwear/accessories
     "material",
-    "texture",
+    // "texture" is optional — may not be discernible from all photos
     "weight",
     "formality",
     "occasions",

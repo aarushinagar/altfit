@@ -1,0 +1,26 @@
+# VCS
+.git
+.gitignore
+
+# Dependencies and build artifacts
+node_modules
+.next
+out
+build
+coverage
+
+# Local files
+.DS_Store
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode
+.idea
+
+# Docs not needed at image build time
+*.md

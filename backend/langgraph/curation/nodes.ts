@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Curation Pipeline — Nodes
  *
@@ -16,11 +17,8 @@ import {
   getGenericIndianWeatherFallback,
 } from "../tools/weather";
 import { queryWardrobeCandidates } from "../tools/query";
-import { callGemini, retryWithBackoff } from "../llm/client";
-import {
-  GEMINI_WEATHER_CONTEXT_SCHEMA,
-  GEMINI_CURATION_OUTPUT_SCHEMA,
-} from "../llm/geminiSchemas";
+import { buildUserMemoryContext } from "../tools/memory";
+import { retryWithBackoff } from "../llm/client";
 import {
   WEATHER_INTERPRETER_PROMPT,
   SENIOR_STYLIST_PROMPT,
@@ -28,6 +26,7 @@ import {
 } from "../shared/prompts";
 import { getModelForTask } from "../shared/models";
 import { REGEN_CONFIG } from "../shared/regen";
+import Anthropic from "@anthropic-ai/sdk";
 import type { CurationState } from "./state";
 import type {
   WeatherContext,
@@ -38,6 +37,55 @@ import type {
   SeasonContext,
   DressingTempBand,
 } from "../shared/types";
+
+// ── Anthropic client (singleton) ──────────────────────────────────────────
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+/**
+ * Call Claude and parse a JSON response.
+ * Strips markdown fences if present, then JSON.parse.
+ * Hard timeout: 45 seconds — on expiry throws so the caller can fall back.
+ */
+async function callClaude(
+  prompt: string,
+  model: string,
+  maxTokens = 500,
+): Promise<Record<string, unknown>> {
+  const timeoutMs = 45_000;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+
+  try {
+    const response = await anthropic.messages.create(
+      {
+        model,
+        max_tokens: maxTokens,
+        system: "You are a JSON API. You MUST respond with ONLY valid JSON. No markdown. No explanations. No text outside JSON.",
+        messages: [{ role: "user", content: prompt }],
+      },
+      { signal: ac.signal },
+    );
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(
+        `Claude response was truncated (max_tokens=${maxTokens}). Increase the token limit.`,
+      );
+    }
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
+    const cleaned = text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
+      .trim();
+    
+    if (!cleaned) {
+      throw new Error("Claude returned empty response");
+    }
+    
+    return JSON.parse(cleaned);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ── Season tag from current month ─────────────────────────────────────────
 
@@ -117,13 +165,18 @@ Raw weather data:
 - Location: ${w.city_name}
 - Date: ${state.localDate}
 
-Respond with a single JSON object matching the schema.`;
+Respond with ONLY a valid JSON object (no markdown) with these exact fields:
+{
+  "season_context": one of "early_spring"|"late_spring"|"peak_summer"|"late_summer"|"early_autumn"|"late_autumn"|"winter"|"transitional",
+  "dressing_temp_band": one of "very_hot"|"hot"|"warm"|"mild"|"cool"|"cold"|"very_cold",
+  "target_temp_c": number,
+  "layering_needed": boolean,
+  "rain_protection_needed": boolean,
+  "weather_notes": string,
+  "formality_suggestion": one of "none"|"lean_casual"|"lean_smart_casual"|"context_dependent"
+}`;
 
-    const raw = await callGemini({
-      model: getModelForTask("weatherInterpret"),
-      prompt,
-      responseSchema: GEMINI_WEATHER_CONTEXT_SCHEMA,
-    });
+    const raw = await callClaude(prompt, getModelForTask("weatherInterpret"));
 
     const ctx: WeatherContext = {
       season_context: (raw.season_context as SeasonContext) ?? "transitional",
@@ -205,12 +258,23 @@ export async function queryWardrobeNode(
 
 // ── Node 4: curateOutfitsNode ──────────────────────────────────────────────
 
+/** Cap items sent to Claude and send only the fields it needs. */
 function buildCandidateSummary(items: WardrobeCandidate[]): string {
-  return items
-    .map(
-      (item) =>
-        `ID: ${item.id} | ${item.category}${item.subcategory ? ` (${item.subcategory})` : ""} | ${item.primary_color_name ?? "unknown"} ${item.material ?? ""} | formality: ${item.formality ?? "?"} | occasions: ${(item.occasions ?? []).join(", ") || "general"}`,
-    )
+  const capped = items.slice(0, 12);
+  return capped
+    .map((item) => {
+      const daysSince =
+        item.last_worn_at
+          ? Math.floor(
+            (Date.now() - new Date(item.last_worn_at).getTime()) / 86_400_000,
+          )
+          : null;
+      const wornLabel =
+        item.wear_count === 0
+          ? "never worn"
+          : `worn ${item.wear_count}× (${daysSince}d ago)`;
+      return `${item.id}|${item.category}${item.subcategory ? `(${item.subcategory})` : ""}|${item.primary_color_name ?? "?"}|${item.formality ?? "?"}|${wornLabel}`;
+    })
     .join("\n");
 }
 
@@ -240,7 +304,15 @@ export async function curateOutfitsNode(
       ? `\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n${state.validationFailureReason}\nFix the issue and try again.`
       : "";
 
-  const prompt = `${SENIOR_STYLIST_PROMPT}${regenAddendum}${validationHint}
+  // Fetch user memory context (parallel to curation, best-effort)
+  let memoryContext = "";
+  try {
+    memoryContext = await buildUserMemoryContext(state.userId);
+  } catch (err) {
+    console.warn("[curateOutfitsNode] Memory context fetch failed (non-fatal):", err);
+  }
+
+  const prompt = `${memoryContext ? memoryContext + "\n\n" : ""}${SENIOR_STYLIST_PROMPT}${regenAddendum}${validationHint}
 
 WEATHER CONTEXT:
 - Season: ${ctx?.season_context ?? "unknown"}
@@ -250,7 +322,11 @@ WEATHER CONTEXT:
 - Notes: ${ctx?.weather_notes ?? "none"}
 
 CANDIDATE WARDROBE ITEMS (${state.candidateItems.length} items):
+Format: ID|CATEGORY|COLOR|FORMALITY|WEAR_HISTORY
 ${buildCandidateSummary(state.candidateItems)}
+
+IMPORTANT: Return ONLY the exact ID values (the part before the first |) from the list above.
+Do not generate new IDs. Do not use item names. Extract IDs directly from this list.
 
 Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
 
@@ -261,20 +337,47 @@ Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
 
   try {
     const raw = await retryWithBackoff(() =>
-      callGemini({
-        model: curationModel,
-        prompt,
-        responseSchema: GEMINI_CURATION_OUTPUT_SCHEMA,
-      }),
+      callClaude(
+        prompt +
+        `\n\nReturn ONLY valid JSON, no markdown:\n{"slots":[{"outfit_ids":["id1"],"rationale":"...","styling_tip":"...","occasion_tags":["casual"],"vibe":"Relaxed"}]}\nExactly 3 slots.`,
+        curationModel,
+        1500,
+      ),
     );
 
-    const slots = (raw.slots as CuratedSlot[]) ?? [];
-    if (slots.length !== 3) {
-      throw new Error(`Expected 3 slots, got ${slots.length}`);
+    const rawSlots = (raw.slots as CuratedSlot[]) ?? [];
+    if (rawSlots.length !== 3) {
+      throw new Error(`Expected 3 slots, got ${rawSlots.length}`);
+    }
+
+    // Coerce all outfit_ids to strings — the LLM may return large Snowflake IDs as
+    // JSON numbers which JSON.parse converts to imprecise float64 values, causing
+    // the IDs to no longer match the BigInt IDs stored in the database.
+    const validCandidateIds = new Set(state.candidateItems.map(c => c.id));
+    const slots: CuratedSlot[] = rawSlots.map((slot) => ({
+      ...slot,
+      outfit_ids: (slot.outfit_ids ?? [])
+        .map((id: unknown) => String(id))
+        .filter(id => validCandidateIds.has(id)), // Filter out any hallucinated IDs
+    }));
+
+    // Verify that all slots have at least one valid ID
+    const slotIssues = slots
+      .map((slot, i) => ({ slotNum: i + 1, count: slot.outfit_ids.length }))
+      .filter(s => s.count === 0);
+    
+    if (slotIssues.length > 0) {
+      throw new Error(
+        `After filtering invalid IDs, some slots have no items: ${slotIssues.map(s => `slot ${s.slotNum}`).join(', ')}`
+      );
     }
 
     console.log(
       `[CurationGraph] curate_outfits: Gemini returned ${slots.length} slots — vibes: ${slots.map((s) => s.vibe).join(", ")}`,
+    );
+    console.log(
+      `[CurationGraph] outfit_ids by slot:`,
+      slots.map((s, i) => `slot${i + 1}: [${s.outfit_ids.join(", ")}]`).join(" | "),
     );
 
     return { curatedSlots: slots, status: "validating" };
@@ -294,6 +397,7 @@ export async function validateOutfitsNode(
 ): Promise<Partial<CurationState>> {
   const slots = state.curatedSlots;
   if (!slots || slots.length !== 3) {
+    console.log('[Validation] ❌ Slots not present or wrong count:', slots?.length);
     return {
       validationAttempts: state.validationAttempts + 1,
       validationFailureReason: "Must have exactly 3 slots",
@@ -302,7 +406,10 @@ export async function validateOutfitsNode(
   }
 
   const candidateIds = new Set(state.candidateItems.map((c) => c.id));
+  console.log('[Validation] Candidate pool:', state.candidateItems.length, 'items with IDs:', Array.from(candidateIds));
   const errors: string[] = [];
+
+  const allowCrossSlotItemReuse = state.regenConfig?.allowCrossSlotItemReuse ?? REGEN_CONFIG.allowCrossSlotItemReuse;
 
   // Track all used IDs across slots for cross-slot uniqueness
   const allUsedIds: string[] = [];
@@ -310,22 +417,31 @@ export async function validateOutfitsNode(
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i];
     const slotNum = i + 1;
+    console.log(`[Validation] Slot ${slotNum}: outfit_ids =`, slot.outfit_ids, '(types:', slot.outfit_ids.map(id => typeof id).join(','), ')');
+
+    // Each slot must include at least one item
+    if (slot.outfit_ids.length === 0) {
+      errors.push(`Slot ${slotNum}: outfit_ids is empty — must include at least 1 item`);
+    }
 
     // All IDs must come from candidate pool
     for (const id of slot.outfit_ids) {
       if (!candidateIds.has(id)) {
+        console.log(`[Validation] ❌ ID mismatch: "${id}" (type ${typeof id}) not in candidate pool`);
         errors.push(
           `Slot ${slotNum}: item ID "${id}" is not in the candidate pool`,
         );
       }
     }
 
-    // No cross-slot item reuse
-    for (const id of slot.outfit_ids) {
-      if (allUsedIds.includes(id)) {
-        errors.push(
-          `Slot ${slotNum}: item ID "${id}" appears in multiple slots`,
-        );
+    // Only enforce cross-slot uniqueness when configured
+    if (!allowCrossSlotItemReuse) {
+      for (const id of slot.outfit_ids) {
+        if (allUsedIds.includes(id)) {
+          errors.push(
+            `Slot ${slotNum}: item ID "${id}" appears in multiple slots`,
+          );
+        }
       }
     }
     allUsedIds.push(...slot.outfit_ids);
@@ -355,6 +471,7 @@ export async function validateOutfitsNode(
   }
 
   if (errors.length > 0) {
+    console.log(`[Validation] ❌ Validation failed with ${errors.length} errors:`, errors);
     return {
       validationAttempts: state.validationAttempts + 1,
       validationFailureReason: errors.join("; "),
@@ -362,6 +479,7 @@ export async function validateOutfitsNode(
     };
   }
 
+  console.log('[Validation] ✅ All checks passed! Status: persisting');
   return { status: "persisting" };
 }
 
@@ -424,6 +542,11 @@ export async function persistCurationNode(
       },
     });
 
+    // Save OutfitHistory rows (fire-and-forget so it doesn't slow down response)
+    void saveOutfitHistory(state, curation.id.toString()).catch((err) =>
+      console.warn("[persistCurationNode] OutfitHistory save failed (non-fatal):", err),
+    );
+
     return {
       curationId: curation.id.toString(),
       latencyMs,
@@ -433,6 +556,79 @@ export async function persistCurationNode(
     // Non-fatal: still return results even if persist fails
     console.error("[persistCurationNode] Upsert failed:", err);
     return { curationId: null, latencyMs, status: "hydrating" };
+  }
+}
+
+// ── saveOutfitHistory (helper for persistCurationNode) ────────────────────
+
+async function saveOutfitHistory(
+  state: CurationState,
+  curationIdStr: string,
+): Promise<void> {
+  if (!state.curatedSlots) return;
+
+  const userIdBigInt = BigInt(state.userId);
+  const curationIdBigInt = BigInt(curationIdStr);
+
+  // Build a lookup: wardrobe item id → name for denormalised itemNames array
+  const allIds = [...new Set(state.curatedSlots.flatMap((s) => s.outfit_ids))];
+  const items = await prisma.wardrobeItem.findMany({
+    where: { id: { in: allIds.map(BigInt) } },
+    select: { id: true, name: true, subcategory: true, category: true },
+  });
+  const nameMap = new Map(
+    items.map((i) => [i.id.toString(), i.name ?? i.subcategory ?? i.category]),
+  );
+
+  // One OutfitHistory row per slot
+  await Promise.all(
+    state.curatedSlots.map(async (slot, idx) => {
+      const slotNumber = (idx + 1) as 1 | 2 | 3;
+      const itemNames = slot.outfit_ids.map(
+        (id: string) => nameMap.get(id) ?? id,
+      );
+
+      await prisma.outfitHistory.create({
+        data: {
+          id: generateSnowflakeId(),
+          userId: userIdBigInt,
+          outfitName: `Slot ${slotNumber} – ${slot.vibe ?? "Look"}`,
+          itemIds: slot.outfit_ids,
+          itemNames,
+          stylingNote: slot.styling_tip ?? null,
+          vibe: slot.vibe ?? null,
+          occasionTags: slot.occasion_tags ?? [],
+          curationId: curationIdBigInt,
+          slotNumber,
+        },
+      });
+    }),
+  );
+
+  // Increment UserStyleProfile.interactionCount (upsert if missing)
+  const updatedProfile = await prisma.userStyleProfile.upsert({
+    where: { userId: userIdBigInt },
+    create: {
+      id: generateSnowflakeId(),
+      userId: userIdBigInt,
+      interactionCount: 1,
+    },
+    update: {
+      interactionCount: { increment: 1 },
+      updatedAt: new Date(),
+    },
+    select: { interactionCount: true },
+  });
+
+  // Every 5 interactions, trigger a background style analysis via the API
+  if (updatedProfile.interactionCount % 5 === 0) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+    void fetch(`${appUrl}/api/style-profile/analyze`, {
+      method: "POST",
+      headers: { "x-internal-user-id": state.userId },
+    }).catch((err) =>
+      console.warn("[saveOutfitHistory] Style analysis trigger failed:", err),
+    );
   }
 }
 
@@ -451,6 +647,16 @@ export async function hydrateSlotsNode(
 
   // Collect all unique wardrobe item IDs across all slots
   const allIds = [...new Set(state.curatedSlots.flatMap((s) => s.outfit_ids))];
+  console.log('[Hydration] Slot outfit_ids:', allIds);
+
+  if (allIds.length === 0) {
+    console.error('[Hydration] ❌ CRITICAL: all outfit_ids are empty — LLM returned no items');
+    return {
+      status: 'failed' as const,
+      error: 'Curation produced no outfit items — please retry',
+      errorCode: 'system_error' as const,
+    };
+  }
 
   try {
     const items = await prisma.wardrobeItem.findMany({
@@ -466,6 +672,9 @@ export async function hydrateSlotsNode(
       },
     });
 
+    console.log('[Hydration] Found items in DB:', items.length, '/', allIds.length);
+    console.log('[Hydration] Item imageUrls:', items.map(i => ({ id: i.id.toString(), hasImage: !!i.imageUrl })));
+
     const itemMap = new Map(items.map((item) => [item.id.toString(), item]));
 
     const hydratedSlots: HydratedSlot[] = state.curatedSlots.map((slot) => ({
@@ -473,7 +682,10 @@ export async function hydrateSlotsNode(
       items: slot.outfit_ids
         .map((id: string) => {
           const item = itemMap.get(id);
-          if (!item) return null;
+          if (!item) {
+            console.log('[Hydration] Missing wardrobe item for ID:', id);
+            return null;
+          }
           return {
             id: item.id.toString(),
             name: item.name,
@@ -490,7 +702,7 @@ export async function hydrateSlotsNode(
               id: string;
               name: string;
               category: string;
-              imageUrl: string;
+              imageUrl: string | null;
               primaryColorName: string | null;
               primaryColorHex: string | null;
               displayHint: string | null;
@@ -498,6 +710,8 @@ export async function hydrateSlotsNode(
           ): item is NonNullable<typeof item> => item !== null,
         ),
     }));
+
+    console.log('[Hydration] Hydrated slots with items:', hydratedSlots.map(s => ({ vibe: s.vibe, items: s.items.length })));
 
     return { hydratedSlots, status: "complete" };
   } catch (err) {

@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
 
     // Validate each item has required fields
     for (const item of items) {
-      if (!item.name || !item.category || !item.imageUrl || !item.storagePath) {
+      if (!item.name || !item.category) {
         return errorResponse(
-          "Each item must include name, category, imageUrl, and storagePath",
+          "Each item must include name and category",
           400,
         );
       }

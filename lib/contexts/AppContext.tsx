@@ -21,7 +21,7 @@ import { useWardrobe } from "@/lib/hooks/useWardrobe";
 import { deleteWardrobeItem } from "@/lib/actions/wardrobe";
 import { logoutUser } from "@/lib/actions/auth";
 import { clear as clearIdb } from "idb-keyval";
-import { getStoredUser, getAuthToken } from "@/lib/utils/authUtils";
+import { getStoredUser, getAuthToken, decodeJwt } from "@/lib/utils/authUtils";
 import type { WardrobeItem } from "@/components/wardrobe/WardrobeItemCard";
 
 const FREE_LIMIT = 10;
@@ -52,6 +52,8 @@ interface AppContextValue {
   handleRemoveItem: (id: string | number) => Promise<void>;
   handleSignOut: () => Promise<void>;
   handleUpgrade: (selectedPlan: string) => void;
+  savedOutfitsCount: number;
+  loadSavedOutfitsCount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -61,6 +63,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [plan, setPlan] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [savedOutfitsCount, setSavedOutfitsCount] = useState(0);
+
+  const loadSavedOutfitsCount = useCallback(async () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const res = await fetch('/api/saved-outfits', {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setSavedOutfitsCount((d.outfits ?? []).length);
+      }
+    } catch { /* noop */ }
+  }, []);
 
   const {
     items: savedItems,
@@ -83,7 +100,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     if (storedUser && token) {
       setUser(storedUser as AppUser);
-      loadWardrobeItems();
+
+      // Proactively refresh if the access token is expired or within 60 s of expiry.
+      // This prevents the 401 → refresh → retry round-trip on every page load.
+      const payload = decodeJwt(token);
+      const exp = typeof payload?.exp === "number" ? payload.exp : 0;
+      const isExpiredOrStale = exp * 1000 < Date.now() + 60_000;
+
+      if (isExpiredOrStale) {
+        const BASE = process.env.NEXT_PUBLIC_APP_URL || "";
+        fetch(`${BASE}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.data?.accessToken) {
+              localStorage.setItem("accessToken", data.data.accessToken);
+              if (data.data?.user)
+                localStorage.setItem("user", JSON.stringify(data.data.user));
+            }
+            loadWardrobeItems();
+            loadSavedOutfitsCount();
+          })
+          .catch(() => { loadWardrobeItems(); loadSavedOutfitsCount(); });
+      } else {
+        loadWardrobeItems();
+        loadSavedOutfitsCount();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -168,6 +213,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleRemoveItem,
         handleSignOut,
         handleUpgrade,
+        savedOutfitsCount,
+        loadSavedOutfitsCount,
       }}
     >
       {children}

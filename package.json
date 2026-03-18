@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "reset:dev": "tsx scripts/reset-dev-data.ts",
-    "reset:dev:force": "tsx scripts/reset-dev-data.ts --force"
+    "reset:dev:force": "tsx scripts/reset-dev-data.ts --force",
+    "setup:storage": "tsx scripts/setup-storage.ts",
+    "create:tables": "tsx scripts/create-saved-outfits-table.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -25,6 +27,7 @@
     "@mui/material": "^7.3.9",
     "@mui/system": "^7.3.9",
     "@prisma/client": "^5.22.0",
+    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
     "bcryptjs": "^3.0.3",
     "cookie": "^1.1.1",

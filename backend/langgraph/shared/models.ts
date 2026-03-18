@@ -16,9 +16,9 @@
 
 export const GEMINI_MODELS = {
   /** Best balance of speed / cost / quality for structured tasks */
-  FLASH_LITE: "gemini-2.5-flash-lite",
+  FLASH_LITE: "gemini-2.0-flash",
   /** Higher quality, slower, more expensive */
-  FLASH: "gemini-2.5-flash",
+  FLASH: "gemini-2.0-flash",
   /** Top-tier — complex multi-step reasoning (future) */
   PRO: "gemini-2.5-pro",
 } as const;
@@ -39,9 +39,9 @@ export const TASK_MODEL_CONFIG = {
   visionAnalysis: process.env.GEMINI_VISION_MODEL ?? GEMINI_MODELS.FLASH_LITE,
   /** Weather data → dressing context interpretation. Text-only, cheap. */
   weatherInterpret:
-    process.env.GEMINI_WEATHER_MODEL ?? GEMINI_MODELS.FLASH_LITE,
+    process.env.CLAUDE_WEATHER_MODEL ?? ANTHROPIC_MODELS.SONNET,
   /** Main stylist LLM: candidates + weather → 3 outfit slots. */
-  outfitCuration: process.env.GEMINI_CURATION_MODEL ?? GEMINI_MODELS.FLASH_LITE,
+  outfitCuration: process.env.CLAUDE_CURATION_MODEL ?? ANTHROPIC_MODELS.SONNET,
 } as const;
 
 export type TaskName = keyof typeof TASK_MODEL_CONFIG;

@@ -46,7 +46,7 @@ export function useWardrobe(): UseWardrobeReturn {
   const [total, setTotal] = useState(0);
 
   const loadItems = useCallback(
-    async (category?: string, limit: number = 50, offset: number = 0) => {
+    async (category?: string, limit: number = 100, offset: number = 0) => {
       setIsLoading(true);
       setError(null);
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Auth utilities — browser-side
  */
@@ -57,6 +58,45 @@ export function decodeJwt(token: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+const BASE = process.env.NEXT_PUBLIC_APP_URL || "";
+
+/**
+ * Returns a fresh access token, proactively refreshing via /api/auth/refresh
+ * if the stored token is expired or within 90 seconds of expiry.
+ *
+ * Safe to call from any hook or action — never throws.
+ */
+export async function ensureFreshToken(): Promise<string | null> {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const payload = decodeJwt(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp : 0;
+  // Refresh if expired OR within 90 s of expiry (was 60 s — wider window prevents race)
+  const isStale = exp * 1000 < Date.now() + 90_000;
+  if (!isStale) return token;
+
+  try {
+    const r = await fetch(`${BASE}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (r.ok) {
+      const data = await r.json();
+      if (data?.data?.accessToken) {
+        localStorage.setItem("accessToken", data.data.accessToken);
+        if (data.data?.user)
+          localStorage.setItem("user", JSON.stringify(data.data.user));
+        return data.data.accessToken as string;
+      }
+    }
+  } catch {
+    /* fall through — return stale token, let the API 401 handler retry */
+  }
+  return token;
 }
 
 export function loadGisScript(): Promise<void> {

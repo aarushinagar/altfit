@@ -24,6 +24,8 @@ export default function CurationSlotCard({
   const items = slot.items ?? [];
   const label = SLOT_LABELS[slotNumber - 1];
 
+  console.log(`[Today Slot ${slotNumber}] vibe: ${slot.vibe}, items: ${items.length}, outfit_ids: [${slot.outfit_ids?.join(", ")}], with imageUrl: ${items.filter(i => i.imageUrl).length}`);
+
   return (
     <div className="outfit-card fade-up">
       {/* Header */}
@@ -32,40 +34,70 @@ export default function CurationSlotCard({
         <span className="occasion-tag">{slot.vibe}</span>
       </div>
 
-      {/* Piece grid */}
-      <Box
-        className="outfit-pieces"
-        sx={{
-          gridTemplateColumns: `repeat(${Math.min(Math.max(items.length, 1), 4)}, 1fr)`,
-        }}
-      >
-        {items.map((item) => (
-          <div key={item.id} className="outfit-piece">
+      {/* Piece grid — always render so we can see the empty state for debugging */}
+      {items.length > 0 ? (
+        <Box
+          className="outfit-pieces"
+          sx={{
+            gridTemplateColumns: `repeat(${Math.min(Math.max(items.length, 1), 4)}, 1fr)`,
+          }}
+        >
+          {items.map((item) => (
+            <div key={item.id} className="outfit-piece">
+              <Box
+                className="piece-visual"
+                sx={{
+                  background: item.imageUrl ? "#ede9e3" : "var(--paper)",
+                  overflow: "hidden",
+                }}
+              >
+                {item.imageUrl ? (
+                  <WardrobeImage
+                    item={{
+                      name: item.name,
+                      imageUrl: item.imageUrl,
+                    }}
+                  />
+                ) : (
+                  <Box component="span" sx={{ fontSize: 32 }}>
+                    👗
+                  </Box>
+                )}
+              </Box>
+              <div className="piece-label">{item.category}</div>
+              <div className="piece-name">{item.name}</div>
+            </div>
+          ))}
+        </Box>
+      ) : (
+        /* Empty state — visible fallback while photos load / IDs resolve */
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "1px",
+            background: "var(--linen)",
+          }}
+        >
+          {[0, 1, 2].map((i) => (
             <Box
-              className="piece-visual"
+              key={i}
               sx={{
-                background: item.imageUrl ? "#ede9e3" : "var(--paper)",
-                overflow: "hidden",
+                background: "var(--cream)",
+                aspectRatio: "3/4",
+                maxHeight: 160,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 28,
+                opacity: 0.15,
               }}
             >
-              {item.imageUrl ? (
-                <WardrobeImage
-                  item={{
-                    name: item.name,
-                    imageUrl: item.imageUrl,
-                  }}
-                />
-              ) : (
-                <Box component="span" sx={{ fontSize: 32 }}>
-                  👗
-                </Box>
-              )}
+              👗
             </Box>
-            <div className="piece-label">{item.category}</div>
-            <div className="piece-name">{item.name}</div>
-          </div>
-        ))}
-      </Box>
+          ))}
+        </Box>
+      )}
 
       {/* Occasion tags */}
       {slot.occasion_tags.length > 0 && (

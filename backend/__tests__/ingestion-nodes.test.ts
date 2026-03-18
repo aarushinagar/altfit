@@ -67,6 +67,7 @@ const BASE_STATE = {
   rawParseItems: null,
   enrichedItems: null,
   wardrobeItemIds: null,
+  detectedPieces: null,
   confidence: 0,
   needsReview: false,
   error: null,
@@ -101,8 +102,8 @@ describe("validateImageNode", () => {
     } as unknown as Response);
 
     const result = await validateImageNode(BASE_STATE);
-    expect(result.status).toBe("failed");
-    expect(result.error).toMatch(/403/);
+    // 403 errors proceed anyway — Gemini can fetch URLs directly
+    expect(result.status).toBe("parsing");
   });
 
   it("returns error when image exceeds 8 MB", async () => {
@@ -120,8 +121,8 @@ describe("validateImageNode", () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     const result = await validateImageNode(BASE_STATE);
-    expect(result.status).toBe("failed");
-    expect(result.error).toMatch(/ECONNREFUSED/);
+    // Network errors are transient — proceed anyway
+    expect(result.status).toBe("parsing");
   });
 });
 
@@ -197,14 +198,15 @@ describe("visionParseNode", () => {
 
   it("routes to persisting with needsReview=true when gemini throws", async () => {
     vi.mocked(geminiVisionAnalyze).mockRejectedValueOnce(
-      new Error("API quota exceeded"),
+      new Error("Network timeout"),
     );
 
     const result = await visionParseNode(BASE_STATE);
 
+    // Non-API errors route to persisting with needsReview=true
     expect(result.status).toBe("persisting");
     expect(result.needsReview).toBe(true);
-    expect(result.error).toMatch(/API quota exceeded/);
+    expect(result.error).toMatch(/Network timeout/);
     expect(result.confidence).toBe(0);
   });
 });

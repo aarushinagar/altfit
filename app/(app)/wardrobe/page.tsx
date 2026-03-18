@@ -14,6 +14,7 @@ export default function WardrobeRoute() {
       isLoading={wardrobeLoading}
       onRemoveItem={handleRemoveItem}
       onFilterChange={(category) => loadWardrobeItems(category)}
+      onRefresh={() => loadWardrobeItems()}
     />
   );
 }

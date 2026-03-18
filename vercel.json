@@ -1,0 +1,16 @@
+{
+    "framework": "nextjs",
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "env": {
+        "SUPABASE_URL": "required — your Supabase project URL, e.g. https://xxx.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "required — service_role secret key (Dashboard → Settings → API)",
+        "SUPABASE_ANON_KEY": "required — anon/public key (Dashboard → Settings → API)",
+        "NEXT_PUBLIC_SUPABASE_URL": "required — same as SUPABASE_URL but exposed to the browser",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "required — same as SUPABASE_ANON_KEY but exposed to the browser",
+        "ANTHROPIC_API_KEY": "required — Anthropic Claude API key for AI classification",
+        "JWT_SECRET": "required — random secret string for signing auth tokens",
+        "DATABASE_URL": "required — PostgreSQL connection string (pooled mode for Vercel)",
+        "DIRECT_URL": "required — PostgreSQL connection string (direct mode for Prisma migrations)"
+    }
+}

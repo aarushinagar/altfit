@@ -5,6 +5,7 @@ import { Box, Stack } from "@mui/material";
 interface NavProps {
   page: string;
   savedItemCount: number;
+  savedOutfitsCount: number;
   plan: string | null;
   user: { name?: string | null; email?: string | null } | null;
   isOpen: boolean;
@@ -17,12 +18,14 @@ interface NavProps {
 const NAV_ITEMS = [
   { id: "today", label: "Today" },
   { id: "wardrobe", label: "Wardrobe" },
+  { id: "saved-outfits", label: "Saved Outfits" },
   { id: "upload", label: "Add Pieces" },
 ];
 
 export default function AppNav({
   page,
   savedItemCount,
+  savedOutfitsCount,
   plan,
   user,
   isOpen,
@@ -62,6 +65,9 @@ export default function AppNav({
               {label}
               {id === "wardrobe" && savedItemCount > 0
                 ? ` · ${savedItemCount}`
+                : ""}
+              {id === "saved-outfits" && savedOutfitsCount > 0
+                ? ` · ${savedOutfitsCount}`
                 : ""}
             </button>
           ))}

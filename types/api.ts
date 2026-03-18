@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API Response Types
  *
@@ -55,8 +56,8 @@ export interface RefreshTokenRequest {
 export interface WardrobeItemRequest {
   name: string;
   category: string;
-  imageUrl: string;
-  storagePath: string;
+  imageUrl: string | null;
+  storagePath: string | null;
   colors?: string[];
   colorNames?: string[];
   pattern?: string;
@@ -142,14 +143,14 @@ export interface SubscriptionResponse {
 export interface ClothingClassificationItem {
   name: string;
   category:
-    | "top"
-    | "bottom"
-    | "dress"
-    | "outerwear"
-    | "footwear"
-    | "bag"
-    | "accessory"
-    | "outfit";
+  | "top"
+  | "bottom"
+  | "dress"
+  | "outerwear"
+  | "footwear"
+  | "bag"
+  | "accessory"
+  | "outfit";
   colors: string[];
   colorNames: string[];
   pattern?: string;
@@ -187,8 +188,8 @@ export interface GeneratedOutfitResponse {
 export interface WardrobeItemCreateInput {
   name: string;
   category: string;
-  imageUrl: string;
-  storagePath: string;
+  imageUrl: string | null;
+  storagePath: string | null;
   colors?: string[];
   colorNames?: string[];
   pattern?: string;

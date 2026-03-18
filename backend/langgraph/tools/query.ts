@@ -48,8 +48,11 @@ function toCandidate(
     style_aesthetic:
       item.styleAesthetic.length > 0 ? item.styleAesthetic : null,
     parse_notes: item.parseNotes,
-    image_url: item.imageUrl,
+    image_url: item.imageUrl ?? null,
     created_at: item.createdAt.toISOString(),
+    wear_count: item.wearCount,
+    last_worn_at: item.lastWornAt ? item.lastWornAt.toISOString() : null,
+    name: item.name ?? item.subcategory ?? null,
   };
 }
 
@@ -95,7 +98,7 @@ export async function queryWardrobeCandidates(
         ],
       },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: 12,
     });
 
     if (tier1Items.length >= 3) {
@@ -105,11 +108,11 @@ export async function queryWardrobeCandidates(
     console.warn("[queryWardrobeCandidates] Tier 1 query failed:", err);
   }
 
-  // ── Tier 2: most recent 10 active items (no filter) ───────────────────────
+  // ── Tier 2: most recent 12 active items (no filter) ─────────────────────
   const tier2Items = await prisma.wardrobeItem.findMany({
     where: baseWhere,
     orderBy: { createdAt: "desc" },
-    take: 10,
+    take: 12,
   });
 
   return { items: tier2Items.map(toCandidate), tierUsed: 2 };

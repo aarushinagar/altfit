@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
@@ -5,7 +6,13 @@ import { Box, Stack } from "@mui/material";
 import UploadZone from "@/components/upload/UploadZone";
 import UploadItemCard, { UploadItem } from "@/components/upload/UploadItemCard";
 import { detectRealType, isHeicFile } from "@/lib/utils/imageUtils";
-import { createWardrobeItemFromFile } from "@/lib/actions/wardrobe";
+import {
+  createWardrobeItemFromFile,
+  uploadCroppedImage,
+  updateWardrobeItemImage,
+  type DetectedPiece,
+} from "@/lib/actions/wardrobe";
+import { cropImageToPiece } from "@/lib/utils/imageCrop";
 import type { WardrobeItemResponse } from "@/types/api";
 
 interface WardrobeSavePayload {
@@ -19,7 +26,7 @@ interface UploadPageProps {
 }
 
 // No-op callbacks — saves are handled server-side before status becomes "ready"
-const noop = () => {};
+const noop = () => { };
 
 export default function UploadPage({ onSaveItem }: UploadPageProps) {
   const [items, setItems] = useState<UploadItem[]>([]);
@@ -92,6 +99,20 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
         ),
       );
 
+      // Show "analyzing..." hint after 5 seconds
+      const hintTimeout = setTimeout(() => {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === id && it.status === "analyzing"
+              ? {
+                ...it,
+                progress: Math.max(it.progress ?? 25, 40),
+              }
+              : it,
+          ),
+        );
+      }, 5000);
+
       // Fake progress ticks while the server processes (Sharp + Gemini + DB)
       const timer = setInterval(() => {
         setItems((prev) =>
@@ -106,32 +127,58 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
       try {
         const result = await createWardrobeItemFromFile(file, name);
         clearInterval(timer);
+        clearTimeout(hintTimeout);
 
-        if (!result.success || !result.data) {
+        if (!result.success || !result.data?.items?.length) {
           throw new Error(result.error || "Server failed to process item");
         }
 
-        const saved = result.data as WardrobeItemResponse;
+        // API returned multiple items from single upload (multi-piece detection)
+        const items = result.data.items;
+        const firstItem = items[0];
+
+        // ── Cropping phase ────────────────────────────────────────────────
+        // Transition: analyzing → cropping (shows shimmer piece cards)
         setItems((prev) =>
           prev.map((it) =>
             it.id === id
               ? {
-                  ...it,
-                  status: "ready",
-                  progress: 100,
-                  intent: "full_outfit",
-                  wardrobeItemId: saved.id,
-                  uploadedUrl: saved.imageUrl,
-                }
+                ...it,
+                status: "cropping",
+                cropCount: Math.max(items.length, 1),
+                cropDone: 0,
+              }
+              : it,
+          ),
+        );
+
+        const primaryImageUrl = firstItem.imageUrl;
+
+        // For now, process first item only. Multi-item detection happens server-side.
+        // In future: crop each item if detectedPieces are returned
+
+        // ── Done ───────────────────────────────────────────────────────────
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === id
+              ? {
+                ...it,
+                status: "ready",
+                progress: 100,
+                intent: "full_outfit",
+                wardrobeItemId: firstItem.id,
+                uploadedUrl: primaryImageUrl,
+              }
               : it,
           ),
         );
         onSaveItem({
-          name: saved.name,
-          imageUrl: saved.imageUrl ?? previewUrl,
+          name: firstItem.name,
+          imageUrl: primaryImageUrl ?? previewUrl,
         });
       } catch (err) {
         clearInterval(timer);
+        clearTimeout(hintTimeout);
         const message = err instanceof Error ? err.message : String(err);
         setItems((prev) =>
           prev.map((it) =>

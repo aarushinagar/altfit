@@ -1,254 +1,450 @@
 /**
  * GET /api/wardrobe
- * Get all wardrobe items for authenticated user (with user isolation)
- *
- * Query parameters:
- * - category: Filter by category
- * - limit: Max items to return (default: 50)
- * - offset: Pagination offset (default: 0)
+ * Fetch authenticated user's wardrobe items
  *
  * POST /api/wardrobe
- * Upload and AI-analyse a new wardrobe item via the IngestionGraph.
+ * Upload and analyze a new wardrobe item
+ * - Accepts: multipart/form-data with 'image' field
+ * - Max file: 10MB
+ * - Uses Claude to: analyze pieces, generate bounding boxes
+ * - Returns: array of saved items
  *
- * Accepts multipart/form-data:
- *   image    File    — the clothing photo (max 8 MB)
- *   name     string  — display name
- *
- * OR application/json (when the image has already been uploaded separately):
- *   imageUrl    string
- *   storagePath string
- *   name        string
+ * NOTE: All DB operations use Prisma (not the Supabase PostgREST client)
+ * because the Prisma schema uses PascalCase model names ("WardrobeItem"),
+ * which PostgREST cannot resolve via the supabase.from('wardrobe_items') API.
+ * Supabase client is kept only for Storage (file upload/delete).
  */
 
-import { NextRequest } from "next/server";
-import prisma from "@/backend/database/prisma";
-import { requireAuth } from "@/backend/database/auth-middleware";
-import {
-  successResponse,
-  errorResponse,
-} from "@/backend/database/api-response";
-import { generateSnowflakeId } from "@/backend/database/snowflake";
-import { processAndUploadImage } from "@/lib/image/process";
-import { buildIngestionGraph } from "@/backend/langgraph/ingestion/graph";
-import { isWardrobeCapExceeded } from "@/backend/langgraph/shared/regen";
-import type { WardrobeItemResponse } from "@/types/api";
+import { NextRequest, NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
+import { createAdminClient } from '@/lib/supabase'
+import { cropItemFromImage, cropToPersonOnly, isValidPersonBox } from '@/lib/imageCropper'
+import { uploadItemImage } from '@/lib/storageEngine'
+import { validateEnv } from '@/lib/env'
+import { requireAuth } from '@/backend/database/auth-middleware'
+import prisma from '@/backend/database/prisma'
+import { generateSnowflakeId } from '@/backend/database/snowflake'
+import type { Prisma } from '@prisma/client'
 
-export async function GET(request: NextRequest) {
+interface DetectedPiece {
+  name: string
+  category: string
+  color: string
+  fit: string
+  season: string
+  formality: number
+  confidence?: number
+  boundingBox: {
+    top: number
+    left: number
+    width: number
+    height: number
+  } | null
+}
+
+/** Serialize a Prisma WardrobeItem (BigInt ids) to a plain JSON-safe object */
+function serializeItem(item: Record<string, unknown>) {
+  return {
+    ...item,
+    id: String(item.id),
+    userId: String(item.userId),
+  }
+}
+
+export async function GET(req: NextRequest) {
   try {
-    console.log("[Wardrobe Get] Fetching wardrobe items");
+    validateEnv()
 
-    // Authenticate user
-    const auth = requireAuth(request);
-    if (!auth.ok) return auth.response;
-    const { userId } = auth;
+    const auth = requireAuth(req)
+    if (!auth.ok) return auth.response
+    const { userId } = auth
 
-    // Get query parameters
-    const url = new URL(request.url);
-    const category = url.searchParams.get("category");
-    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
-    const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+    console.log('[Wardrobe GET] Fetching items for user')
 
-    console.log(
-      `[Wardrobe Get] User ${userId}, category: ${category || "all"}, limit: ${limit}, offset: ${offset}`,
-    );
+    const url = new URL(req.url)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+    const offset = parseInt(url.searchParams.get('offset') || '0')
 
-    // Build query
-    const where: { userId: bigint; category?: string } = {
-      userId: BigInt(userId),
-    };
-    if (category) {
-      where.category = category;
-    }
-
-    // Batch queries: fetch items and count in parallel for faster response
     const [items, total] = await Promise.all([
       prisma.wardrobeItem.findMany({
-        where,
-        take: limit,
+        where: { userId: BigInt(userId), isActive: true },
+        orderBy: { createdAt: 'desc' },
         skip: offset,
-        orderBy: { createdAt: "desc" },
+        take: limit,
       }),
-      prisma.wardrobeItem.count({ where }),
-    ]);
+      prisma.wardrobeItem.count({
+        where: { userId: BigInt(userId), isActive: true },
+      }),
+    ])
 
-    console.log(
-      `[Wardrobe Get] Retrieved ${items.length} items (total: ${total})`,
-    );
+    console.log(`[Wardrobe GET] Returning ${items.length} of ${total} items`)
 
-    const response: WardrobeItemResponse[] = items.map((item) => ({
-      id: item.id.toString(),
-      userId: item.userId.toString(),
-      name: item.name,
-      category: item.category,
-      imageUrl: item.imageUrl,
-      storagePath: item.storagePath,
-      colors: item.colors,
-      colorNames: item.colorNames,
-      pattern: item.pattern || undefined,
-      fabric: item.fabric || undefined,
-      fit: item.fit || undefined,
-      formality: item.formality,
-      season: item.season,
-      occasion: item.occasion,
-      stylistNote: item.stylistNote || undefined,
-      tags: item.tags,
-      wearCount: item.wearCount,
-      lastWornAt: item.lastWornAt?.toISOString() || null,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
-    }));
-
-    return successResponse(
-      {
-        items: response,
+    return NextResponse.json({
+      success: true,
+      data: {
+        items: items.map(serializeItem),
         total,
-        limit,
-        offset,
       },
-      "Wardrobe items fetched successfully",
-      200,
-    );
+      limit,
+      offset,
+    })
   } catch (error) {
-    console.error("[Wardrobe Get] Error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to fetch items",
-      500,
-    );
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('[Wardrobe GET] Error:', errMsg)
+    return NextResponse.json({ error: errMsg }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
+  const startTime = Date.now()
+
   try {
-    console.log("[Wardrobe Create] Received upload request");
+    // ── 1. VALIDATE ENV
+    console.log('[Wardrobe] ── POST start')
+    validateEnv()
+    console.log('[Wardrobe] ── ENV ok')
 
-    const auth = requireAuth(request);
-    if (!auth.ok) return auth.response;
-    const { userId } = auth;
+    // ── 2. PARSE FILE
+    const formData = await req.formData()
+    const file = formData.get('image') as File | null
 
-    // ── Free-tier wardrobe cap check ────────────────────────────────────────
-    const userRecord = await prisma.user.findUnique({
-      where: { id: BigInt(userId) },
-      select: { plan: true, wardrobeItemCount: true },
-    });
-    if (
-      isWardrobeCapExceeded(
-        userRecord?.plan ?? "free",
-        userRecord?.wardrobeItemCount ?? 0,
+    if (!file || file.size === 0) {
+      console.error('[Wardrobe] ── No image provided')
+      return NextResponse.json({ error: 'No image provided' }, { status: 400 })
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      console.error('[Wardrobe] ── File too large')
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 10MB.' },
+        { status: 400 }
       )
-    ) {
-      return errorResponse(
-        "Free plan is limited to 100 wardrobe items. Upgrade to Pro for unlimited.",
-        403,
-      );
+    }
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+    if (!validTypes.includes(file.type)) {
+      console.error('[Wardrobe] ── Invalid file type:', file.type)
+      return NextResponse.json(
+        { error: 'Invalid file type. Please use JPG, PNG, or WEBP.' },
+        { status: 400 }
+      )
     }
 
-    let imageUrl: string;
-    let storagePath: string;
-    let name: string;
+    console.log(`[Wardrobe] ── File received: ${file.name}, ${file.size} bytes`)
 
-    const contentType = request.headers.get("content-type") ?? "";
+    // ── 3. AUTHENTICATE
+    const auth = requireAuth(req)
+    if (!auth.ok) {
+      console.error('[Wardrobe] ── Auth failed')
+      return auth.response
+    }
+    const userId = auth.userId
+    console.log(`[Wardrobe] ── User authenticated: ${userId}`)
 
-    if (contentType.includes("multipart/form-data")) {
-      // --- Multipart: client is uploading the raw file ---
-      const formData = await request.formData();
-      const file = formData.get("image");
-      name = String(formData.get("name") || "Untitled Item");
+    // ── 4. CONVERT TO BUFFER
+    const originalBuffer = Buffer.from(await file.arrayBuffer())
+    console.log(`[Wardrobe] ── Buffer ready: ${originalBuffer.length} bytes`)
 
-      if (!file || !(file instanceof File)) {
-        return errorResponse("Missing required field: image", 400);
+    // ── 5. CALL CLAUDE FOR ANALYSIS
+    console.log('[Wardrobe] ── Calling Claude (pass 1: locate person)...')
+    let pieces: DetectedPiece[] = []
+    let personBox: { top: number; left: number; width: number; height: number } | null = null
+
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const base64Image = originalBuffer.toString('base64')
+      const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+
+      // ── PASS 1: Locate the person ──────────────────────────────────────
+      try {
+        const personResponse = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
+              { type: 'text', text: `Where is the person in this image?\nReturn ONLY JSON: { "personBox": { "top": number, "left": number, "width": number, "height": number }, "hasPerson": true/false }\nCoordinates are % of image dimensions. No markdown.` }
+            ]
+          }]
+        })
+        const personText = personResponse.content[0].type === 'text' ? personResponse.content[0].text.trim() : '{}'
+        const personData = JSON.parse(personText.replace(/```json|```/g, '').trim())
+        if (personData.hasPerson && personData.personBox) {
+          personBox = personData.personBox
+          console.log(`[Wardrobe] ── Person located:`, personBox)
+        }
+      } catch (personErr) {
+        console.warn('[Wardrobe] ── Pass 1 failed (non-fatal):', personErr instanceof Error ? personErr.message : String(personErr))
       }
 
-      const itemId = generateSnowflakeId().toString();
-      const processed = await processAndUploadImage(file, userId, itemId);
-      imageUrl = processed.publicUrl;
-      storagePath = processed.storagePath;
-    } else {
-      // --- JSON: client pre-uploaded the image and is passing the URL ---
-      const body = await request.json();
-      if (!body.imageUrl || !body.storagePath || !body.name) {
-        return errorResponse(
-          "Missing required fields: name, imageUrl, storagePath",
-          400,
-        );
+      // ── PASS 2: Detect clothing items ──────────────────────────────────
+      console.log('[Wardrobe] ── Calling Claude (pass 2: detect items)...')
+      const personContext = personBox
+        ? `The person in this image is located at:\nTop: ${personBox.top}%, Left: ${personBox.left}%, Width: ${personBox.width}%, Height: ${personBox.height}%\n\nIdentify ONLY clothing items worn ON this person's body.\nNEVER detect jewelry, accessories, earrings, necklaces, bracelets, rings, watches, or hair accessories.\nThe large painting/artwork in the background is NOT a clothing item — ignore it completely.\nBackground objects, walls, mirrors, and furniture are NOT clothing items.\n\nFor each worn clothing item, provide a bounding box that:\n- Falls WITHIN or near the person's region above\n- Tightly wraps ONLY that specific item on the person's body\n- For dress/top: crop the torso/body area\n- For shoes: crop just the feet area\n- For bag: crop just the bag being held`
+        : `Identify ONLY clothing items WORN by the person in this photo.\nNever detect background objects, art, furniture, walls, or jewelry of any kind.`
+
+      const analysisResponse = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
+            {
+              type: 'text',
+              text: `${personContext}
+
+STRICT RULES — NEVER detect or return these item types, skip them completely:
+- Earrings of any kind (studs, hoops, dangles)
+- Necklaces of any kind (chains, pendants, chokers)
+- Bracelets of any kind
+- Watches of any kind
+- Rings of any kind
+- Any jewelry whatsoever
+- Hair accessories (clips, bands, pins)
+
+ONLY detect and return items from these categories:
+- TOP (shirts, blouses, crop tops, bodysuits, tube tops, corsets)
+- BOTTOM (trousers, jeans, skirts, shorts)
+- DRESS (any one-piece dress or jumpsuit)
+- OUTERWEAR (jackets, coats, blazers)
+- FOOTWEAR (shoes, sandals, heels, boots, sneakers)
+- BAG (handbags, clutches, shoulder bags, totes, crossbody)
+- FULL_OUTFIT (when shooting the complete look)
+
+If the image contains ONLY jewelry with no clothing → return []
+
+BOUNDING BOX RULES:
+- top: y-coordinate of TOP EDGE (0=top, 100=bottom)
+- left: x-coordinate of LEFT EDGE (0=left, 100=right)
+- width/height: span of item only, as % of image dimensions
+- confidence must reflect certainty of BOTH item identity AND location
+
+Return ONLY valid JSON array. No markdown. Raw JSON only.
+[{
+  "name": "string",
+  "category": "TOP|BOTTOM|DRESS|OUTERWEAR|FOOTWEAR|BAG|FULL_OUTFIT",
+  "color": "string",
+  "fit": "relaxed|regular|fitted|oversized",
+  "season": "springsummer|fallwinter|allseason",
+  "formality": 1-10,
+  "confidence": 0.0-1.0,
+  "boundingBox": { "top": number, "left": number, "width": number, "height": number }
+}]`,
+            },
+          ],
+        }]
+      })
+
+      const rawText =
+        analysisResponse.content[0].type === 'text'
+          ? analysisResponse.content[0].text.trim()
+          : '[]'
+
+      try {
+        const cleaned = rawText.replace(/```json|```/g, '').trim()
+        const parsed = JSON.parse(cleaned)
+        pieces = Array.isArray(parsed) ? parsed : [parsed]
+
+        // ── FILTERING ──
+        const BAD_KEYWORDS = [
+          'earring', 'necklace', 'bracelet', 'watch', 'ring',
+          'jewelry', 'jewellery', 'chain', 'pendant', 'choker',
+          'stud', 'hoop', 'bangle', 'cuff', 'anklet',
+          'hair clip', 'hair band', 'scrunchie',
+          'painting', 'art', 'wall', 'background', 'furniture',
+          'floor', 'ceiling', 'lamp', 'plant', 'frame', 'mirror',
+          'sign', 'text', 'door', 'window', 'pillar', 'column',
+        ]
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pieces = pieces.filter((piece: any) => {
+          const name = (piece.name ?? '').toLowerCase()
+          const isBad = BAD_KEYWORDS.some(kw => name.includes(kw))
+          if (isBad) {
+            console.log('[Wardrobe] ❌ Skipped:', piece.name)
+            return false
+          }
+          if ((piece.confidence ?? 1) < 0.7) {
+            console.log('[Wardrobe] ❌ Low confidence:', piece.name)
+            return false
+          }
+          return true
+        })
+
+        if (pieces.length === 0) {
+          return NextResponse.json(
+            {
+              error:
+                'No clothing items detected. Please upload a photo of an outfit or clothing piece.',
+            },
+            { status: 400 }
+          )
+        }
+      } catch (_parseErr: unknown) {
+        console.warn('[Wardrobe] ── Claude parse failed, using fallback')
+        pieces = [
+          {
+            name: 'Clothing item',
+            category: 'TOP',
+            color: 'unknown',
+            fit: 'regular',
+            season: 'allseason',
+            formality: 5,
+            boundingBox: null,
+          },
+        ]
       }
-      ({ imageUrl, storagePath, name } = body);
+    } catch (claudeErr: unknown) {
+      const msg =
+        claudeErr instanceof Error ? claudeErr.message : String(claudeErr)
+      console.error('[Wardrobe] ── Claude failed:', msg)
+      // Even if Claude fails, create a generic item
+      pieces = [
+        {
+          name: 'Clothing item',
+          category: 'TOP',
+          color: 'unknown',
+          fit: 'regular',
+          season: 'allseason',
+          formality: 5,
+          boundingBox: null,
+        },
+      ]
     }
 
-    console.log(`[Wardrobe Create] Running IngestionGraph for user ${userId}`);
+    console.log(`[Wardrobe] ── Claude analysis complete: ${pieces.length} pieces`)
 
-    const graph = buildIngestionGraph();
-    const result = await graph.invoke({
-      imageUrl,
-      userId,
-      itemName: name,
-      storagePath,
-      parseAttempts: 0,
-    });
+    // ── 6. INIT STORAGE CLIENT
+    const adminClient = createAdminClient()
+    console.log('[Wardrobe] ── Bucket ready')
 
-    if (result.status === "failed" || result.error) {
-      console.error("[Wardrobe Create] IngestionGraph failed:", result.error);
-      return errorResponse(result.error ?? "Ingestion pipeline failed", 422);
-    }
+    // ── 7. PROCESS EACH PIECE
+    const savedItems: ReturnType<typeof serializeItem>[] = []
+    const failedItems: { name: string; error: string }[] = []
 
-    // Fetch the persisted item to return a full response
-    // Graph returns one ID per detected clothing piece (multi-item photo support)
-    const wardrobeItemIds = result.wardrobeItemIds as string[] | null;
-    if (!wardrobeItemIds || wardrobeItemIds.length === 0) {
-      return errorResponse(
-        "Item was processed but could not be retrieved",
-        500,
-      );
-    }
+    for (const piece of pieces) {
+      let itemId: string | null = null
 
-    // Fetch the first saved item to drive the immediate UI response.
-    // All detected pieces share the same imageUrl and are available in the wardrobe.
-    const primaryItem = await prisma.wardrobeItem.findUnique({
-      where: { id: BigInt(wardrobeItemIds[0]) },
-    });
+      try {
+        console.log(`[Wardrobe] ── Processing: ${piece.name}`)
 
-    if (!primaryItem) {
-      return errorResponse("Item persisted but not retrievable", 500);
+        // 7a. CREATE DB ROW
+        const newId = generateSnowflakeId()
+        const createData: Prisma.WardrobeItemUncheckedCreateInput = {
+          id: newId,
+          userId: BigInt(userId),
+          name: piece.name ?? 'Unnamed piece',
+          category: piece.category ?? 'TOP',
+          colors: { set: piece.color ? [piece.color] : [] },
+          fit: piece.fit ?? 'regular',
+          season: { set: piece.season ? [piece.season] : [] },
+          formality: piece.formality ?? 5,
+        }
+
+        const item = await prisma.wardrobeItem.create({ data: createData })
+        itemId = item.id.toString()
+        console.log(`[Wardrobe] ── DB row created: ${itemId}`)
+
+        // 7b. CROP IMAGE
+        let croppedBuffer: Buffer
+        try {
+          croppedBuffer = await cropItemFromImage(
+            personBox && isValidPersonBox(personBox)
+              ? await cropToPersonOnly(originalBuffer, personBox)
+              : originalBuffer,
+            piece.boundingBox ?? null,
+            piece.category,
+            piece.name,
+            piece.confidence ?? 1.0,
+          )
+          console.log('[Wardrobe] ── Crop complete')
+        } catch (cropErr: unknown) {
+          const msg =
+            cropErr instanceof Error ? cropErr.message : String(cropErr)
+          console.warn('[Wardrobe] ── Crop failed, using original:', msg)
+          croppedBuffer = originalBuffer
+        }
+
+        // 7c. UPLOAD IMAGE
+        let publicUrl: string
+        try {
+          publicUrl = await uploadItemImage(
+            adminClient,
+            userId,
+            itemId,
+            croppedBuffer
+          )
+          console.log(`[Wardrobe] ── Uploaded: ${publicUrl}`)
+        } catch (uploadErr: unknown) {
+          const msg =
+            uploadErr instanceof Error
+              ? uploadErr.message
+              : String(uploadErr)
+          console.error('[Wardrobe] ── Upload failed:', msg)
+          throw uploadErr
+        }
+
+        // 7d. UPDATE DB WITH IMAGE URL
+        const storagePath = `${userId}/${itemId}.jpg`
+        const updated = await prisma.wardrobeItem.update({
+          where: { id: item.id },
+          data: { imageUrl: publicUrl, storagePath },
+        })
+
+        savedItems.push(
+          serializeItem(updated as unknown as Record<string, unknown>)
+        )
+        console.log(`[Wardrobe] ✅ Done: ${piece.name}`)
+      } catch (pieceErr: unknown) {
+        const errMsg =
+          pieceErr instanceof Error ? pieceErr.message : String(pieceErr)
+        console.error(`[Wardrobe] ❌ Failed: ${piece.name}: ${errMsg}`)
+
+        // ROLLBACK DB ROW
+        if (itemId) {
+          try {
+            await prisma.wardrobeItem.delete({
+              where: { id: BigInt(itemId) },
+            })
+          } catch {
+            // Silently ignore rollback failures
+          }
+        }
+
+        failedItems.push({ name: piece.name, error: errMsg })
+      }
     }
 
     console.log(
-      `[Wardrobe Create] Saved ${wardrobeItemIds.length} item(s): ${wardrobeItemIds.join(", ")} (needsReview: ${primaryItem.needsReview})`,
-    );
+      `[Wardrobe] ── Completed in ${Date.now() - startTime}ms: ${savedItems.length} saved, ${failedItems.length} failed`
+    )
 
-    return successResponse(
+    if (savedItems.length === 0) {
+      console.error('[Wardrobe] ❌ No items saved')
+      return NextResponse.json(
+        { error: "Couldn't save your photo. Please try again." },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      items: savedItems,
+      saved: savedItems.length,
+      failed: failedItems.length,
+    })
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    const errStack = err instanceof Error ? err.stack : undefined
+    console.error(`[Wardrobe] ❌ FATAL ERROR: ${errMsg}`)
+    if (errStack) console.error(`[Wardrobe] Stack:`, errStack)
+    return NextResponse.json(
       {
-        id: primaryItem.id.toString(),
-        userId: primaryItem.userId.toString(),
-        name: primaryItem.name,
-        category: primaryItem.category,
-        imageUrl: primaryItem.imageUrl,
-        storagePath: primaryItem.storagePath,
-        colors: primaryItem.colors,
-        colorNames: primaryItem.colorNames,
-        pattern: primaryItem.pattern || undefined,
-        fabric: primaryItem.fabric || undefined,
-        fit: primaryItem.fit || undefined,
-        formality: primaryItem.formality,
-        season: primaryItem.season,
-        occasion: primaryItem.occasion,
-        stylistNote: primaryItem.stylistNote || undefined,
-        tags: primaryItem.tags,
-        wearCount: primaryItem.wearCount,
-        lastWornAt: primaryItem.lastWornAt?.toISOString() || null,
-        needsReview: primaryItem.needsReview,
-        parseConfidence: primaryItem.parseConfidence,
-        createdAt: primaryItem.createdAt.toISOString(),
-        updatedAt: primaryItem.updatedAt.toISOString(),
-        // Extra: IDs of all pieces detected in this photo
-        detectedPieceIds: wardrobeItemIds,
-      } as WardrobeItemResponse & { detectedPieceIds: string[] },
-      "Item created successfully",
-      201,
-    );
-  } catch (error) {
-    console.error("[Wardrobe Create] Error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to create item",
-      500,
-    );
+        error: errMsg,
+        detail: 'Check server logs for stack trace',
+      },
+      { status: 500 }
+    )
   }
 }
+

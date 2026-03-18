@@ -29,6 +29,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     user,
     plan,
     savedItems,
+    savedOutfitsCount,
     toast,
     showPaywall,
     setShowPaywall,
@@ -39,6 +40,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   const [navOpen, setNavOpen] = useState(false);
 
+  // Derive current page key from pathname ("/today" → "today")
+  const currentPage = pathname.split("/").pop() || "today";
+
   // Auth guard — synchronous; localStorage is always available client-side
   useEffect(() => {
     const token = getAuthToken();
@@ -48,8 +52,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // Derive current page key from pathname ("/today" → "today")
-  const currentPage = pathname.split("/").pop() || "today";
+  // Update page title based on current route
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      today: "ALT FIT — Today's Look",
+      wardrobe: "ALT FIT — Your Wardrobe",
+      "saved-outfits": "ALT FIT — Saved Outfits",
+      upload: "ALT FIT — Add Pieces",
+    };
+    document.title = titles[currentPage] || "ALT FIT";
+  }, [currentPage]);
 
   const onSignOut = async () => {
     await handleSignOut();
@@ -72,6 +84,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <AppNav
         page={currentPage}
         savedItemCount={savedItems.length}
+        savedOutfitsCount={savedOutfitsCount}
         plan={plan}
         user={user}
         isOpen={navOpen}

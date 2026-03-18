@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Box, Stack } from "@mui/material";
 import WardrobeImage from "@/components/common/WardrobeImage";
 import type { WardrobeItem } from "@/components/wardrobe/WardrobeItemCard";
@@ -12,13 +13,20 @@ interface WardrobeItemModalProps {
   };
   onClose: () => void;
   onRemove: (id: string | number) => void;
+  /** Called with the selected File when user picks a replacement photo */
+  onReupload?: (id: string | number, file: File) => void;
 }
 
 export default function WardrobeItemModal({
   item,
   onClose,
   onRemove,
+  onReupload,
 }: WardrobeItemModalProps) {
+  const [imageBroken, setImageBroken] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasImage = !!(item.imageUrl || item.previewUrl);
+  const showAddPhoto = (!hasImage || imageBroken) && !!onReupload;
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -48,6 +56,24 @@ export default function WardrobeItemModal({
             </Box>
           </Box>
           <Stack direction="row" gap={1.5} alignItems="center">
+            {showAddPhoto && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  background: "none",
+                  border: "1px solid var(--gold)",
+                  color: "var(--gold)",
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  fontFamily: "DM Sans, sans-serif",
+                }}
+              >
+                📷 Add Photo
+              </button>
+            )}
             <button
               onClick={() => {
                 if (
@@ -82,15 +108,30 @@ export default function WardrobeItemModal({
               className="modal-image"
               sx={{
                 background:
-                  item.imageUrl || item.previewUrl
+                  hasImage && !imageBroken
                     ? "#f0ece6"
                     : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}18`,
                 p: 0,
                 overflow: "hidden",
               }}
             >
-              {item.imageUrl || item.previewUrl ? (
-                <WardrobeImage item={item} />
+              {hasImage && !imageBroken ? (
+                <WardrobeImage item={item} onBroken={() => setImageBroken(true)} />
+              ) : showAddPhoto ? (
+                <Box
+                  sx={{
+                    width: "100%", height: "100%", minHeight: 200,
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    gap: 1.5, background: "var(--linen)", cursor: "pointer",
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Box component="span" sx={{ fontSize: 40, lineHeight: 1 }}>📷</Box>
+                  <Box sx={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--taupe)" }}>
+                    Click to add photo
+                  </Box>
+                </Box>
               ) : (
                 <Box component="span" sx={{ fontSize: 72 }}>
                   {item.emoji || "👗"}
@@ -186,6 +227,20 @@ export default function WardrobeItemModal({
             </div>
           </div>
         </div>
+        {/* Hidden file input for re-uploading a missing image */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && onReupload) {
+              onReupload(item.id, file);
+              e.target.value = "";
+            }
+          }}
+        />
       </div>
     </div>
   );

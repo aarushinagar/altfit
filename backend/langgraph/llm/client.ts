@@ -112,18 +112,21 @@ export async function callGemini(
  */
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxAttempts = 3,
-  baseDelayMs = 2200,
+  // Only 1 Gemini attempt — if it's quota-exhausted, fail fast so the
+  // Claude fallback in geminiVisionAnalyze can take over immediately.
+  maxAttempts = 1,
+  baseDelayMs = 1000,
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (err) {
-      const is429 = (err as { status?: number }).status === 429;
+      const status = (err as { status?: number }).status;
+      const msg = (err as Error).message ?? "";
+      const is429 = status === 429 || /429|quota|rate.?limit/i.test(msg);
       if (!is429 || attempt === maxAttempts) throw err;
       await new Promise((res) => setTimeout(res, baseDelayMs * attempt));
     }
   }
-  // Unreachable but TypeScript requires it
   throw new Error("retryWithBackoff: exhausted attempts");
 }

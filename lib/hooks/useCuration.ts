@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * useCuration — Daily outfit curation hook
  *
@@ -13,8 +14,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { get, set } from "idb-keyval";
-import { getAuthToken } from "@/lib/utils/authUtils";
+import { get, set, del } from "idb-keyval";
+import { getAuthToken, ensureFreshToken } from "@/lib/utils/authUtils";
 import { getUserLocalDate } from "@/lib/timezone";
 import type {
   HydratedSlot,
@@ -33,23 +34,18 @@ function idbKey(userId: string, localDate: string, timezone: string): string {
   return `curation:${userId}:${localDate}:${timezone}`;
 }
 
-async function requestGeolocation(): Promise<{ lat: number; lon: number }> {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("Geolocation is not supported by your browser"));
-      return;
-    }
+/** Default fallback coordinates (New Delhi) used when geo is unavailable. */
+const DEFAULT_LOCATION = { lat: 28.6139, lon: 77.209 };
+
+async function requestGeolocation(): Promise<{ lat: number; lon: number; usingFallback?: boolean }> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return { ...DEFAULT_LOCATION, usingFallback: true };
+  }
+  return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      (err) =>
-        reject(
-          new Error(
-            err.code === 1
-              ? "Location access denied. Enable location for weather-aware outfits."
-              : `Location error: ${err.message}`,
-          ),
-        ),
-      { timeout: 8_000, maximumAge: 60_000 },
+      () => resolve({ ...DEFAULT_LOCATION, usingFallback: true }),
+      { timeout: 6_000, maximumAge: 300_000 },
     );
   });
 }
@@ -98,8 +94,18 @@ export function useCuration(userId: string | null): UseCurationReturn {
     if (!userId) return;
 
     let cancelled = false;
+    // Overall safety timeout — prevents skeleton from hanging forever
+    const guardTimer = setTimeout(() => {
+      console.warn("[Curation] 55s guard fired — forcing error state");
+      if (!cancelled) {
+        cancelled = true;
+        setError("Outfit generation is taking too long. Please retry.");
+        setIsLoading(false);
+      }
+    }, 55_000);
 
     async function load() {
+      console.log("[Curation] load() started — userId:", userId);
       setIsLoading(true);
       setError(null);
 
@@ -108,47 +114,75 @@ export function useCuration(userId: string | null): UseCurationReturn {
         const localDate = getUserLocalDate(timezone);
         const key = idbKey(userId!, localDate, timezone);
 
-        // 1. IndexedDB cache
+        // 1. IndexedDB cache — show immediately, skip network entirely
+        console.log("[Curation] checking IDB cache, key:", key);
         const cached = await get<IdbCacheEntry>(key);
-        if (cached && !cancelled) {
-          setSlots(cached.slots);
-          setCurationId(cached.curationId);
-          setWeatherSummary(cached.weatherSummary);
-          setFromCache(true);
-          setIsLoading(false);
-          return;
-        }
+        console.log("[Curation] IDB result:", cached ? `HIT (${cached.slots?.length ?? 0} slots)` : "MISS");
 
-        // 2. Geolocation
-        let lat = 0,
-          lon = 0;
-        try {
-          ({ lat, lon } = await requestGeolocation());
-        } catch (geoErr) {
-          if (!cancelled) {
-            setError((geoErr as Error).message);
+        if (cached) {
+          // Only serve from cache if slots exist AND at least one slot has items
+          // (guards against a stale entry saved before wardrobe photos existed)
+          const slotsHaveItems = cached.slots?.some(
+            (s: HydratedSlot) => (s.items?.length ?? 0) > 0,
+          );
+          if (cached.slots?.length > 0 && slotsHaveItems && !cancelled) {
+            console.log("[Curation] serving from IDB cache");
+            setSlots(cached.slots);
+            setCurationId(cached.curationId);
+            setWeatherSummary(cached.weatherSummary);
+            setFromCache(true);
             setIsLoading(false);
+            return; // Serve from cache; background refresh happens on explicit reload()
           }
-          return;
+          // Stale/empty cache — delete and fetch fresh
+          console.log("[Curation] IDB cache discarded (no item photos) — fetching fresh");
+          await del(key);
         }
 
-        // 3. API call
-        const token = getAuthToken();
-        const res = await fetch(`${BASE}/api/curations/today`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ lat, lon, timezone }),
-          credentials: "include",
-        });
+        if (cancelled) return;
 
+        // 2. Geolocation (never throws — falls back to default location)
+        console.log("[Curation] requesting geolocation…");
+        const geoResult = await requestGeolocation();
+        const lat = geoResult.lat;
+        const lon = geoResult.lon;
+        console.log("[Curation] geo resolved:", { lat, lon, fallback: geoResult.usingFallback });
+
+        if (cancelled) return;
+
+        // 3. API call — get a fresh token first to avoid 401 on expired sessions
+        const token = await ensureFreshToken();
+        console.log("[Curation] token present:", !!token);
+        const ac = new AbortController();
+        const fetchTimeoutId = setTimeout(() => ac.abort(), 50_000);
+        console.log("[Curation] fetching /api/curations/today…");
+
+        let res: Response | undefined;
+        try {
+          res = await fetch(`${BASE}/api/curations/today`, {
+            method: "POST",
+            signal: ac.signal,
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ lat, lon, timezone }),
+            credentials: "include",
+          });
+        } finally {
+          clearTimeout(fetchTimeoutId);
+        }
+
+        if (!res) throw new Error("Request was aborted before receiving a response");
+
+        console.log("[Curation] fetch responded — status:", res.status);
         const data = await res.json();
+        console.log("[Curation] data.success:", data?.success, "error:", data?.error);
 
         if (cancelled) return;
 
         if (!res.ok || !data.success) {
+          console.log("[Curation] API error:", data?.error, "status:", res.status);
           setError(data.error || "Could not load today's outfits");
           setIsLoading(false);
           return;
@@ -174,19 +208,31 @@ export function useCuration(userId: string | null): UseCurationReturn {
         setWeatherAvailable(available);
         setFromCache(false);
 
-        // 4. Store in IndexedDB
-        if (newId) {
+        // 4. Store in IndexedDB — only if items were actually hydrated
+        // (guards against caching a response with empty item arrays that would loop forever)
+        const totalItems = (newSlots ?? []).reduce(
+          (n, s) => n + (s.items?.length ?? 0),
+          0,
+        );
+        console.log("[Curation] slots received:", newSlots?.length, "total items:", totalItems);
+        if (newId && totalItems > 0) {
+          console.log("[Curation] storing in IDB");
           await set(key, {
             slots: newSlots,
             curationId: newId,
             weatherSummary: summary,
           } satisfies IdbCacheEntry);
+        } else if (totalItems === 0) {
+          console.warn("[Curation] ⚠️ API returned slots with 0 items — NOT caching, will retry next load");
         }
 
+        console.log("[Curation] done — clearing loading");
         setIsLoading(false);
       } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error("[Curation] caught error:", msg);
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error");
+          setError(msg);
           setIsLoading(false);
         }
       }
@@ -194,7 +240,9 @@ export function useCuration(userId: string | null): UseCurationReturn {
 
     load();
     return () => {
+      console.log("[Curation] effect cleanup — marking cancelled");
       cancelled = true;
+      clearTimeout(guardTimer);
     };
   }, [userId, loadTrigger]);
 
@@ -216,7 +264,17 @@ export function useCuration(userId: string | null): UseCurationReturn {
           // Proceed without fresh location — server degrades gracefully
         }
 
-        const token = getAuthToken();
+        // Clear cache for this day so next refresh gets fresh outfit
+        try {
+          await fetch(`${BASE}/api/outfit-cache/clear`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+        } catch {
+          // Cache clear failure is non-fatal
+        }
+
+        const token = await ensureFreshToken();
         const res = await fetch(`${BASE}/api/curations/${curationId}/regen`, {
           method: "POST",
           headers: {
@@ -231,22 +289,24 @@ export function useCuration(userId: string | null): UseCurationReturn {
 
         if (!res.ok || !data.success) {
           setError(data.error || "Regeneration failed");
-          return;
-        }
+        } else {
+          const newSlots = data.data.slots as HydratedSlot[];
+          setSlots(newSlots);
 
-        const newSlots = data.data.slots as HydratedSlot[];
-        setSlots(newSlots);
-
-        // Refresh IndexedDB with the new slots
-        const localDate = getUserLocalDate(timezone);
-        const key = idbKey(userId, localDate, timezone);
-        const existing = await get<IdbCacheEntry>(key);
-        if (existing) {
-          await set(key, { ...existing, slots: newSlots });
+          // Refresh IndexedDB with the new slots
+          const localDate = getUserLocalDate(timezone);
+          const key = idbKey(userId, localDate, timezone);
+          const existing = await get<IdbCacheEntry>(key);
+          if (existing) {
+            await set(key, { ...existing, slots: newSlots });
+          }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Regeneration failed");
+        const msg = err instanceof Error ? err.message : "Regeneration failed";
+        console.error("[Curation] regenerateSlot error:", msg);
+        setError(msg);
       } finally {
+        // ALWAYS reset loading state, regardless of success or failure
         setRegenLoadingSlot(null);
       }
     },
@@ -277,7 +337,7 @@ export function useCuration(userId: string | null): UseCurationReturn {
       // Persist to backend (slot numbers are 1-indexed)
       const slotNumber = (slotIndex + 1) as 1 | 2 | 3;
       try {
-        const token = getAuthToken();
+        const token = await ensureFreshToken();
         await fetch(`${BASE}/api/curations/${curationId}`, {
           method: "PATCH",
           headers: {

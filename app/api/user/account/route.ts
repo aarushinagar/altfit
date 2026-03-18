@@ -46,7 +46,11 @@ export async function DELETE(request: NextRequest) {
         where: { userId: BigInt(userId) },
         select: { storagePath: true },
       });
-      await Promise.allSettled(items.map((i) => deleteImage(i.storagePath)));
+      await Promise.allSettled(
+        items
+          .filter((i) => !!i.storagePath)
+          .map((i) => deleteImage(i.storagePath as string))
+      );
     } catch (storageErr) {
       console.warn("[user/account DELETE] Storage cleanup failed:", storageErr);
     }

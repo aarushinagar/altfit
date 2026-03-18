@@ -118,12 +118,25 @@ export async function PATCH(
 
     console.log(`[Wardrobe Update Item] Updating item for user ${userId}`);
 
+    // Validate imageUrl — must be an absolute Supabase URL, never a local path
+    if (body.imageUrl !== undefined && body.imageUrl !== null && body.imageUrl !== "") {
+      if (!String(body.imageUrl).startsWith("https://")) {
+        return errorResponse(
+          `Invalid imageUrl: must be an absolute https:// URL, got "${String(body.imageUrl).slice(0, 80)}"`,
+          400,
+        );
+      }
+    }
+
     // Update item
     const updatedItem = await prisma.wardrobeItem.update({
       where: { id: BigInt(id) },
       data: {
         ...(body.name && { name: body.name }),
         ...(body.category && { category: body.category }),
+        // Allow updating the image URL when the client has cropped and re-uploaded
+        ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
+        ...(body.storagePath !== undefined && { storagePath: body.storagePath }),
         ...(body.colors && { colors: body.colors }),
         ...(body.colorNames && { colorNames: body.colorNames }),
         ...(body.pattern !== undefined && { pattern: body.pattern }),
@@ -210,7 +223,7 @@ export async function DELETE(
 
     // Delete image from Supabase
     try {
-      await deleteImage(item.storagePath);
+      if (item.storagePath) await deleteImage(item.storagePath);
     } catch (error) {
       console.warn(
         `[Wardrobe Delete Item] Failed to delete image, continuing with DB delete`,

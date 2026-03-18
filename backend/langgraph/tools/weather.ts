@@ -46,28 +46,37 @@ async function fetchOpenMeteo(lat: number, lon: number) {
   );
   url.searchParams.set("timezone", "auto"); // returns IANA timezone in response
 
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Open-Meteo error: HTTP ${res.status}`);
-  return res.json() as Promise<{
-    timezone: string;
-    current: {
-      temperature_2m: number;
-      apparent_temperature: number;
-      relative_humidity_2m: number;
-      wind_speed_10m: number;
-      weather_code: number;
-      uv_index?: number;
-      is_day: number;
-    };
-  }>;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await fetch(url.toString(), { signal: controller.signal });
+    if (!res.ok) throw new Error(`Open-Meteo error: HTTP ${res.status}`);
+    return res.json() as Promise<{
+      timezone: string;
+      current: {
+        temperature_2m: number;
+        apparent_temperature: number;
+        relative_humidity_2m: number;
+        wind_speed_10m: number;
+        weather_code: number;
+        uv_index?: number;
+        is_day: number;
+      };
+    }>;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── Nominatim reverse geocode ──────────────────────────────────────────────
 
 async function fetchCityName(lat: number, lon: number): Promise<string> {
   const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
     const res = await fetch(url, {
+      signal: controller.signal,
       headers: { "User-Agent": "AltFitApp/1.0 (contact@altfit.app)" },
     });
     if (!res.ok) return "your location";
@@ -76,6 +85,8 @@ async function fetchCityName(lat: number, lon: number): Promise<string> {
     return a.city ?? a.town ?? a.village ?? a.county ?? "your location";
   } catch {
     return "your location";
+  } finally {
+    clearTimeout(timer);
   }
 }
 

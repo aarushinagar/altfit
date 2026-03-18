@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Prisma Client Singleton with Tenant Isolation & Snowflake ID Generation
  *
@@ -23,10 +24,21 @@ declare global {
 /**
  * Instantiate Prisma Client
  */
+// Supabase's connection pooler (pgbouncer, transaction mode) supports only a
+// small number of real server-side connections. Capping at 3 prevents P2024
+// "connection pool timeout" errors when several slow requests run concurrently.
+function buildDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url || url.includes("connection_limit")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}connection_limit=3&pool_timeout=8`;
+}
+
 const prisma =
   global.prisma ||
   new PrismaClient({
     log: ["error", "warn"],
+    datasources: { db: { url: buildDatabaseUrl() } },
   });
 
 /**

@@ -58,6 +58,28 @@ export type SeasonTag =
   | "all_season";
 
 /**
+ * Bounding box coordinates as percentages (0–100) of image dimensions.
+ * Returned by Claude vision alongside each detected clothing piece.
+ */
+export interface BoundingBox {
+  top: number;    // % from top of image
+  left: number;   // % from left of image
+  width: number;  // % of image width
+  height: number; // % of image height
+}
+
+/**
+ * A persisted wardrobe item with its detected bounding box.
+ * Returned by the ingestion pipeline to drive client-side cropping.
+ */
+export interface DetectedPiece {
+  id: string;
+  category: string;
+  subcategory: string;
+  boundingBox: BoundingBox | null;
+}
+
+/**
  * Full metadata structure returned by Gemini Vision for a single wardrobe item.
  * Maps 1-to-1 with the WardrobeItem Prisma model's new AI fields.
  */
@@ -104,6 +126,11 @@ export interface WardrobeItemMetadata {
    * with other pieces (multi-item upload). E.g. "Focus on the blue t-shirt".
    */
   display_hint: string | null;
+  /**
+   * Bounding box of this specific item within the source image (% of dimensions).
+   * Used by the client to crop the full photo down to just this piece.
+   */
+  boundingBox?: BoundingBox | null;
 }
 
 // ── Weather ────────────────────────────────────────────────────────────────
@@ -158,10 +185,10 @@ export interface WeatherContext {
   rain_protection_needed: boolean;
   weather_notes: string;
   formality_suggestion:
-    | "none"
-    | "lean_casual"
-    | "lean_smart_casual"
-    | "context_dependent";
+  | "none"
+  | "lean_casual"
+  | "lean_smart_casual"
+  | "context_dependent";
 }
 
 // ── Curation ───────────────────────────────────────────────────────────────
@@ -198,7 +225,7 @@ export interface HydratedWardrobeItem {
   id: string;
   name: string;
   category: string;
-  imageUrl: string;
+  imageUrl: string | null;
   primaryColorName: string | null;
   primaryColorHex: string | null;
   /** Shown in Today UI when multiple items share the same photo */
@@ -226,8 +253,14 @@ export interface WardrobeCandidate {
   season_tags: string[] | null;
   style_aesthetic: string[] | null;
   parse_notes: string | null;
-  image_url: string;
+  image_url: string | null;
   created_at: string;
+  /** How many times the user has worn this item (for memory context) */
+  wear_count: number;
+  /** ISO string of last wear date, or null if never worn */
+  last_worn_at: string | null;
+  /** Human-readable name / subcategory label */
+  name: string | null;
 }
 
 // ── Field mapping helpers ──────────────────────────────────────────────────

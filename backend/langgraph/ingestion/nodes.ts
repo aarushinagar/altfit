@@ -14,7 +14,7 @@
 import { geminiVisionAnalyze } from "../tools/vision";
 import { upsertWardrobeItem } from "../tools/upsert";
 import type { IngestionState } from "./state";
-import type { WardrobeItemMetadata } from "../shared/types";
+import type { WardrobeItemMetadata, DetectedPiece } from "../shared/types";
 
 // ── Material → temperature range lookup ────────────────────────────────────
 // Used in enrichMetadataNode when the LLM returns null temp range.
@@ -44,38 +44,57 @@ function deriveTempRange(material: string): { min: number; max: number } {
 // ── Node 1: validateImageNode ──────────────────────────────────────────────
 
 /**
- * HEAD-checks the image URL to ensure it's reachable and under 8 MB.
- * Sets state.error on failure (graph routes to END).
+ * Validates the image URL before running vision analysis.
+ *
+ * HEAD-checks for size if possible, but does NOT abort on fetch errors:
+ * - 403/404: bucket may have no public-read policy — the upload may still be
+ *   valid and Gemini can fetch it with its own auth. Continue.
+ * - Network errors: transient — continue and let Gemini decide.
+ * Only hard-abort if the URL is obviously malformed (not https://).
  */
 export async function validateImageNode(
   state: IngestionState,
 ): Promise<Partial<IngestionState>> {
-  try {
-    const res = await fetch(state.imageUrl, { method: "HEAD" });
-    if (!res.ok) {
-      return {
-        status: "failed",
-        error: `Image URL returned HTTP ${res.status}. Check Supabase Storage permissions.`,
-      };
-    }
+  const { imageUrl } = state;
 
-    const contentLength = res.headers.get("content-length");
-    if (contentLength) {
-      const bytes = parseInt(contentLength, 10);
-      if (bytes > 8 * 1024 * 1024) {
-        return {
-          status: "failed",
-          error: `Image size (${(bytes / 1024 / 1024).toFixed(1)} MB) exceeds 8 MB limit.`,
-        };
-      }
-    }
-
-    return { status: "parsing" };
-  } catch (err) {
+  // Guard: imageUrl must be a real https:// URL
+  if (!imageUrl || !imageUrl.startsWith("https://")) {
     return {
       status: "failed",
-      error: `Image validation failed: ${err instanceof Error ? err.message : String(err)}`,
+      error: `Invalid image URL "${(imageUrl ?? "").slice(0, 80)}". Must be a public https:// Supabase CDN URL.`,
     };
+  }
+
+  try {
+    const res = await fetch(imageUrl, { method: "HEAD" });
+
+    if (res.ok) {
+      // Check size only when the server tells us
+      const contentLength = res.headers.get("content-length");
+      if (contentLength) {
+        const bytes = parseInt(contentLength, 10);
+        if (bytes > 8 * 1024 * 1024) {
+          return {
+            status: "failed",
+            error: `Image size (${(bytes / 1024 / 1024).toFixed(1)} MB) exceeds 8 MB limit.`,
+          };
+        }
+      }
+      return { status: "parsing" };
+    }
+
+    // 403 / 404 → bucket is private or file path is odd;
+    // still let Gemini try — it fetches URLs directly.
+    console.warn(
+      `[IngestionGraph] validate_image: HEAD returned ${res.status} for ${imageUrl} — proceeding anyway`,
+    );
+    return { status: "parsing" };
+  } catch (err) {
+    // Network error on HEAD — non-fatal, proceed
+    console.warn(
+      `[IngestionGraph] validate_image: HEAD failed (${err instanceof Error ? err.message : String(err)}) — proceeding anyway`,
+    );
+    return { status: "parsing" };
   }
 }
 
@@ -108,7 +127,7 @@ export async function visionParseNode(
     const hint =
       lowConfidence && attempts < 2
         ? `Previous attempt returned minimum confidence ${minConfidence.toFixed(2)} across ${result.items.length} item(s). ` +
-          `Please be more precise about category, color, and material for each piece.`
+        `Please be more precise about category, color, and material for each piece.`
         : null;
 
     console.log(
@@ -130,13 +149,35 @@ export async function visionParseNode(
       message,
     );
 
-    // On vision failure: mark for review but don't abort — persist with null rawParseItems
+    // Quota / API errors should surface to the user directly instead of
+    // silently continuing to persistItemNode with null items (which produces
+    // the misleading "no clothing items" message).
+    const isQuota = /429|quota|rate.?limit/i.test(message);
+    const isApiError = /400|401|403|500|GoogleGenerativeAI/i.test(message);
+    if (isQuota) {
+      return {
+        parseAttempts: attempts,
+        status: "failed",
+        error:
+          "AI quota exceeded — please wait a moment and try again.",
+      };
+    }
+    if (isApiError) {
+      return {
+        parseAttempts: attempts,
+        status: "failed",
+        error: `Vision analysis failed: ${message}`,
+      };
+    }
+
+    // Non-API errors (e.g. the image was unreadable): mark for review but
+    // still try to persist so the user gets partial data.
     return {
       parseAttempts: attempts,
       needsReview: true,
       confidence: 0,
       error: message,
-      status: "persisting", // skip enrich, go straight to persist
+      status: "persisting",
     };
   }
 }
@@ -229,6 +270,7 @@ export async function persistItemNode(
   );
 
   const wardrobeItemIds: string[] = [];
+  const detectedPieces: DetectedPiece[] = [];
 
   // ── Sequential queue: process one item at a time ──────────────────────
   for (let i = 0; i < items.length; i++) {
@@ -252,6 +294,12 @@ export async function persistItemNode(
       });
 
       wardrobeItemIds.push(wardrobeItemId);
+      detectedPieces.push({
+        id: wardrobeItemId,
+        category: meta.category,
+        subcategory: meta.subcategory ?? meta.category,
+        boundingBox: meta.boundingBox ?? null,
+      });
       console.log(
         `[IngestionGraph] persist_item [${i + 1}/${items.length}] ${wasUpdated ? "updated" : "created"} ${itemLabel} → ${wardrobeItemId}`,
       );
@@ -274,6 +322,7 @@ export async function persistItemNode(
 
   return {
     wardrobeItemIds,
+    detectedPieces,
     status: "complete",
     error: null,
   };

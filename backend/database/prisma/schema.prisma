@@ -39,11 +39,14 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  wardrobeItems WardrobeItem[]
-  outfits       Outfit[]
-  subscription  Subscription?
-  sessions      Session[]
-  dailyCurations DailyCuration[]
+  wardrobeItems   WardrobeItem[]
+  outfits         Outfit[]
+  subscription    Subscription?
+  sessions        Session[]
+  dailyCurations  DailyCuration[]
+  outfitHistories OutfitHistory[]
+  styleProfile    UserStyleProfile?
+  savedOutfits    SavedOutfit[]
 
   @@index([email])
   @@index([googleId])
@@ -75,8 +78,8 @@ model WardrobeItem {
   category String // top | bottom | dress | outerwear | footwear | bag | accessory | outfit
 
   // Supabase Storage
-  imageUrl    String  // full public CDN URL
-  storagePath String  // e.g. "wardrobe-images/user_id/item_id.jpg"
+  imageUrl    String?  // full public CDN URL; null/empty = no photo yet (shows re-upload UI)
+  storagePath String?  // e.g. "users/user_id/item_id.webp"; null = no storage object yet
 
   // AI metadata
   colors     String[] @default([])
@@ -123,6 +126,10 @@ model WardrobeItem {
   // Usage
   wearCount  Int       @default(0)
   lastWornAt DateTime?
+
+  // User annotations
+  userRating Int?    // 1–5, optional item rating
+  userNotes  String? // personal notes about this piece
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -245,4 +252,85 @@ model DailyCuration {
 
   @@unique([userId, localDate, userTimezone])
   @@index([userId, localDate])
+}
+
+// ── USER STYLE PROFILE ─────────────────────────────────────────
+// One row per user — stores Claude's running analysis of their style preferences.
+// Updated automatically after every 5 curation interactions.
+model UserStyleProfile {
+  id     BigInt @id
+  userId BigInt @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // User-provided preferences (from onboarding + feedback)
+  preferredAesthetics  String[] @default([]) // e.g. ["minimal", "editorial"]
+  avoidCombinations    String[] @default([]) // e.g. ["all black", "heavy layering"]
+  favoriteColors       String[] @default([]) // e.g. ["cream", "brown", "slate blue"]
+  occasions            String[] @default([]) // e.g. ["work", "events", "casual"]
+  fitPreference        String?              // e.g. "fitted tops, wide leg bottoms"
+
+  // AI-computed fields (updated by background analysis)
+  leastWornCategories  String[] @default([]) // auto-computed from wear counts
+  styleInsights        String?              // Claude's summary paragraph
+  dominantPalette      String[] @default([]) // top colours across wardrobe
+  interactionCount     Int      @default(0) // total curations delivered to this user
+  lastAnalyzedAt       DateTime?            // when Claude last ran a full analysis
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ── OUTFIT HISTORY ─────────────────────────────────────────────
+// Records every outfit Claude curated, for memory and variety enforcement.
+model OutfitHistory {
+  id     BigInt @id
+  userId BigInt
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Outfit contents
+  outfitName   String?  // e.g. "Slot 1 – Morning Look"
+  itemIds      String[] // wardrobe item IDs included in this outfit
+  itemNames    String[] // human-readable names (denormalised for prompt injection)
+  stylingNote  String?  // Claude's rationale / styling tip
+  vibe         String?  // e.g. "Relaxed", "Polished"
+  occasionTags String[] @default([])
+
+  // Outcome tracking
+  wasWorn       Boolean? // null = unknown, true = user confirmed worn
+  userFeedback  String?  // optional free-text: "loved it", "too casual" etc
+  userRating    Int?     // 1–5
+
+  // Source tracking
+  curationId   BigInt?  // links back to DailyCuration
+  slotNumber   Int?     // 1 | 2 | 3
+
+  curatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, curatedAt])
+}
+
+// ── SAVED OUTFITS ──────────────────────────────────────────────
+// User-saved looks from the Today page curation.
+model SavedOutfit {
+  id     BigInt @id
+  userId BigInt
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  outfitName   String
+  lookType     String?   // MORNING | DAYTIME | EVENING
+  mood         String?
+  formality    String?
+  items        Json      @default("[]")
+  stylingNote  String?
+  occasionTags String[]  @default([])
+  tip          String?
+
+  savedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, savedAt])
 }

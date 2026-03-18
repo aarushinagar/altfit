@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { Box, Stack } from "@mui/material";
@@ -24,7 +25,7 @@ export interface ClothingPiece {
 export interface UploadItem {
   id: number;
   fileName?: string;
-  status: "heic" | "reading" | "analyzing" | "queued" | "error" | "ready";
+  status: "heic" | "reading" | "analyzing" | "queued" | "cropping" | "error" | "ready";
   previewUrl?: string | null;
   base64?: string | null;
   mediaType?: string | null;
@@ -42,6 +43,10 @@ export interface UploadItem {
   intent?: "full_outfit" | "individual" | null;
   error?: string;
   progress?: number;
+  /** Number of pieces being cropped (set during "cropping" status) */
+  cropCount?: number;
+  /** How many pieces have been cropped + uploaded so far */
+  cropDone?: number;
   source?: string;
   authorName?: string;
 }
@@ -231,12 +236,126 @@ export default function UploadItemCard({
           <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 1.25 }}>
             {item.status === "reading"
               ? "Preparing image..."
+              : (item.progress ?? 0) >= 40
+              ? "Analyzing your pieces... this may take a moment"
               : `Identifying garments... ${Math.round(item.progress ?? 0)}%`}
           </Box>
           <Box className="progress-bar">
             <Box
               className="progress-fill"
               sx={{ width: `${item.progress ?? 0}%` }}
+            />
+          </Box>
+        </Box>
+      </Stack>
+    );
+  }
+
+  if (item.status === "cropping") {
+    const total = item.cropCount ?? 1;
+    const done = item.cropDone ?? 0;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    return (
+      <Stack
+        direction="row"
+        sx={{
+          mb: 3,
+          border: "1px solid var(--linen)",
+          background: "var(--paper)",
+        }}
+      >
+        <Box
+          sx={{
+            width: 120,
+            flexShrink: 0,
+            minHeight: 140,
+            background: "var(--linen)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {item.previewUrl && (
+            <img
+              src={item.previewUrl}
+              alt=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center top",
+                opacity: 0.45,
+                filter: "blur(1px)",
+              }}
+            />
+          )}
+        </Box>
+
+        <Box sx={{ flex: 1, p: "20px 24px" }}>
+          <Box
+            sx={{
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--gold)",
+              mb: 1,
+            }}
+          >
+            Cropping pieces
+          </Box>
+          <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 1.5 }}>
+            Generating tight crop for{" "}
+            {total === 1 ? "1 item" : `${total} items`}…
+          </Box>
+
+          {/* Shimmer piece placeholders */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              flexWrap: "wrap",
+              mb: 1.5,
+            }}
+          >
+            {Array.from({ length: total }).map((_, i) => {
+              const isDone = done > i;
+              return (
+                <Box
+                  key={i}
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    background: isDone ? "var(--gold)" : "var(--linen)",
+                    animation: isDone
+                      ? "none"
+                      : "pulse 1.4s ease-in-out infinite",
+                    animationDelay: `${i * 0.18}s`,
+                    border: "1px solid",
+                    borderColor: isDone ? "var(--gold)" : "var(--linen)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isDone && (
+                    <Box
+                      component="span"
+                      sx={{ fontSize: 18, lineHeight: 1 }}
+                    >
+                      ✓
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+
+          <Box className="progress-bar">
+            <Box
+              className="progress-fill"
+              sx={{ width: `${pct}%`, transition: "width 0.3s ease" }}
             />
           </Box>
         </Box>
@@ -279,11 +398,16 @@ export default function UploadItemCard({
               {item.error?.includes("Rate limit")
                 ? "Too many requests. Please wait a few seconds and try again."
                 : item.error?.includes("No valid JSON") ||
-                    item.error?.includes("parse")
+                  item.error?.includes("parse")
                   ? "The image is unclear. Try a clearer photo with good lighting and contrast."
                   : item.error?.includes("Invalid image")
                     ? "Invalid image format. Please use JPG, PNG, or WebP files."
-                    : `Error: ${item.error}`}
+                    : item.error?.includes("not configured") ||
+                      item.error?.includes("Bucket") ||
+                      item.error?.includes("row-level") ||
+                      item.error?.includes("wardrobe-images")
+                      ? "Storage setup failed. Please try again — the system will auto-configure on retry."
+                      : `Error: ${item.error}`}
             </Box>
             <button
               onClick={() => onRemove(item.id)}
