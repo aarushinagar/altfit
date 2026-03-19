@@ -6,8 +6,8 @@
 
 import { NextResponse } from "next/server";
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID?.trim();
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET?.trim();
 
 /**
  * Logs structured error information

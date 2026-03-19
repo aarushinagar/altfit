@@ -9,7 +9,7 @@ import prisma from "@/backend/database/prisma";
 import { requireAuth } from "@/backend/database/auth-middleware";
 import { generateSnowflakeId } from "@/backend/database/snowflake";
 
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET?.trim();
 
 const PLAN_AMOUNTS = {
   monthly: 19900, // ₹199 in paise
