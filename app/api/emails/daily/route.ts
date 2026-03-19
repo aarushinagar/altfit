@@ -125,12 +125,6 @@ export async function POST(req: NextRequest) {
       const lastActiveDate = streakRow?.lastActiveDate ? new Date(streakRow.lastActiveDate) : null;
       const daysSinceLastVisit = lastActiveDate ? daysBetween(lastActiveDate, new Date()) : 999;
 
-      // Check if already emailed today (any type) — idempotency guard
-      const alreadySentToday = await prisma.emailLog.findFirst({
-        where: { userId: user.id, localDate: today },
-      });
-      if (alreadySentToday) continue;
-
       // Determine type
       const seenMilestones: number[] = (streakRow?.seenMilestones as number[]) ?? [];
       const MILESTONES = [3, 7, 14, 30, 60, 100];
@@ -146,6 +140,12 @@ export async function POST(req: NextRequest) {
       } else {
         emailType = "daily_engagement";
       }
+
+      // Check if already sent THIS type today (allows evening send to proceed independently)
+      const alreadySentToday = await prisma.emailLog.findFirst({
+        where: { userId: user.id, emailType, localDate: today },
+      });
+      if (alreadySentToday) continue;
 
       // ── Build context for personalizer ───────────────────────────────────
       const previewItem = user.wardrobeItems[0];

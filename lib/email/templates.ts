@@ -192,6 +192,96 @@ export function milestoneEmail(data: MilestoneEmailData): string {
   return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/today.*/, "")}/unsubscribe?token={{TOKEN}}`);
 }
 
+export interface EveningEmailData {
+  firstName:       string;
+  ctaUrl:          string;
+  headline:        string;        // AI-generated
+  bodyText:        string;        // AI-generated
+  challengeText:   string;        // AI-generated — the specific hook/challenge/insight
+  challengeLabel:  string;        // AI-generated — e.g. "TONIGHT'S THOUGHT" | "STYLE CHALLENGE" | "WARDROBE INSIGHT"
+  tomorrowTeaser:  string;        // AI-generated — one line teasing tomorrow
+  wardrobeStat?:   { label: string; value: string }; // e.g. { label: "pieces styled this week", value: "8" }
+  streak?:         number;
+}
+
+export function eveningEngagementEmail(data: EveningEmailData): string {
+  const streakBadge = data.streak && data.streak >= 2
+    ? `<tr>
+        <td style="padding:0 44px 24px;">
+          <table cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="border:1px solid rgba(160,98,44,0.28);padding:6px 14px;background:rgba(160,98,44,0.05);">
+                <p style="font-family:${FONTS.sans};font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${COLORS.gold};margin:0;">
+                  🔥 ${data.streak} day streak
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  const statBlock = data.wardrobeStat
+    ? `<tr>
+        <td style="padding:0 44px 28px;">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="background:${COLORS.linen};padding:20px 24px;">
+                <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 6px;">${data.wardrobeStat.label}</p>
+                <p style="font-family:${FONTS.serif};font-size:28px;font-weight:300;color:${COLORS.ink};margin:0;line-height:1;">${data.wardrobeStat.value}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  const inner = `
+  <tr>
+    <td style="padding:36px 44px 8px;">
+      <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 14px;">Good evening, ${data.firstName}</p>
+      <h1 style="font-family:${FONTS.serif};font-size:32px;font-weight:300;color:${COLORS.ink};margin:0 0 20px;line-height:1.25;letter-spacing:-0.01em;">${data.headline}</h1>
+      <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0 0 32px;font-weight:300;">${data.bodyText}</p>
+    </td>
+  </tr>
+
+  <!-- Challenge / Insight block -->
+  <tr>
+    <td style="padding:0 44px 28px;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="border-left:3px solid ${COLORS.gold};">
+        <tr>
+          <td style="padding:14px 20px;">
+            <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.gold};margin:0 0 8px;">${data.challengeLabel}</p>
+            <p style="font-family:${FONTS.serif};font-size:15px;font-style:italic;color:${COLORS.charcoal};margin:0;line-height:1.65;font-weight:300;">${data.challengeText}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  ${statBlock}
+  ${streakBadge}
+
+  <!-- Tomorrow teaser -->
+  <tr>
+    <td style="padding:0 44px 28px;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:${COLORS.ink};">
+        <tr>
+          <td style="padding:20px 24px;">
+            <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:${COLORS.gold};margin:0 0 8px;">Tomorrow's look</p>
+            <p style="font-family:${FONTS.serif};font-size:15px;font-weight:300;color:${COLORS.cream};margin:0 0 16px;line-height:1.5;">${data.tomorrowTeaser}</p>
+            <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:11px 22px;font-family:${FONTS.sans};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;">
+              Plan Tomorrow's Outfit
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+
+  return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/today.*/, "")}/unsubscribe?token={{TOKEN}}`);
+}
+
 /** Replace the {{TOKEN}} placeholder with an actual unsubscribe token. */
 export function injectUnsubscribeToken(html: string, token: string): string {
   return html.replace(/{{TOKEN}}/g, encodeURIComponent(token));

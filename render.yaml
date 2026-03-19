@@ -55,3 +55,10 @@ crons:
       curl -s -X POST https://altfit-6fma.onrender.com/api/emails/daily
       -H "Authorization: Bearer $CRON_SECRET"
       -H "Content-Type: application/json"
+
+  - name: evening-email-agent
+    schedule: "0 15 * * *"   # 3:00 PM UTC = 8:30 PM IST
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/emails/evening
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"

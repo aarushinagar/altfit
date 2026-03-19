@@ -169,3 +169,101 @@ function fallbackMilestoneCopy(ctx: UserContext): PersonalizedCopy {
     bodyText:    `Consistency is the foundation of great personal style. ${ctx.streak} days of showing up for yourself — that's not nothing. Keep going.`,
   };
 }
+
+// ── Evening email personalizer ────────────────────────────────────────────────
+
+export interface EveningPersonalizedCopy {
+  subject:        string;
+  headline:       string;
+  bodyText:       string;
+  challengeLabel: string;  // "STYLE CHALLENGE" | "WARDROBE INSIGHT" | "TONIGHT'S THOUGHT"
+  challengeText:  string;  // the specific hook — a challenge, insight, or reflection
+  tomorrowTeaser: string;  // one sentence teasing tomorrow's outfit
+  wardrobeStat?: { label: string; value: string };
+}
+
+/**
+ * Generate creative evening copy.
+ * Claude picks the most interesting hook given the user's context.
+ * Falls back gracefully if Claude is unreachable.
+ */
+export async function personalizeEveningEmail(
+  ctx: UserContext & {
+    unwovenItemName?: string;   // a wardrobe piece they haven't styled recently
+    piecesStyledThisWeek?: number;
+    totalPieces?: number;
+  }
+): Promise<EveningPersonalizedCopy> {
+  const hookOptions = [
+    "STYLE CHALLENGE — a specific, achievable outfit challenge for this week",
+    "WARDROBE INSIGHT — a surprising observation about their wardrobe (what's unstyled, underused, or has potential)",
+    "TONIGHT'S THOUGHT — an editorial-style reflection on personal style, dressing with intention, or the philosophy behind their aesthetic",
+  ];
+
+  const prompt = `You are ALT FIT's editorial voice — a brilliant personal stylist writing a sophisticated evening email to a user.
+
+User context:
+- Name: ${ctx.firstName}
+- Style profiles: ${ctx.styleProfiles.join(", ") || "not set"}
+- Favorite colors: ${ctx.favoriteColors.join(", ") || "varied"}
+- Wardrobe size: ${ctx.totalPieces ?? ctx.wardrobeCount} pieces
+${ctx.piecesStyledThisWeek !== undefined ? `- Pieces styled this week: ${ctx.piecesStyledThisWeek}` : ""}
+${ctx.unwovenItemName ? `- A wardrobe piece they haven't worn recently: "${ctx.unwovenItemName}"` : ""}
+- Current streak: ${ctx.streak} days
+- Day of week: ${ctx.dayOfWeek}
+
+Your job: Choose the hook type that will be most engaging for THIS user, then write the email.
+
+Hook options (choose the most relevant one):
+${hookOptions.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+
+Return ONLY valid JSON:
+{
+  "subject": "intriguing evening subject line (max 9 words, no exclamation mark)",
+  "headline": "one captivating headline (max 10 words, can end with a period)",
+  "bodyText": "2-3 sentences. Evening tone — reflective, warm, anticipatory. Don't repeat the headline.",
+  "challengeLabel": "one of: STYLE CHALLENGE | WARDROBE INSIGHT | TONIGHT'S THOUGHT",
+  "challengeText": "the specific hook — 2-3 sentences. If a challenge: be specific and doable. If insight: be surprising. If thought: be poetic but grounded.",
+  "tomorrowTeaser": "one intriguing sentence about what ALT FIT is preparing for them tomorrow. Build anticipation."${ctx.piecesStyledThisWeek !== undefined ? `,
+  "wardrobeStat": { "label": "pieces styled this week", "value": "${ctx.piecesStyledThisWeek}" }` : ""}
+}
+
+Rules:
+- Never use "hey", "hi", or exclamation marks
+- challengeText should feel genuinely useful or thought-provoking, not generic
+- tomorrowTeaser should create a curiosity gap — make them want to open the app in the morning
+${ctx.unwovenItemName ? `- Consider referencing "${ctx.unwovenItemName}" in the challenge or insight — help them see it in a new way` : ""}
+- Write for someone who cares deeply about their personal aesthetic`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 400,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as EveningPersonalizedCopy;
+  } catch (err) {
+    console.error("[Personalizer] Claude error (evening), using fallback:", err);
+    return fallbackEveningCopy(ctx);
+  }
+}
+
+function fallbackEveningCopy(ctx: UserContext): EveningPersonalizedCopy {
+  const challenges = [
+    `Try building three completely different outfits around one piece from your wardrobe this week. Constraint breeds creativity — you may be surprised what you find.`,
+    `Pick the piece in your wardrobe you reach for least. Wear it tomorrow. Sometimes the items we overlook are the ones with the most to say.`,
+    `This week's challenge: dress for the version of ${ctx.firstName} you want to be, not the version you're comfortable being.`,
+  ];
+  const idx = ctx.wardrobeCount % challenges.length;
+  return {
+    subject:        `Tomorrow's look is almost ready`,
+    headline:       `Tonight, a thought on your wardrobe.`,
+    bodyText:       `Your ${ctx.wardrobeCount}-piece wardrobe is a canvas — and we've been thinking about what you haven't explored yet. We're building something special for tomorrow morning.`,
+    challengeLabel: "STYLE CHALLENGE",
+    challengeText:  challenges[idx],
+    tomorrowTeaser: `Tomorrow we're pulling from the unexpected corners of your wardrobe — open the app at 8 AM to see what we found.`,
+  };
+}
