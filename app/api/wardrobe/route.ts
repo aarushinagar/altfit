@@ -140,25 +140,35 @@ export async function POST(req: NextRequest) {
     const userId = auth.userId
     console.log(`[Wardrobe] ── User authenticated: ${userId}`)
 
-    // ── 4. CONVERT TO BUFFER + auto-rotate via EXIF
+    // ── 4. CONVERT TO BUFFER + auto-rotate via EXIF + normalise to JPEG
+    // Always output JPEG so Claude always gets a supported media type (fixes HEIC uploads)
     const rawBuffer = Buffer.from(await file.arrayBuffer())
-    const originalBuffer = await sharp(rawBuffer).rotate().toBuffer()
-    console.log(`[Wardrobe] ── Buffer ready (EXIF-corrected): ${originalBuffer.length} bytes`)
+    const originalBuffer = await sharp(rawBuffer).rotate().jpeg({ quality: 92 }).toBuffer()
+    console.log(`[Wardrobe] ── Buffer ready (EXIF-corrected JPEG): ${originalBuffer.length} bytes`)
+
+    // ── 4b. Downsized copy for Claude — max 1200px on longest side (~5-10× faster API calls)
+    const analysisMeta = await sharp(originalBuffer).metadata()
+    const needsDownscale = (analysisMeta.width ?? 0) > 1200 || (analysisMeta.height ?? 0) > 1200
+    const analysisBuffer = needsDownscale
+      ? await sharp(originalBuffer)
+          .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 82 })
+          .toBuffer()
+      : originalBuffer
+    const base64Image = analysisBuffer.toString('base64')
+    const mediaType = 'image/jpeg' as const
+    console.log(`[Wardrobe] ── Analysis image: ${analysisBuffer.length} bytes (${needsDownscale ? 'downscaled' : 'original size'})`)
 
     // ── 5. CALL CLAUDE FOR ANALYSIS
-    console.log('[Wardrobe] ── Calling Claude (pass 1: locate person)...')
     let pieces: DetectedPiece[] = []
     let personBox: { top: number; left: number; width: number; height: number } | null = null
     let personBuffer: Buffer = originalBuffer
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     try {
-      const base64Image = originalBuffer.toString('base64')
-      const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
       // ── PASS 1: Detect person + clothing in a single Claude call ──────────
       try {
-        console.log('[Wardrobe] ── Calling Claude (pass 1: combined person + items)...')
         const combinedResponse = await anthropic.messages.create({
           model: 'claude-sonnet-4-6',
           max_tokens: 1200,
