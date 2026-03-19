@@ -45,6 +45,7 @@ import {
   toPrismaId,
 } from "@/backend/database/prisma-id";
 import type { RegisterRequest, AuthPayload } from "@/types/api";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,6 +105,11 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[Auth Register] User created successfully: ${user.id}`);
+
+    // Send welcome email (non-blocking — don't await)
+    sendWelcomeEmail(user.email, user.name, user.provider).catch((err) =>
+      console.error("[Auth Register] Welcome email failed:", err)
+    );
 
     // Generate tokens
     const payload = {

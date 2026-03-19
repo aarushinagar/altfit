@@ -37,6 +37,7 @@ import {
 } from "@/backend/database/prisma-id";
 import bcrypt from "bcryptjs";
 import type { GoogleAuthRequest, AuthPayload } from "@/types/api";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 
 interface GooglePayload {
   sub: string;
@@ -118,6 +119,11 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(`[Auth Google] New user created: ${user.id}`);
+
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail(user.email, user.name, user.provider).catch((err) =>
+          console.error("[Auth Google] Welcome email failed:", err)
+        );
       } else {
         // Link Google account to existing email user
         console.log(

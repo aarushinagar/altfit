@@ -170,6 +170,77 @@ function fallbackMilestoneCopy(ctx: UserContext): PersonalizedCopy {
   };
 }
 
+// ── Welcome email personalizer ────────────────────────────────────────────────
+
+export interface WelcomePersonalizedCopy {
+  subject:     string;
+  headline:    string;
+  bodyText:    string;
+  step1:       string;
+  step2:       string;
+  step3:       string;
+  closingLine: string;
+}
+
+/**
+ * Generate a personalized welcome email for a brand-new user.
+ * Called immediately after account creation — user has no wardrobe yet.
+ */
+export async function personalizeWelcomeEmail(ctx: {
+  firstName: string;
+  provider:  "email" | "google" | string;
+}): Promise<WelcomePersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice — a refined, warm personal stylist welcoming a new member.
+
+New user: ${ctx.firstName}, signed up via ${ctx.provider === "google" ? "Google" : "email"}.
+
+ALT FIT is an AI-powered wardrobe styling app. Users upload their clothes, then AI curates daily outfits for them. It's about intentional dressing, not fast fashion.
+
+Write a personalized welcome email. Return ONLY valid JSON:
+{
+  "subject": "a welcoming subject line (max 8 words, no exclamation mark)",
+  "headline": "one memorable opening line to ${ctx.firstName} (max 10 words, warm but not gushing)",
+  "bodyText": "2-3 sentences. Editorial tone. Explain the promise of ALT FIT in a way that feels personal and exciting — not like a product description. Make them feel like they just joined something special.",
+  "step1": "First thing to do: upload wardrobe. Phrase it engagingly, one sentence.",
+  "step2": "Second: complete style profile. Make it sound exciting, one sentence.",
+  "step3": "Third: check Today tab for first AI-curated outfit. Build anticipation, one sentence.",
+  "closingLine": "One warm, closing line. Sign it off as their personal stylist. Understated and sincere."
+}
+
+Rules:
+- No exclamation marks anywhere
+- No "hey" or "hi" as openers
+- closingLine should feel like it comes from a person, not a brand
+- The tone should be: you just got access to something exclusive and considered`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 400,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as WelcomePersonalizedCopy;
+  } catch (err) {
+    console.error("[Personalizer] Claude error (welcome), using fallback:", err);
+    return fallbackWelcomeCopy(ctx.firstName);
+  }
+}
+
+function fallbackWelcomeCopy(firstName: string): WelcomePersonalizedCopy {
+  return {
+    subject:     `${firstName}, your wardrobe is about to change`,
+    headline:    `Your wardrobe, reimagined.`,
+    bodyText:    `ALT FIT uses AI to transform the clothes you already own into daily outfits you'll actually want to wear. No more staring at a full wardrobe and feeling like you have nothing to wear. You're in the right place.`,
+    step1:       "Upload your wardrobe — photos, pieces, anything you wear. The more you add, the smarter your outfits become.",
+    step2:       "Complete your style profile so ALT FIT understands your aesthetic, your colors, and how you want to dress.",
+    step3:       "Open the Today tab tomorrow morning — your first AI-curated outfit will be waiting for you.",
+    closingLine: `Looking forward to seeing what we build together, ${firstName}.`,
+  };
+}
+
 // ── Evening email personalizer ────────────────────────────────────────────────
 
 export interface EveningPersonalizedCopy {

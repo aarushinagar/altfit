@@ -192,6 +192,91 @@ export function milestoneEmail(data: MilestoneEmailData): string {
   return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/today.*/, "")}/unsubscribe?token={{TOKEN}}`);
 }
 
+export interface WelcomeEmailData {
+  firstName:   string;
+  ctaUrl:      string;
+  headline:    string;      // AI-generated
+  bodyText:    string;      // AI-generated
+  step1:       string;      // AI-generated — first onboarding nudge
+  step2:       string;      // AI-generated — second onboarding nudge
+  step3:       string;      // AI-generated — third onboarding nudge
+  closingLine: string;      // AI-generated — one warm closing sentence
+}
+
+export function welcomeEmail(data: WelcomeEmailData): string {
+  const inner = `
+  <tr>
+    <td style="padding:40px 44px 8px;">
+      <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:${COLORS.gold};margin:0 0 18px;">Welcome to ALT FIT</p>
+      <h1 style="font-family:${FONTS.serif};font-size:36px;font-weight:300;color:${COLORS.ink};margin:0 0 20px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
+      <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.75;margin:0 0 36px;font-weight:300;">${data.bodyText}</p>
+    </td>
+  </tr>
+
+  <!-- Getting started steps -->
+  <tr>
+    <td style="padding:0 44px 32px;">
+      <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 20px;">Where to begin</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td style="padding:14px 0;border-top:1px solid ${COLORS.linen};">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:28px;vertical-align:top;padding-top:2px;">
+                  <p style="font-family:${FONTS.sans};font-size:10px;color:${COLORS.gold};margin:0;font-weight:600;">01</p>
+                </td>
+                <td>
+                  <p style="font-family:${FONTS.serif};font-size:15px;font-weight:300;color:${COLORS.charcoal};margin:0;line-height:1.5;">${data.step1}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 0;border-top:1px solid ${COLORS.linen};">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:28px;vertical-align:top;padding-top:2px;">
+                  <p style="font-family:${FONTS.sans};font-size:10px;color:${COLORS.gold};margin:0;font-weight:600;">02</p>
+                </td>
+                <td>
+                  <p style="font-family:${FONTS.serif};font-size:15px;font-weight:300;color:${COLORS.charcoal};margin:0;line-height:1.5;">${data.step2}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 0;border-top:1px solid ${COLORS.linen};border-bottom:1px solid ${COLORS.linen};">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:28px;vertical-align:top;padding-top:2px;">
+                  <p style="font-family:${FONTS.sans};font-size:10px;color:${COLORS.gold};margin:0;font-weight:600;">03</p>
+                </td>
+                <td>
+                  <p style="font-family:${FONTS.serif};font-size:15px;font-weight:300;color:${COLORS.charcoal};margin:0;line-height:1.5;">${data.step3}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- CTA -->
+  <tr>
+    <td style="padding:0 44px 36px;">
+      <p style="font-family:${FONTS.serif};font-size:15px;font-style:italic;color:${COLORS.warmGray};margin:0 0 24px;line-height:1.6;">${data.closingLine}</p>
+      <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 32px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">
+        Build Your Wardrobe
+      </a>
+    </td>
+  </tr>`;
+
+  return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/(wardrobe|today).*/, "")}/unsubscribe?token={{TOKEN}}`);
+}
+
 export interface EveningEmailData {
   firstName:       string;
   ctaUrl:          string;
