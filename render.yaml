@@ -76,3 +76,48 @@ crons:
       curl -s -X POST https://altfit-6fma.onrender.com/api/emails/share-outfits
       -H "Authorization: Bearer $CRON_SECRET"
       -H "Content-Type: application/json"
+
+  # WhatsApp messaging agents (parallel to email)
+  # ============================================
+
+  - name: good-morning-whatsapp-agent
+    schedule: "30 2 * * *"   # 2:30 AM UTC = 8:00 AM IST (same as email)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/good-morning
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
+
+  - name: share-outfits-whatsapp-agent
+    schedule: "0 4 * * 3"   # 4:00 AM UTC, Wed = 9:30 AM IST Wed (once a week)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/share-outfits
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
+
+  - name: daily-engagement-whatsapp-agent
+    schedule: "30 11 * * *"   # 11:30 AM UTC = 5:00 PM IST (afternoon engagement)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/daily-engagement
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
+
+  - name: evening-whatsapp-agent
+    schedule: "0 15 * * *"   # 3:00 PM UTC = 8:30 PM IST (evening)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/evening
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
+
+  - name: reengagement-whatsapp-agent
+    schedule: "0 9 * * *"   # 9:00 AM UTC = 2:30 PM IST (afternoon for inactive users)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/reengagement
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
+
+  - name: milestone-whatsapp-agent
+    schedule: "0 13 * * *"   # 1:00 PM UTC = 6:30 PM IST (evening celebration)
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/whatsapp/milestone
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"

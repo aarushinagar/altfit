@@ -120,6 +120,26 @@ export async function POST(request: NextRequest) {
       console.error("[Auth Register] Welcome email failed:", err)
     );
 
+    // Send welcome WhatsApp message (non-blocking — don't await)
+    if (user.phone) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : "http://localhost:3000";
+      
+      fetch(`${appUrl}/api/whatsapp/welcome`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id.toString(),
+          phone: user.phone,
+          name: user.name || "User",
+          styleProfiles: [],
+        }),
+      }).catch((err) =>
+        console.error("[Auth Register] Welcome WhatsApp failed:", err)
+      );
+    }
+
     // Generate tokens
     const payload = {
       userId: user.id.toString(),
