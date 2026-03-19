@@ -148,7 +148,44 @@ export async function GET(req: NextRequest) {
 
     const systemPrompt = `You are ALT FIT, a personal stylist.
 Build 3 complete outfit suggestions from the user's wardrobe.
-Be specific. Be cohesive. Be fast.`
+Be specific. Be cohesive. Be fast.
+
+STRICT STYLING RULES — follow these exactly:
+
+DUPLICATES — never include more than one of:
+- Maximum 1 pair of shoes/footwear per look
+- Maximum 1 bag per look
+- Maximum 1 outer layer (jacket/blazer/coat) per look
+- Maximum 2 tops per look (only if layering intentionally)
+
+COMPLETE OUTFIT RULES:
+- Every look must have exactly 1 TOP or 1 DRESS (not both unless clearly layering)
+- Every look must have 1 BOTTOM (unless wearing a DRESS)
+- DRESS replaces TOP + BOTTOM — never pair a DRESS with a BOTTOM
+- FOOTWEAR is optional but if included only 1 pair
+- BAG is optional but if included only 1 bag
+
+COHESION RULES:
+- Formality must match across all items (±2 points max)
+- Color palette must work together (neutrals, analogous, or one statement piece)
+- Occasion must be consistent — do not mix gym wear with evening wear
+- Season must match — do not mix heavy winter pieces with summer pieces
+
+ITEM LIMIT: Maximum 4 items per look. Minimum 2.
+
+GOOD outfit examples:
+✅ TOP + BOTTOM + FOOTWEAR (3 items)
+✅ DRESS + FOOTWEAR + BAG (3 items)
+✅ TOP + BOTTOM + OUTERWEAR + BAG (4 items)
+✅ DRESS + OUTERWEAR (2 items, weather appropriate)
+
+BAD outfit examples — never do these:
+❌ TOP + BOTTOM + FOOTWEAR + FOOTWEAR (duplicate shoes)
+❌ BAG + BAG + TOP (duplicate bags)
+❌ DRESS + BOTTOM (dress with skirt/pants)
+❌ BAG alone (not an outfit)
+❌ 5+ items (too many)
+❌ Mixing formality 1 item with formality 9 item`
 
     const userPrompt = `Wardrobe (use exact IDs):
 ${wardrobeContext}
@@ -158,7 +195,7 @@ City: Mumbai, 31°C humid. Date: ${localDate}
 Seed: ${Date.now()}
 
 Return 3 looks: MORNING, DAYTIME, EVENING.
-Each look: 2-3 pieces max. Different pieces per look.
+Each look: 2-4 items, no duplicates per category. Different pieces per look.
 
 JSON only, no markdown:
 {"looks":[
@@ -224,6 +261,57 @@ JSON only, no markdown:
       '[Curation] ── Raw looks:', outfit.looks.length,
       '| items per look:', outfit.looks.map((l: any) => l.items?.length ?? 0).join(', '),
     )
+
+    // ── 5b. Deduplicate + validate looks (before enriching) ─────────────────
+    const categoryLimits: Record<string, number> = {
+      FOOTWEAR: 1, BAG: 1, OUTERWEAR: 1, TOP: 2, BOTTOM: 1, DRESS: 1,
+    }
+
+    function deduplicateLook(look: any): any {
+      const items: any[] = look.items ?? []
+      const seenCategories: Record<string, number> = {}
+
+      const deduped = items.filter((item: any) => {
+        const cat = (item.category ?? '').toUpperCase()
+        seenCategories[cat] = (seenCategories[cat] ?? 0) + 1
+        const limit = categoryLimits[cat] ?? 1
+        if (seenCategories[cat] > limit) {
+          console.log(`[Curation] Removed duplicate ${cat}:`, item.name ?? item.id)
+          return false
+        }
+        return true
+      })
+
+      // Remove BOTTOM if DRESS is present
+      const hasDress = deduped.some((i: any) => (i.category ?? '').toUpperCase() === 'DRESS')
+      const finalItems = hasDress
+        ? deduped.filter((i: any) => (i.category ?? '').toUpperCase() !== 'BOTTOM')
+        : deduped
+
+      return { ...look, items: finalItems }
+    }
+
+    outfit.looks = outfit.looks
+      .map(deduplicateLook)
+      .filter((look: any) => {
+        const items: any[] = look.items ?? []
+        const hasClothing = items.some((i: any) =>
+          ['TOP', 'BOTTOM', 'DRESS', 'OUTERWEAR', 'FULL_OUTFIT'].includes((i.category ?? '').toUpperCase())
+        )
+        if (items.length < 2 || !hasClothing) {
+          console.log('[Curation] Rejected invalid look after dedup:', look.outfitName)
+          return false
+        }
+        return true
+      })
+
+    if (outfit.looks.length === 0) {
+      console.error('[Curation] All looks rejected after deduplication')
+      return NextResponse.json(
+        { error: 'Could not generate a valid outfit. Please try again.' },
+        { status: 500 },
+      )
+    }
 
     // ── 6. Enrich all looks with real wardrobe data ─────────────────────────
     outfit.looks = enrichLooks(outfit.looks, wardrobe)
