@@ -323,6 +323,9 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
     const savedItems: ReturnType<typeof serializeItem>[] = []
     const failedItems: { name: string; error: string }[] = []
 
+    // Determine if this is a product photo vs outfit photo
+    const isProductPhoto = !personBox || pieces.length === 1
+
     for (const piece of pieces) {
       let itemId: string | null = null
 
@@ -346,54 +349,32 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
         itemId = item.id.toString()
         console.log(`[Wardrobe] ── DB row created: ${itemId}`)
 
-        // 7b. CROP IMAGE
-        let croppedBuffer: Buffer
+        // 7b. PROCESS IMAGE
+        let imageBuffer: Buffer
 
-        // If no person detected → it's a product/flat lay photo, skip cropping
-        if (!personBox) {
-          console.log('[Wardrobe] No person detected — product photo, no crop')
+        if (isProductPhoto) {
+          // Single item or no person — use full image, just resize
+          console.log('[Wardrobe] Product photo — saving full image for:', piece.name)
           try {
-            croppedBuffer = await sharp(originalBuffer)
-              .resize(600, 800, {
+            imageBuffer = await sharp(originalBuffer)
+              .resize(600, 750, {
                 fit: 'contain',
                 background: { r: 248, g: 246, b: 242, alpha: 1 },
               })
               .jpeg({ quality: 90 })
               .toBuffer()
-            console.log('[Wardrobe] ── Resize complete (product photo)')
+            console.log('[Wardrobe] ── Full image resized (product photo)')
           } catch (resizeErr: unknown) {
             const msg =
               resizeErr instanceof Error ? resizeErr.message : String(resizeErr)
             console.warn('[Wardrobe] ── Resize failed, using original:', msg)
-            croppedBuffer = originalBuffer
+            imageBuffer = originalBuffer
           }
-        }
-        // If only 1 piece detected → skip crop, use original/person buffer resized
-        else if (pieces.length === 1) {
-          console.log('[Wardrobe] Single item — skipping crop, using full image')
+        } else {
+          // Outfit photo with multiple pieces — crop each one
+          console.log('[Wardrobe] Outfit photo — cropping:', piece.name)
           try {
-            const bufferToResize = isValidPersonBox(personBox)
-              ? await cropToPersonOnly(originalBuffer, personBox)
-              : originalBuffer
-            croppedBuffer = await sharp(bufferToResize)
-              .resize(600, 800, {
-                fit: 'contain',
-                background: { r: 248, g: 246, b: 242, alpha: 1 },
-              })
-              .jpeg({ quality: 90 })
-              .toBuffer()
-            console.log('[Wardrobe] ── Resize complete (single item)')
-          } catch (resizeErr: unknown) {
-            const msg =
-              resizeErr instanceof Error ? resizeErr.message : String(resizeErr)
-            console.warn('[Wardrobe] ── Resize failed, using original:', msg)
-            croppedBuffer = originalBuffer
-          }
-        }
-        // Multiple pieces detected → crop normally
-        else {
-          try {
-            croppedBuffer = await cropItemFromImage(
+            imageBuffer = await cropItemFromImage(
               isValidPersonBox(personBox)
                 ? await cropToPersonOnly(originalBuffer, personBox)
                 : originalBuffer,
@@ -408,7 +389,7 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
             const msg =
               cropErr instanceof Error ? cropErr.message : String(cropErr)
             console.warn('[Wardrobe] ── Crop failed, using original:', msg)
-            croppedBuffer = originalBuffer
+            imageBuffer = originalBuffer
           }
         }
 
@@ -419,7 +400,7 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
             adminClient,
             userId,
             itemId,
-            croppedBuffer
+            imageBuffer
           )
           console.log(`[Wardrobe] ── Uploaded: ${publicUrl}`)
         } catch (uploadErr: unknown) {
