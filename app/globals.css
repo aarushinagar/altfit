@@ -6,3 +6,39 @@
  * All CSS custom properties + component CSS live in:   lib/theme/CssVariables.tsx
  * CSS reset + body styles come from:                   MUI CssBaseline
  */
+
+@keyframes altfit-slide-left {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    50% {
+        transform: translateX(-4px);
+    }
+}
+
+@keyframes altfit-slide-right {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    50% {
+        transform: translateX(4px);
+    }
+}
+
+@keyframes altfit-fadein {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}

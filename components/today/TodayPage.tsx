@@ -6,6 +6,9 @@ import { useAuth } from "@/lib/hooks";
 import { getHourGreeting } from "@/lib/utils/clothing";
 import { getAuthToken } from "@/lib/utils/authUtils";
 import StyleOnboarding from "@/components/today/StyleOnboarding";
+import SwipeCard from "@/components/today/SwipeCard";
+import SwipeToast from "@/components/today/SwipeToast";
+import SwipeHint from "@/components/today/SwipeHint";
 
 // ── Loading copy ────────────────────────────────────────────────────────────
 
@@ -132,8 +135,13 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [looks, setLooks] = useState<any[]>([]);
   const [refreshingLook, setRefreshingLook] = useState<string | null>(null);
-  const [savingLook, setSavingLook] = useState<string | null>(null);
   const [savedLooks, setSavedLooks] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'save' | 'skip'; visible: boolean }>({ message: '', type: 'save', visible: false });
+
+  const showToast = (message: string, type: 'save' | 'skip') => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 2500);
+  };
 
   useEffect(() => {
     setDateStr(
@@ -224,18 +232,20 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
     }
   };
 
-  // Save ONE specific look to saved_outfits
+  // Swipe right → save
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSaveLook = async (look: any) => {
-    if (savingLook || savedLooks.has(look.lookType)) return;
-    setSavingLook(look.lookType);
+  const handleSwipeRight = async (look: any) => {
+    if (savedLooks.has(look.lookType)) {
+      showToast('Already saved ✓', 'save');
+      return;
+    }
     try {
       const token = getAuthToken();
-      const res = await fetch("/api/saved-outfits", {
-        method: "POST",
-        credentials: "include",
+      const res = await fetch('/api/saved-outfits', {
+        method: 'POST',
+        credentials: 'include',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
@@ -249,23 +259,19 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
           tip:          look.tip,
         }),
       });
-      // Read as text first — avoids "Unexpected end of JSON input" on empty body
-      const text = await res.text();
-      if (!text || text.trim() === "") {
-        throw new Error("Empty response from server");
+      if (res.ok) {
+        setSavedLooks(prev => new Set([...prev, look.lookType]));
+        showToast('Saved to your collection', 'save');
       }
-      const data = JSON.parse(text);
-      if (data.success) {
-        setSavedLooks((prev) => new Set([...prev, look.lookType]));
-        console.log("[Save] ✅ Saved:", look.outfitName);
-      } else {
-        throw new Error(data.error || "Save failed");
-      }
-    } catch (err: unknown) {
-      console.error("[Save Look]", (err as Error).message);
-    } finally {
-      setSavingLook(null);
+    } catch {
+      showToast('Could not save. Try again.', 'skip');
     }
+  };
+
+  // Swipe left → refresh
+  const handleSwipeLeft = async (lookType: string) => {
+    showToast('Refreshing look...', 'skip');
+    await handleRefreshLook(lookType);
   };
 
   const handleRefresh = async () => {
@@ -357,6 +363,12 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
       {showOnboarding && (
         <StyleOnboarding onComplete={() => setShowOnboarding(false)} />
       )}
+      <SwipeHint />
+      <SwipeToast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+      />
 
       <Box className="today-hero">
         <Box className="today-greeting fade-up">
@@ -455,7 +467,14 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
           {/* 3 Look cards */}
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {!showLoader && !error && looks.length > 0 && looks.map((look: any, index: number) => (
-            <div key={index} style={{
+            <SwipeCard
+              key={`${look.lookType}-${index}`}
+              look={look}
+              onSwipeRight={handleSwipeRight}
+              onSwipeLeft={handleSwipeLeft}
+              isSaved={savedLooks.has(look.lookType)}
+            >
+            <div style={{
               border: "1px solid rgba(0,0,0,0.07)",
               marginTop: "24px",
               backgroundColor: "#ffffff",
@@ -615,34 +634,26 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
                   {refreshingLook === look.lookType ? "Finding look..." : "Refresh Look"}
                 </button>
 
-                {/* Save THIS look */}
-                <button
-                  onClick={() => handleSaveLook(look)}
-                  disabled={savedLooks.has(look.lookType) || savingLook === look.lookType}
-                  style={{
-                    display: "flex",
+                {/* Saved indicator — swipe right to save */}
+                {savedLooks.has(look.lookType) && (
+                  <div style={{
+                    display: "inline-flex",
                     alignItems: "center",
-                    gap: "7px",
-                    background: savedLooks.has(look.lookType) ? "#1c1917" : "none",
-                    border: "1px solid #1c1917",
-                    padding: "8px 16px",
-                    cursor: savedLooks.has(look.lookType) ? "default" : "pointer",
+                    gap: "6px",
                     fontSize: "10px",
-                    letterSpacing: "0.14em",
                     textTransform: "uppercase",
-                    color: savedLooks.has(look.lookType) ? "#ffffff" : "#1c1917",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {savingLook === look.lookType
-                    ? "Saving..."
-                    : savedLooks.has(look.lookType)
-                      ? "\u2713 Saved"
-                      : "+ Save Outfit"}
-                </button>
+                    letterSpacing: "0.14em",
+                    color: "#a8a29e",
+                    padding: "8px 0",
+                  }}>
+                    <span>✓</span>
+                    <span>Saved</span>
+                  </div>
+                )}
               </div>
 
             </div>
+            </SwipeCard>
           ))}
         </Box>
       </Box>
