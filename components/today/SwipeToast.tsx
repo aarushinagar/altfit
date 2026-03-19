@@ -19,26 +19,29 @@ export default function SwipeToast({ message, type, visible }: SwipeToastProps) 
       pointerEvents: 'none',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
+      gap: '10px',
       background: type === 'save' ? '#1c1917' : '#ffffff',
       color: type === 'save' ? '#ffffff' : '#78716c',
       border: type === 'save' ? 'none' : '1px solid #e7e5e4',
-      padding: '11px 22px 11px 18px',
+      padding: '12px 24px 12px 20px',
+      borderRadius: '6px',
       boxShadow: type === 'save'
-        ? '0 12px 40px rgba(0,0,0,0.25)'
-        : '0 8px 30px rgba(0,0,0,0.10)',
-      whiteSpace: 'nowrap' as const
+        ? '0 14px 48px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)'
+        : '0 10px 36px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+      whiteSpace: 'nowrap' as const,
+      backdropFilter: 'blur(4px)'
     }}>
       {/* Icon */}
       <div style={{
-        width: '20px', height: '20px',
+        width: '22px', height: '22px',
         borderRadius: '50%',
         background: type === 'save'
-          ? 'rgba(255,255,255,0.15)'
-          : 'rgba(0,0,0,0.05)',
+          ? 'rgba(255,255,255,0.18)'
+          : 'rgba(0,0,0,0.06)',
         display: 'flex', alignItems: 'center',
         justifyContent: 'center',
-        flexShrink: 0
+        flexShrink: 0,
+        backdropFilter: 'blur(2px)'
       }}>
         {type === 'save' ? (
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -59,8 +62,9 @@ export default function SwipeToast({ message, type, visible }: SwipeToastProps) 
       <span style={{
         fontSize: '10px',
         textTransform: 'uppercase' as const,
-        letterSpacing: '0.16em',
-        fontWeight: 700
+        letterSpacing: '0.18em',
+        fontWeight: 700,
+        color: 'inherit'
       }}>
         {message}
       </span>

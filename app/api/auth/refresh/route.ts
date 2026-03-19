@@ -16,7 +16,7 @@
 
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/backend/database/prisma";
+import prisma, { withDbRetry } from "@/backend/database/prisma";
 import {
   verifyToken,
   generateAccessToken,
@@ -142,9 +142,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("[Auth Refresh] Error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Token refresh failed",
-      500,
-    );
+    return errorResponse("Session expired. Please sign in again.", 500);
   }
 }

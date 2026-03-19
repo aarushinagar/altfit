@@ -27,7 +27,7 @@
 
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/backend/database/prisma";
+import prisma, { withDbRetry, dbErrorMessage } from "@/backend/database/prisma";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -76,9 +76,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await withDbRetry(() =>
+      prisma.user.findUnique({ where: { email } })
+    );
 
     if (existingUser) {
       console.warn(`[Auth Register] User already exists: ${email}`);
@@ -150,13 +150,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    const msg =
-      error instanceof Error
-        ? error.message
-        : typeof error === "object" && error && "message" in error
-          ? String((error as { message: unknown }).message)
-          : "Registration failed";
-    console.error("[Auth Register] Error:", msg, error);
-    return errorResponse(msg, 500);
+    console.error("[Auth Register] Error:", error);
+    return errorResponse(dbErrorMessage(error, "Registration failed. Please try again."), 500);
   }
 }

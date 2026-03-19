@@ -13,7 +13,7 @@
  */
 
 import { NextRequest } from "next/server";
-import prisma from "@/backend/database/prisma";
+import prisma, { withDbRetry, dbErrorMessage } from "@/backend/database/prisma";
 import { requireAuth } from "@/backend/database/auth-middleware";
 import {
   successResponse,
@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
     const { userId } = auth;
 
     // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { id: BigInt(userId) },
-    });
+    const user = await withDbRetry(() =>
+      prisma.user.findUnique({ where: { id: BigInt(userId) } })
+    );
 
     if (!user) {
       console.warn(`[Auth Me] User not found: ${userId}`);
@@ -58,8 +58,6 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("[Auth Me] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Failed to get user";
-    return successResponse(null, message, 500);
+    return errorResponse(dbErrorMessage(error, "Could not retrieve user."), 500);
   }
 }

@@ -31,7 +31,62 @@ function buildDatabaseUrl(): string {
   const url = process.env.DATABASE_URL ?? "";
   if (!url || url.includes("connection_limit")) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}connection_limit=3&pool_timeout=8`;
+  // connect_timeout: seconds to wait for initial TCP connection
+  // pool_timeout: seconds to wait for a connection from the pool
+  // connection_limit: max open connections per Prisma instance
+  return `${url}${sep}connection_limit=3&pool_timeout=15&connect_timeout=15`;
+}
+
+/**
+ * Retry transient Prisma/network errors (P1001, P1017, P2024).
+ * Use this wrapper around any critical DB call instead of raw awaits.
+ *
+ * Usage:
+ *   const user = await withDbRetry(() => prisma.user.findUnique(...));
+ */
+export async function withDbRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  delayMs = 400,
+): Promise<T> {
+  const RETRYABLE = new Set(["P1001", "P1002", "P1017", "P2024"]);
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const code: string | undefined = err?.code;
+      const isRetryable =
+        (code && RETRYABLE.has(code)) ||
+        /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(
+          err?.message ?? "",
+        );
+      if (!isRetryable || attempt === maxAttempts) throw err;
+      console.warn(
+        `[DB] Transient error ${code ?? err?.message} — retrying (${attempt}/${maxAttempts}) in ${delayMs * attempt}ms`,
+      );
+      await new Promise((r) => setTimeout(r, delayMs * attempt));
+    }
+  }
+  throw lastErr;
+}
+
+// Errors safe to show to end-users; anything else becomes a generic message.
+const USER_SAFE_PRISMA_CODES = new Set(["P2002", "P2025"]);
+
+/** Convert a caught error into a clean string safe for API responses. */
+export function dbErrorMessage(err: unknown, fallback = "Service temporarily unavailable. Please try again."): string {
+  const e = err as any;
+  // Expose specific Prisma constraint errors (e.g. duplicate email)
+  if (e?.code && USER_SAFE_PRISMA_CODES.has(e.code)) {
+    return e.meta?.cause ?? e.message ?? fallback;
+  }
+  // Connection / network errors → generic message, never the raw host
+  if (e?.code?.startsWith("P1") || e?.code === "P2024") {
+    return "Service temporarily unavailable. Please try again in a moment.";
+  }
+  return fallback;
 }
 
 const prisma =

@@ -6,13 +6,13 @@ export default function SwipeHint() {
 
   useEffect(() => {
     try {
-      if (!localStorage.getItem('altfit_swipe_v2')) {
+      if (!localStorage.getItem('altfit_hint_v3')) {
         setTimeout(() => setPhase('in'), 1200)
         setTimeout(() => setPhase('visible'), 1600)
         setTimeout(() => setPhase('out'), 5500)
         setTimeout(() => {
           setPhase('hidden')
-          localStorage.setItem('altfit_swipe_v2', '1')
+          localStorage.setItem('altfit_hint_v3', '1')
         }, 6200)
       }
     } catch {}

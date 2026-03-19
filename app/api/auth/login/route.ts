@@ -21,7 +21,7 @@
 
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/backend/database/prisma";
+import prisma, { withDbRetry, dbErrorMessage } from "@/backend/database/prisma";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -56,10 +56,10 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid email or password", 400);
     }
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    // Find user (retry on transient DB connectivity errors)
+    const user = await withDbRetry(() =>
+      prisma.user.findUnique({ where: { email } })
+    );
 
     if (!user || !user.passwordHash) {
       console.warn(`[Auth Login] User not found or no password set: ${email}`);
@@ -122,9 +122,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("[Auth Login] Error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Login failed",
-      500,
-    );
+    return errorResponse(dbErrorMessage(error, "Login failed. Please try again."), 500);
   }
 }
