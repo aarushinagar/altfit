@@ -194,6 +194,16 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: `${personContext}
 
+VISIBILITY RULES — Only detect items that are CLEARLY and FULLY VISIBLE:
+- Skip items mostly hidden behind other objects or the person's body
+- Skip items where less than 50% of the item is visible
+- Skip items obscured by outerwear or other clothing
+- Skip items barely visible in the background
+- If a bag is mostly hidden behind the person's body → skip it
+- If shoes are cut off at the bottom edge → skip them
+- If a top is mostly covered by a jacket → skip it
+Set confidence below 0.6 for anything you are not sure about. Only include items where confidence >= 0.75.
+
 STRICT RULES — NEVER detect or return these item types, skip them completely:
 - Earrings of any kind (studs, hoops, dangles)
 - Necklaces of any kind (chains, pendants, chokers)
@@ -265,8 +275,8 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
             console.log('[Wardrobe] ❌ Skipped:', piece.name)
             return false
           }
-          if ((piece.confidence ?? 1) < 0.7) {
-            console.log('[Wardrobe] ❌ Low confidence:', piece.name)
+          if ((piece.confidence ?? 1) < 0.75) {
+            console.log('[Wardrobe] ❌ Low confidence:', piece.name, piece.confidence)
             return false
           }
           return true
