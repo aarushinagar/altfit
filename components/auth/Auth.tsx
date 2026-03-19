@@ -29,9 +29,12 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [hoverGoogle, setHoverGoogle] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotEmail, setForgotEmail] = useState("");
   const isGoogleInitialized = useRef(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isGoogleInitialized.current) return;
@@ -51,7 +54,12 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
         const g = (
           window as unknown as {
             google: {
-              accounts: { id: { initialize: (opts: unknown) => void } };
+              accounts: {
+                id: {
+                  initialize: (opts: unknown) => void;
+                  renderButton: (el: HTMLElement, opts: unknown) => void;
+                };
+              };
             };
           }
         ).google;
@@ -61,84 +69,43 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
             const payload = decodeJwt(response.credential);
             if (!payload) {
               setError("Google sign-in failed — could not read profile.");
+              setGoogleLoading(false);
               return;
             }
-            setLoading(true);
+            setGoogleLoading(true);
+            setError(null);
             try {
               const res = await googleAuthUser(response.credential);
               if (res.success && res.data) {
                 onAuth(res.data.user as Record<string, unknown>);
               } else {
-                setError(
-                  res.error || "Google sign-in failed. Please try again.",
-                );
+                setError(res.error || "Google sign-in failed. Please try again.");
               }
             } finally {
-              setLoading(false);
+              setGoogleLoading(false);
             }
           },
           auto_select: false,
           cancel_on_tap_outside: true,
         });
+        // Render real GIS button into the overlay container
+        if (googleBtnRef.current) {
+          g.accounts.id.renderButton(googleBtnRef.current, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            width: 600,
+            text: "continue_with",
+            shape: "rectangular",
+          });
+        }
       })
       .catch(() =>
         setError("Could not load Google sign-in. Check your connection."),
       );
   }, []);
 
-  const handleGoogle = async () => {
-    setError(null);
-    if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
-      setError(
-        "Google Client ID not configured. See setup instructions below.",
-      );
-      return;
-    }
-    setLoading(true);
-    try {
-      await loadGisScript();
-      const g = (
-        window as unknown as {
-          google: {
-            accounts: {
-              id: {
-                prompt: (
-                  cb: (n: {
-                    isNotDisplayed: () => boolean;
-                    isSkippedMoment: () => boolean;
-                  }) => void,
-                ) => void;
-                renderButton: (el: HTMLElement, opts: unknown) => void;
-              };
-            };
-          };
-        }
-      ).google;
-      g.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          setLoading(false);
-          const tmp = document.createElement("div");
-          tmp.style.cssText =
-            "position:fixed;opacity:0;pointer-events:none;top:0;left:0;";
-          document.body.appendChild(tmp);
-          g.accounts.id.renderButton(tmp, {
-            type: "standard",
-            theme: "outline",
-            size: "large",
-          });
-          setTimeout(() => {
-            (
-              tmp.querySelector("div[role=button]") as HTMLElement | null
-            )?.click();
-            setTimeout(() => document.body.removeChild(tmp), 5000);
-          }, 100);
-        }
-      });
-    } catch {
-      setError("Google sign-in failed. Please try again.");
-      setLoading(false);
-    }
-  };
+  // Google auth is now handled entirely by the GIS renderButton overlay — no manual handler needed.
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -396,65 +363,59 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                 Sign in or create your account to start.
               </p>
 
-              <button
-                onClick={handleGoogle}
-                disabled={loading}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 12,
-                  background: "var(--paper)",
-                  border: "1px solid var(--linen)",
-                  padding: "14px 20px",
-                  fontSize: 13,
-                  color: "var(--charcoal)",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: "pointer",
-                  marginBottom: 12,
-                  transition: "all 0.2s",
-                  fontWeight: 400,
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = "var(--taupe)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor = "var(--linen)")
-                }
+              {/* Google button: our styled visual + invisible GIS button overlaid on top */}
+              <div
+                style={{ position: "relative", width: "100%", marginBottom: 12, cursor: googleLoading ? "default" : "pointer" }}
+                onMouseEnter={() => !googleLoading && setHoverGoogle(true)}
+                onMouseLeave={() => setHoverGoogle(false)}
               >
-                {loading ? (
-                  <span
-                    style={{
-                      animation: "spin 1s linear infinite",
-                      display: "inline-block",
-                      fontSize: 16,
-                    }}
-                  >
-                    ◌
-                  </span>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 48 48">
-                    <path
-                      fill="#EA4335"
-                      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                    />
-                    <path
-                      fill="#4285F4"
-                      d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                    />
-                  </svg>
-                )}
-                {loading ? "Opening Google..." : "Continue with Google"}
-              </button>
+                {/* Visual button — pointer-events off, purely decorative */}
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                    background: googleLoading ? "var(--linen)" : "var(--paper)",
+                    border: `1px solid ${hoverGoogle && !googleLoading ? "var(--taupe)" : "var(--linen)"}`,
+                    padding: "14px 20px",
+                    height: 52,
+                    boxSizing: "border-box" as const,
+                    fontSize: 13,
+                    color: googleLoading ? "var(--taupe)" : "var(--charcoal)",
+                    fontFamily: "DM Sans, sans-serif",
+                    fontWeight: 400,
+                    userSelect: "none" as const,
+                    pointerEvents: "none" as const,
+                    transition: "border-color 0.18s, background 0.18s, color 0.18s",
+                  }}
+                >
+                  {googleLoading ? (
+                    <span style={{ animation: "spin 1s linear infinite", display: "inline-block", fontSize: 15, opacity: 0.7 }}>◌</span>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                    </svg>
+                  )}
+                  <span>{googleLoading ? "Signing you in…" : "Continue with Google"}</span>
+                </div>
+
+                {/* Real GIS button — invisible overlay, captures the actual click */}
+                <div
+                  ref={googleBtnRef}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    overflow: "hidden",
+                    opacity: googleLoading ? 0 : 0.001,
+                    pointerEvents: googleLoading ? "none" : "auto",
+                  }}
+                />
+              </div>
 
               <Stack
                 direction="row"
