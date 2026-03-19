@@ -334,3 +334,18 @@ model SavedOutfit {
   @@index([userId])
   @@index([userId, savedAt])
 }
+
+// ── PASSWORD RESET TOKENS ─────────────────────────────────────
+// Short-lived tokens for the "Forgot Password" flow.
+// Token is a random 64-char hex string stored hashed (SHA-256).
+model PasswordResetToken {
+  id        BigInt   @id
+  userId    BigInt
+  tokenHash String   @unique // SHA-256 of the raw token so plaintext never persists
+  expiresAt DateTime
+  usedAt    DateTime?         // set when consumed; subsequent uses rejected
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

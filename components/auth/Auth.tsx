@@ -12,7 +12,7 @@ import {
 
 interface AuthProps {
   onAuth: (user: Record<string, unknown>) => void;
-  defaultMode?: "choose" | "email-signup" | "email-login";
+  defaultMode?: "choose" | "email-signup" | "email-login" | "forgot-password";
 }
 
 const BULLET_LINES = [
@@ -22,7 +22,7 @@ const BULLET_LINES = [
 ];
 
 export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
-  const [mode, setMode] = useState<"choose" | "email-signup" | "email-login">(
+  const [mode, setMode] = useState<"choose" | "email-signup" | "email-login" | "forgot-password" | "reset-sent">(
     defaultMode,
   );
   const [email, setEmail] = useState("");
@@ -30,6 +30,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState("");
   const isGoogleInitialized = useRef(false);
 
   useEffect(() => {
@@ -135,6 +136,33 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
       });
     } catch {
       setError("Google sign-in failed. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!forgotEmail.includes("@")) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Something went wrong.");
+      } else {
+        setMode("reset-sent");
+      }
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
       setLoading(false);
     }
   };
@@ -605,7 +633,18 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>Password</label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
+                    {mode === "email-login" && (
+                      <button
+                        type="button"
+                        onClick={() => { setForgotEmail(email); setError(null); setMode("forgot-password"); }}
+                        style={{ background: "none", border: "none", fontSize: 10, color: "var(--taupe)", cursor: "pointer", fontFamily: "DM Sans, sans-serif", letterSpacing: "0.06em", padding: 0 }}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="password"
                     value={password}
@@ -690,6 +729,84 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                   </button>
                 </Box>
               </form>
+            </>
+          )}
+
+          {mode === "forgot-password" && (
+            <>
+              <button
+                onClick={() => { setMode("email-login"); setError(null); }}
+                style={{
+                  background: "none", border: "none", color: "var(--taupe)", fontSize: 11,
+                  letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "DM Sans, sans-serif",
+                  cursor: "pointer", marginBottom: 32, display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                ← Back
+              </button>
+              <h3 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 34, fontWeight: 300, color: "var(--ink)", marginBottom: 8 }}>
+                Forgot password.
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--warm-gray)", fontWeight: 300, marginBottom: 32, lineHeight: 1.5 }}>
+                Enter your email and we&apos;ll send you a reset link.
+              </p>
+              <form onSubmit={handleForgotPassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    style={inputStyle}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--gold)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--linen)")}
+                  />
+                </div>
+                {error && (
+                  <Box sx={{ fontSize: 12, color: "#c0392b", p: "8px 12px", background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.2)" }}>
+                    {error}
+                  </Box>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    background: loading ? "var(--linen)" : "var(--ink)",
+                    color: loading ? "var(--taupe)" : "var(--cream)",
+                    border: "none", padding: "14px 20px", fontSize: 12,
+                    letterSpacing: "0.14em", textTransform: "uppercase",
+                    fontFamily: "DM Sans, sans-serif",
+                    cursor: loading ? "default" : "pointer",
+                    marginTop: 8, fontWeight: 500,
+                  }}
+                >
+                  {loading ? "Sending…" : "Send Reset Link"}
+                </button>
+              </form>
+            </>
+          )}
+
+          {mode === "reset-sent" && (
+            <>
+              <div style={{ fontSize: 32, marginBottom: 24, color: "var(--gold)" }}>✦</div>
+              <h3 style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 30, fontWeight: 300, color: "var(--ink)", marginBottom: 12 }}>
+                Check your email.
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--warm-gray)", lineHeight: 1.6, marginBottom: 32 }}>
+                If an account exists for <strong style={{ color: "var(--charcoal)" }}>{forgotEmail}</strong>, a reset link has been sent. Check your inbox — it expires in 1 hour.
+              </p>
+              <button
+                onClick={() => { setMode("email-login"); setError(null); }}
+                style={{
+                  background: "none", color: "var(--charcoal)", border: "1px solid var(--linen)",
+                  padding: "13px 20px", fontSize: 12, letterSpacing: "0.12em",
+                  textTransform: "uppercase", fontFamily: "DM Sans, sans-serif",
+                  cursor: "pointer", width: "100%",
+                }}
+              >
+                Back to Sign In
+              </button>
             </>
           )}
 

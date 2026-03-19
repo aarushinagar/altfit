@@ -57,20 +57,18 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
     );
 
     // Build preview URLs and assign stable IDs for all files upfront
+    // HEIC files can't be rendered by browsers, but the backend converts them — no special casing
     const newIds = filesToProcess.map((_, i) => Date.now() + i + Math.random());
     const previews: (string | null)[] = filesToProcess.map((file, i) => {
-      if (fileTypes[i] === "heic" || isHeicFile(file)) return null;
+      if (fileTypes[i] === "heic" || isHeicFile(file)) return null; // can't render HEIC, preview shows skeleton
       return URL.createObjectURL(file);
     });
 
-    // Add all files to state at once — non-heic ones appear as "queued"
+    // All files start as "queued" — HEIC is no longer blocked client-side (backend handles it)
     const initialItems: UploadItem[] = filesToProcess.map((file, i) => ({
       id: newIds[i],
       fileName: file.name,
-      status:
-        fileTypes[i] === "heic" || isHeicFile(file)
-          ? ("heic" as const)
-          : ("queued" as const),
+      status: "queued" as const,
       previewUrl: previews[i],
       pieces: null,
       savedPieceIds: [],
@@ -79,9 +77,8 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
 
     setItems((prev) => [...prev, ...initialItems]);
 
-    // Process non-heic files one-by-one; they transition queued → analyzing → ready/error
+    // Process all files one-by-one; they transition queued → analyzing → ready/error
     for (let i = 0; i < filesToProcess.length; i++) {
-      if (initialItems[i].status === "heic") continue;
 
       const file = filesToProcess[i];
       const id = newIds[i];

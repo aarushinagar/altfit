@@ -1,8 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { Box, Stack } from "@mui/material";
-
 export interface ClothingPiece {
   name?: string;
   category?: string;
@@ -78,176 +76,62 @@ export default function UploadItemCard({
   onSetIntent,
   onRemove,
 }: UploadItemCardProps) {
+  // "heic" status is kept in the type for backwards compat but the backend now converts HEIC.
+  // Treat it as queued with a "Processing…" placeholder.
   if (item.status === "heic") {
     return (
-      <Box
-        sx={{
-          mb: 3,
-          border: "1px solid var(--gold)",
-          background: "var(--paper)",
-          p: "24px 28px",
-        }}
-      >
-        <Stack direction="row" gap={2} alignItems="flex-start" sx={{ mb: 2 }}>
-          <Box sx={{ fontSize: 28 }}>📸</Box>
-          <Box>
-            <Box
-              sx={{
-                fontFamily: "Cormorant Garamond, serif",
-                fontSize: 18,
-                color: "var(--ink)",
-                mb: 0.5,
-              }}
-            >
-              iPhone HEIC photo — needs conversion
-            </Box>
-            <Box sx={{ fontSize: 12, color: "var(--taupe)" }}>
-              <strong>{item.fileName}</strong> — convert then re-upload.
-            </Box>
-          </Box>
-        </Stack>
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
-          <a
-            href="https://heictojpeg.net"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: "block",
-              padding: "12px",
-              background: "var(--ink)",
-              color: "var(--cream)",
-              textDecoration: "none",
-              textAlign: "center",
-              fontSize: 11,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            Convert Online →
-          </a>
-          <Box
-            sx={{
-              p: "12px",
-              background: "var(--linen)",
-              fontSize: 11,
-              color: "var(--charcoal)",
-              lineHeight: 1.5,
-            }}
-          >
-            Permanent fix: iPhone Settings → Camera → Formats →{" "}
-            <strong>Most Compatible</strong>
-          </Box>
-        </Box>
-      </Box>
+      <div className="upload-item-card upload-item-queued">
+        <div className="upload-item-thumb upload-item-thumb-skeleton" />
+        <div className="upload-item-info">
+          <span className="upload-item-label upload-item-label-dim">Converting…</span>
+          <span className="upload-item-name">{item.fileName ?? "Photo"}</span>
+        </div>
+      </div>
     );
   }
 
   if (item.status === "queued") {
     return (
-      <Stack
-        direction="row"
-        sx={{
-          mb: 3,
-          border: "1px solid var(--linen)",
-          background: "var(--paper)",
-          opacity: 0.55,
-          filter: "grayscale(60%)",
-        }}
-      >
-        <Box
-          sx={{
-            width: 120,
-            flexShrink: 0,
-            minHeight: 140,
-            background: "var(--linen)",
-            position: "relative",
-          }}
-        >
-          {item.previewUrl && (
-            <img
-              src={item.previewUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center top",
-              }}
-            />
-          )}
-        </Box>
-        <Box sx={{ flex: 1, p: "20px 24px" }}>
-          <Box
-            sx={{
-              fontSize: 10,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--taupe)",
-              mb: 0.75,
-            }}
-          >
-            In Queue
-          </Box>
-          <Box sx={{ fontSize: 12, color: "var(--charcoal)", lineHeight: 1.4 }}>
-            {item.fileName ?? "Waiting to upload…"}
-          </Box>
-        </Box>
-      </Stack>
+      <div className="upload-item-card upload-item-queued">
+        <div className="upload-item-thumb">
+          {item.previewUrl
+            ? <img src={item.previewUrl} alt="" className="upload-item-thumb-img" />
+            : <div className="upload-item-thumb-skeleton" />
+          }
+        </div>
+        <div className="upload-item-info">
+          <span className="upload-item-label upload-item-label-dim">In queue</span>
+          <span className="upload-item-name">{item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") ?? "Photo"}</span>
+        </div>
+      </div>
     );
   }
 
   if (item.status === "reading" || item.status === "analyzing") {
     return (
-      <Stack
-        direction="row"
-        sx={{
-          mb: 3,
-          border: "1px solid var(--linen)",
-          background: "var(--paper)",
-        }}
-      >
-        <Box
-          sx={{
-            width: 120,
-            flexShrink: 0,
-            minHeight: 140,
-            background: "var(--linen)",
-            position: "relative",
-          }}
-        >
-          {item.previewUrl && (
-            <img
-              src={item.previewUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center top",
-              }}
-            />
-          )}
-        </Box>
-        <Box sx={{ flex: 1, p: "20px 24px" }}>
-          <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 1.25 }}>
-            {item.status === "reading"
-              ? "Preparing image..."
-              : (item.progress ?? 0) >= 40
-              ? "Analyzing your pieces... this may take a moment"
-              : `Identifying garments... ${Math.round(item.progress ?? 0)}%`}
-          </Box>
-          <Box className="progress-bar">
-            <Box
-              className="progress-fill"
-              sx={{ width: `${item.progress ?? 0}%` }}
-            />
-          </Box>
-        </Box>
-      </Stack>
+      <div className="upload-item-card upload-item-analyzing">
+        {/* Image with scan-line overlay */}
+        <div className="upload-item-thumb upload-item-thumb-scanning">
+          {item.previewUrl
+            ? <img src={item.previewUrl} alt="" className="upload-item-thumb-img" />
+            : <div className="upload-item-thumb-skeleton" />
+          }
+          <div className="upload-scan-overlay">
+            <div className="upload-scan-line" />
+          </div>
+        </div>
+        <div className="upload-item-info">
+          <span className="upload-item-label upload-item-label-gold">
+            {item.status === "reading" ? "Preparing…" : "Identifying your pieces…"}
+          </span>
+          <span className="upload-item-name" style={{ opacity: 0.5 }}>
+            {item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") ?? "Photo"}
+          </span>
+          <div className="upload-progress-bar" style={{ marginTop: 10 }}>
+            <div className="upload-progress-fill" style={{ width: `${item.progress ?? 0}%` }} />
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -257,601 +141,100 @@ export default function UploadItemCard({
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
     return (
-      <Stack
-        direction="row"
-        sx={{
-          mb: 3,
-          border: "1px solid var(--linen)",
-          background: "var(--paper)",
-        }}
-      >
-        <Box
-          sx={{
-            width: 120,
-            flexShrink: 0,
-            minHeight: 140,
-            background: "var(--linen)",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {item.previewUrl && (
-            <img
-              src={item.previewUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center top",
-                opacity: 0.45,
-                filter: "blur(1px)",
-              }}
-            />
-          )}
-        </Box>
-
-        <Box sx={{ flex: 1, p: "20px 24px" }}>
-          <Box
-            sx={{
-              fontSize: 10,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--gold)",
-              mb: 1,
-            }}
-          >
-            Cropping pieces
-          </Box>
-          <Box sx={{ fontSize: 12, color: "var(--taupe)", mb: 1.5 }}>
-            Generating tight crop for{" "}
-            {total === 1 ? "1 item" : `${total} items`}…
-          </Box>
-
-          {/* Shimmer piece placeholders */}
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1,
-              flexWrap: "wrap",
-              mb: 1.5,
-            }}
-          >
-            {Array.from({ length: total }).map((_, i) => {
-              const isDone = done > i;
-              return (
-                <Box
-                  key={i}
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    background: isDone ? "var(--gold)" : "var(--linen)",
-                    animation: isDone
-                      ? "none"
-                      : "pulse 1.4s ease-in-out infinite",
-                    animationDelay: `${i * 0.18}s`,
-                    border: "1px solid",
-                    borderColor: isDone ? "var(--gold)" : "var(--linen)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {isDone && (
-                    <Box
-                      component="span"
-                      sx={{ fontSize: 18, lineHeight: 1 }}
-                    >
-                      ✓
-                    </Box>
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-
-          <Box className="progress-bar">
-            <Box
-              className="progress-fill"
-              sx={{ width: `${pct}%`, transition: "width 0.3s ease" }}
-            />
-          </Box>
-        </Box>
-      </Stack>
+      <div className="upload-item-card upload-item-analyzing">
+        <div className="upload-item-thumb upload-item-thumb-scanning">
+          {item.previewUrl
+            ? <img src={item.previewUrl} alt="" className="upload-item-thumb-img" style={{ opacity: 0.8 }} />
+            : <div className="upload-item-thumb-skeleton" />
+          }
+          <div className="upload-scan-overlay">
+            <div className="upload-scan-line" />
+          </div>
+        </div>
+        <div className="upload-item-info">
+          <span className="upload-item-label upload-item-label-gold">Cropping {total === 1 ? "1 piece" : `${total} pieces`}…</span>
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {Array.from({ length: total }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: done > i ? "var(--gold)" : "var(--linen)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  transition: "background 0.3s ease",
+                  animation: done > i ? "none" : "pulse 1.4s ease-in-out infinite",
+                  animationDelay: `${i * 0.18}s`,
+                }}
+              >
+                {done > i && <span style={{ color: "var(--cream)", fontSize: 12 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+          <div className="upload-progress-bar" style={{ marginTop: 10 }}>
+            <div className="upload-progress-fill" style={{ width: `${pct}%`, transition: "width 0.3s ease" }} />
+          </div>
+        </div>
+      </div>
     );
   }
-
   if (item.status === "error") {
+    const errorMsg = item.error?.includes("Rate limit")
+      ? "Too many requests — wait a moment and try again."
+      : item.error?.includes("No clothing items")
+        ? "No clothing detected. Try a clearer photo facing the camera."
+        : item.error?.includes("No valid JSON") || item.error?.includes("parse")
+          ? "Couldn't read the image. Try a well-lit photo with clear contrast."
+          : item.error?.includes("Invalid image")
+            ? "Format not supported. Use JPG, PNG, HEIC, or WebP."
+            : "Something went wrong. Please try again.";
+
     return (
-      <Box
-        sx={{
-          mb: 3,
-          border: "1px solid #ecc",
-          background: "var(--paper)",
-          overflow: "hidden",
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="flex-start"
-          gap={2}
-          sx={{ p: "20px 24px" }}
-        >
-          <Box sx={{ fontSize: 28, flexShrink: 0 }}>⚠️</Box>
-          <Box sx={{ flex: 1 }}>
-            <Box
-              sx={{ fontSize: 13, fontWeight: 600, color: "#c0392b", mb: 0.75 }}
-            >
-              Analysis failed
-            </Box>
-            <Box
-              sx={{
-                fontSize: 12,
-                color: "#a93226",
-                wordBreak: "break-word",
-                mb: 1.5,
-                lineHeight: 1.5,
-              }}
-            >
-              {item.error?.includes("Rate limit")
-                ? "Too many requests. Please wait a few seconds and try again."
-                : item.error?.includes("No valid JSON") ||
-                  item.error?.includes("parse")
-                  ? "The image is unclear. Try a clearer photo with good lighting and contrast."
-                  : item.error?.includes("Invalid image")
-                    ? "Invalid image format. Please use JPG, PNG, or WebP files."
-                    : item.error?.includes("not configured") ||
-                      item.error?.includes("Bucket") ||
-                      item.error?.includes("row-level") ||
-                      item.error?.includes("wardrobe-images")
-                      ? "Storage setup failed. Please try again — the system will auto-configure on retry."
-                      : `Error: ${item.error}`}
-            </Box>
-            <button
-              onClick={() => onRemove(item.id)}
-              style={{
-                fontSize: 11,
-                background: "#c0392b",
-                color: "white",
-                border: "none",
-                padding: "8px 14px",
-                cursor: "pointer",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontFamily: "DM Sans, sans-serif",
-              }}
-            >
-              Remove
-            </button>
-          </Box>
-        </Stack>
-      </Box>
+      <div className="upload-item-card upload-item-error" style={{ animation: "uploadFadeIn 0.35s ease forwards" }}>
+        <div className="upload-item-error-icon">✕</div>
+        <div className="upload-item-info">
+          <span className="upload-item-label" style={{ color: "var(--error)" }}>Couldn't save</span>
+          <span className="upload-item-name" style={{ color: "var(--charcoal)", fontSize: 12, opacity: 0.8 }}>{errorMsg}</span>
+          <button className="upload-remove-btn" onClick={() => onRemove(item.id)}>
+            Dismiss
+          </button>
+        </div>
+      </div>
     );
   }
 
   if (item.status !== "ready") return null;
 
-  // Auto-saved by server pipeline — show clean confirmation without piece-detection UI
-  if (item.intent === "full_outfit" && item.wardrobeItemId) {
-    return (
-      <Box
-        sx={{
-          mb: 4,
-          border: "1px solid var(--linen)",
-          background: "var(--paper)",
-        }}
-      >
-        <Stack direction="row">
-          <Box
-            sx={{
-              width: 160,
-              flexShrink: 0,
-              minHeight: 200,
-              background: "var(--linen)",
-              position: "relative",
-            }}
-          >
-            {item.previewUrl && (
-              <img
-                src={item.previewUrl}
-                alt=""
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: "center top",
-                }}
-              />
-            )}
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              p: "24px 28px",
-              borderLeft: "1px solid var(--linen)",
-            }}
-          >
-            <Box
-              sx={{
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--gold)",
-                mb: 1,
-              }}
-            >
-              ✓ Saved to wardrobe
-            </Box>
-            <Box
-              sx={{
-                fontFamily: "Cormorant Garamond, serif",
-                fontSize: 20,
-                fontWeight: 300,
-                color: "var(--ink)",
-                mb: 0.75,
-                lineHeight: 1.3,
-              }}
-            >
-              {item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") ||
-                "Clothing Item"}
-            </Box>
-            <Box sx={{ fontSize: 11, color: "var(--taupe)" }}>
-              AI-analysed and added to your wardrobe.
-            </Box>
-          </Box>
-        </Stack>
-      </Box>
-    );
-  }
-
+  // Success state — clean confirmation with fade-in
   return (
-    <Box
-      sx={{
-        mb: 4,
-        border: "1px solid var(--linen)",
-        background: "var(--paper)",
-      }}
-    >
-      <Stack direction="row">
-        <Box
-          sx={{
-            width: 160,
-            flexShrink: 0,
-            minHeight: 210,
-            background: "var(--linen)",
-            position: "relative",
-          }}
+    <div className="upload-item-card upload-item-success" style={{ animation: "uploadFadeIn 0.4s ease forwards" }}>
+      <div className="upload-item-thumb">
+        {item.previewUrl
+          ? <img src={item.previewUrl} alt="" className="upload-item-thumb-img" />
+          : <div className="upload-item-thumb-skeleton" style={{ background: "var(--linen)" }} />
+        }
+        {/* Success checkmark overlay */}
+        <div className="upload-success-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+      <div className="upload-item-info">
+        <span className="upload-item-label upload-item-label-gold">Added to wardrobe</span>
+        <span
+          className="upload-item-name"
+          style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 18, fontWeight: 300, lineHeight: 1.3 }}
         >
-          {item.previewUrl && (
-            <img
-              src={item.previewUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center top",
-              }}
-            />
-          )}
-        </Box>
-        <Box
-          sx={{
-            flex: 1,
-            p: "24px 28px",
-            borderLeft: "1px solid var(--linen)",
-          }}
-        >
-          <Box
-            sx={{
-              fontSize: 10,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--gold)",
-              mb: 1,
-            }}
-          >
-            {`✦ ${item.pieces?.length || 0} piece${(item.pieces?.length || 0) !== 1 ? "s" : ""} detected`}
-          </Box>
-          <Box
-            sx={{
-              fontFamily: "Cormorant Garamond, serif",
-              fontSize: 21,
-              fontWeight: 300,
-              color: "var(--ink)",
-              mb: 0.75,
-              lineHeight: 1.3,
-            }}
-          >
-            {item.pieces?.map((p) => p.name).join(", ")}
-          </Box>
-          <Box
-            sx={{
-              fontSize: 11,
-              color: "var(--taupe)",
-              mb: 2.5,
-              lineHeight: 1.6,
-            }}
-          >
-            How would you like to save this?
-          </Box>
-
-          {!item.intent && (
-            <Stack gap={1.25}>
-              <button
-                onClick={() => onSaveFullOutfit(item)}
-                disabled={item.savingFull}
-                style={{
-                  background: "var(--ink)",
-                  color: "var(--cream)",
-                  border: "none",
-                  padding: "14px 18px",
-                  fontSize: 11,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: item.savingFull ? "not-allowed" : "pointer",
-                  opacity: item.savingFull ? 0.6 : 1,
-                  textAlign: "left",
-                }}
-              >
-                {item.savingFull ? "Saving…" : "✦ Save as Full Outfit"}
-                <div
-                  style={{
-                    fontSize: 10,
-                    opacity: 0.55,
-                    marginTop: 3,
-                    letterSpacing: "0.03em",
-                    textTransform: "none",
-                  }}
-                >
-                  One wardrobe item · original photo · no crop
-                </div>
-              </button>
-              <button
-                onClick={() => onSetIntent(item.id, "individual")}
-                style={{
-                  background: "transparent",
-                  color: "var(--ink)",
-                  border: "1px solid var(--ink)",
-                  padding: "14px 18px",
-                  fontSize: 11,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                ▫ Save Individual Pieces
-                <div
-                  style={{
-                    fontSize: 10,
-                    opacity: 0.55,
-                    marginTop: 3,
-                    letterSpacing: "0.03em",
-                    textTransform: "none",
-                  }}
-                >
-                  Pick which pieces to save · each gets its own cropped image
-                </div>
-              </button>
-            </Stack>
-          )}
-
-          {item.intent === "full_outfit" && (
-            <Box
-              sx={{
-                fontSize: 11,
-                color: "var(--gold)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 500,
-              }}
-            >
-              ✓ Full outfit saved to wardrobe
-            </Box>
-          )}
-          {item.intent === "individual" && (
-            <Box sx={{ fontSize: 12, color: "var(--taupe)" }}>
-              Tap &quot;+ Save&quot; on the pieces you want below ⇓
-            </Box>
-          )}
-        </Box>
-      </Stack>
-
-      {item.intent === "individual" && (item.pieces?.length ?? 0) > 0 && (
-        <Box sx={{ borderTop: "1px solid var(--linen)" }}>
-          <Box
-            sx={{
-              p: "14px 20px 10px",
-              fontSize: 9,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              color: "var(--taupe)",
-            }}
-          >
-            Save only what you want — accessories are optional
-          </Box>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
-              gap: "1px",
-              background: "var(--linen)",
-            }}
-          >
-            {item.pieces!.map((piece, idx) => {
-              const pieceId = `${item.id}-piece-${idx}`;
-              const isSaved = (item.savedPieceIds || []).includes(pieceId);
-              const objPos =
-                OBJ_POS[(piece.category || "").toLowerCase()] || "50% 40%";
-              const previewSrc = item.piecePreviews?.[idx] || item.previewUrl;
-              return (
-                <Stack
-                  key={idx}
-                  sx={{ background: "var(--paper)", flexDirection: "column" }}
-                >
-                  <Box
-                    sx={{
-                      width: "100%",
-                      aspectRatio: "1/1",
-                      overflow: "hidden",
-                      position: "relative",
-                    }}
-                  >
-                    {previewSrc && (
-                      <img
-                        src={previewSrc}
-                        alt=""
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: objPos,
-                          filter: isSaved ? "brightness(0.6)" : "none",
-                        }}
-                      />
-                    )}
-                    {isSaved && (
-                      <Stack
-                        alignItems="center"
-                        justifyContent="center"
-                        sx={{
-                          position: "absolute",
-                          inset: 0,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            background: "var(--gold)",
-                            color: "var(--ink)",
-                            fontSize: 9,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            fontWeight: 600,
-                            p: "5px 12px",
-                          }}
-                        >
-                          ✓ Saved
-                        </Box>
-                      </Stack>
-                    )}
-                  </Box>
-                  <Stack
-                    gap={0.5}
-                    sx={{
-                      p: "10px 12px",
-                      flex: 1,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        fontSize: 9,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        color: "var(--taupe)",
-                      }}
-                    >
-                      {piece.category}
-                    </Box>
-                    <Box
-                      sx={{
-                        fontFamily: "Cormorant Garamond, serif",
-                        fontSize: 14,
-                        color: "var(--ink)",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {piece.name}
-                    </Box>
-                    <Stack direction="row" gap={0.5} sx={{ flexWrap: "wrap" }}>
-                      {[piece.colorName, piece.formality]
-                        .filter(Boolean)
-                        .map((t) => (
-                          <span
-                            key={String(t)}
-                            className="analyzing-tag"
-                            style={{ fontSize: 9 }}
-                          >
-                            {String(t)}
-                          </span>
-                        ))}
-                    </Stack>
-                    {!isSaved && (
-                      <button
-                        onClick={() => onSavePiece(item, piece, idx)}
-                        style={{
-                          marginTop: "auto",
-                          background: "var(--ink)",
-                          color: "var(--cream)",
-                          border: "none",
-                          padding: "7px 10px",
-                          fontSize: 9,
-                          letterSpacing: "0.12em",
-                          textTransform: "uppercase",
-                          fontFamily: "DM Sans, sans-serif",
-                          cursor: "pointer",
-                          fontWeight: 500,
-                          width: "100%",
-                        }}
-                      >
-                        + Save this piece
-                      </button>
-                    )}
-                  </Stack>
-                </Stack>
-              );
-            })}
-          </Box>
-
-          {(item.pieces?.length ?? 0) >= 2 && !item.outfitSaved && (
-            <Box sx={{ p: "12px 0 4px" }}>
-              <button
-                onClick={() => onSaveAsOutfit(item)}
-                disabled={item.savingOutfit}
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  color: "var(--gold)",
-                  border: "1px solid var(--gold)",
-                  padding: "10px 18px",
-                  fontSize: 10,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: item.savingOutfit ? "not-allowed" : "pointer",
-                  opacity: item.savingOutfit ? 0.6 : 1,
-                }}
-              >
-                {item.savingOutfit ? "Saving outfit…" : "✦ Save all as outfit"}
-              </button>
-            </Box>
-          )}
-          {item.outfitSaved && (
-            <Box
-              sx={{
-                p: "10px 0 4px",
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                color: "var(--gold)",
-                textAlign: "center",
-                textTransform: "uppercase",
-              }}
-            >
-              ✓ Outfit saved
-            </Box>
-          )}
-        </Box>
-      )}
-    </Box>
+          {item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") || "Clothing item"}
+        </span>
+        <span style={{ fontSize: 11, color: "var(--taupe)", marginTop: 4, display: "block" }}>
+          AI-analysed and saved
+        </span>
+      </div>
+    </div>
   );
 }
