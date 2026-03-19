@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
         const combinedResponse = await anthropic.messages.create({
           model: 'claude-sonnet-4-6',
           max_tokens: 1200,
-          system: `You are a CV specialist for a fashion app. You detect people and clothing items in photos with high precision.
+          system: `You are a computer vision specialist for a fashion app. Detect clothing items in photos with high precision — whether the photo shows a person wearing clothes OR a flat-lay / product shot with no person.
 Always return raw JSON only — never markdown, never prose.`,
           messages: [{
             role: 'user',
@@ -180,17 +180,21 @@ Always return raw JSON only — never markdown, never prose.`,
               { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
               {
                 type: 'text',
-                text: `Analyze this image and return a single JSON object with:
-1. "hasPerson": true if a person is visible
-2. "personBox": { "top", "left", "width", "height" } as % of image — the bounding box around the entire person (null if no person)
-3. "pieces": array of clothing items worn by the person
+                text: `Analyze this image. It may show a person wearing clothes OR a product/flat-lay photo with no person.
 
-STRICT RULES for pieces:
+Return a single JSON object with:
+1. "hasPerson": true if a person is clearly visible
+2. "personBox": bounding box around the entire person as { "top", "left", "width", "height" } in % of image dimensions — null if no person
+3. "pieces": array of ALL clearly visible clothing items (worn by a person OR laid flat / on a hanger / on a mannequin)
+
+STRICT RULES:
 - Only detect items from: TOP, BOTTOM, DRESS, OUTERWEAR, FOOTWEAR, BAG, FULL_OUTFIT
-- Skip items where < 50% is visible
-- Skip ALL jewelry: earrings, necklaces, bracelets, rings, watches, hair accessories
+- For person photos: detect items worn on the body
+- For product/flat-lay photos: detect the garment(s) shown
+- Skip items where < 40% of the item is visible
+- Skip ALL jewelry, accessories, hair accessories
 - Skip background objects: walls, furniture, art, mirrors, plants
-- Only include confidence >= 0.75
+- Set confidence based on how clearly identifiable the item is
 
 For each piece:
 {
@@ -212,7 +216,9 @@ No markdown. Raw JSON only.`,
         })
 
         const combinedText = combinedResponse.content[0].type === 'text' ? combinedResponse.content[0].text.trim() : '{}'
-        const combinedData = JSON.parse(combinedText.replace(/```json|```/g, '').trim())
+        // Strip markdown fences in any form (```json, ```, etc.)
+        const cleanedCombined = combinedText.replace(/^```[\w]*\n?/m, '').replace(/\n?```$/m, '').trim()
+        const combinedData = JSON.parse(cleanedCombined)
 
         if (combinedData.hasPerson && combinedData.personBox) {
           personBox = combinedData.personBox
@@ -223,7 +229,9 @@ No markdown. Raw JSON only.`,
           pieces = combinedData.pieces
         }
       } catch (pass1Err) {
-        console.warn('[Wardrobe] ── Pass 1 failed (non-fatal):', pass1Err instanceof Error ? pass1Err.message : String(pass1Err))
+        // Rethrow so the outer catch creates the fallback item — do NOT silently eat this
+        console.error('[Wardrobe] ── Pass 1 failed:', pass1Err instanceof Error ? pass1Err.message : String(pass1Err))
+        throw pass1Err
       }
 
       // Crop to person-only immediately after the combined call
@@ -253,7 +261,8 @@ No markdown. Raw JSON only.`,
           console.log('[Wardrobe] ❌ Skipped bad keyword:', piece.name)
           return false
         }
-        if ((piece.confidence ?? 1) < 0.75) {
+        // Lower threshold to 0.55 — Claude is conservative on product/flat-lay photos
+        if ((piece.confidence ?? 1) < 0.55) {
           console.log('[Wardrobe] ❌ Low confidence:', piece.name, piece.confidence)
           return false
         }
