@@ -338,3 +338,121 @@ function fallbackEveningCopy(ctx: UserContext): EveningPersonalizedCopy {
     tomorrowTeaser: `Tomorrow we're pulling from the unexpected corners of your wardrobe — open the app at 8 AM to see what we found.`,
   };
 }
+
+// ── Good morning email personalizer ──────────────────────────────────────────
+
+export interface GoodMorningPersonalizedCopy {
+  subject:   string;
+  headline:  string;
+  bodyText:  string;
+}
+
+/**
+ * Generate personalized copy for the good morning email.
+ * Simpler than evening — just headline, subject, bodyText.
+ */
+export async function personalizeGoodMorningEmail(
+  ctx: UserContext
+): Promise<GoodMorningPersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice — a warm, refined personal stylist greeting ${ctx.firstName} in the morning.
+
+User context:
+- Style profiles: ${ctx.styleProfiles.join(", ") || "not set"}
+- Favorite colors: ${ctx.favoriteColors.join(", ") || "varied"}
+- Wardrobe size: ${ctx.wardrobeCount} pieces
+${ctx.previewItemName ? `- Featured piece: ${ctx.previewItemName} (${ctx.previewItemCategory})` : ""}
+
+Write a personalized good morning greeting email. Return ONLY valid JSON:
+{
+  "subject": "uplifting morning subject line (max 8 words, no exclamation mark)",
+  "headline": "one memorable line welcoming them to the day (max 10 words, can end with a period)",
+  "bodyText": "2 sentences. Energizing but understated. Paint a picture of getting dressed with intention today. Make them excited to see what we've prepared."
+}
+
+Rules:
+- No exclamation marks
+- No "hey", "hi", or morning clichés
+- Headline should feel like a personal stylist's note, not marketing copy
+- Write for someone who cares about dressing thoughtfully`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 300,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as GoodMorningPersonalizedCopy;
+  } catch (err) {
+    console.error("[Personalizer] Claude error (good morning), using fallback:", err);
+    return fallbackGoodMorningCopy(ctx);
+  }
+}
+
+function fallbackGoodMorningCopy(ctx: UserContext): GoodMorningPersonalizedCopy {
+  return {
+    subject:  `${ctx.dayOfWeek} morning, ${ctx.firstName}`,
+    headline: `Your outfit is ready.`,
+    bodyText: `We've spent the morning thinking through your ${ctx.wardrobeCount}-piece wardrobe — the pieces that work, the colors that sing, the way things fit your life. Here's what we built for you today.`,
+  };
+}
+
+// ── Share your outfits email personalizer ────────────────────────────────────
+
+export interface ShareOutfitsPersonalizedCopy {
+  subject:  string;
+  headline: string;
+  bodyText: string;
+}
+
+/**
+ * Generate personalized copy encouraging users to share their saved outfits.
+ */
+export async function personalizeShareOutfitsEmail(
+  ctx: UserContext & { savedOutfitCount?: number }
+): Promise<ShareOutfitsPersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice — encouraging a user to share their saved outfits with friends and on social media.
+
+User context:
+- Name: ${ctx.firstName}
+- Style profiles: ${ctx.styleProfiles.join(", ") || "not set"}
+${ctx.savedOutfitCount !== undefined ? `- They have ${ctx.savedOutfitCount} saved outfit(s)` : ""}
+
+Write a personalized email encouraging them to share. Return ONLY valid JSON:
+{
+  "subject": "intriguing subject about sharing (max 9 words, no exclamation mark)",
+  "headline": "one memorable headline about sharing style with friends (max 10 words)",
+  "bodyText": "2-3 sentences. Emphasize community, confidence, and the joy of sharing your personal aesthetic with people who matter. Make it feel less like marketing and more like a personal stylist recommending they share their looks."
+}
+
+Rules:
+- No "hey", "hi", or exclamation marks
+- Don't use pushy language like "spread the word" or "get your friends to join"
+- Focus on the act of sharing as self-expression, not as growth hacking
+- Warm, encouraging, not salesy`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 300,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as ShareOutfitsPersonalizedCopy;
+  } catch (err) {
+    console.error("[Personalizer] Claude error (share outfits), using fallback:", err);
+    return fallbackShareOutfitsCopy(ctx);
+  }
+}
+
+function fallbackShareOutfitsCopy(ctx: UserContext): ShareOutfitsPersonalizedCopy {
+  return {
+    subject:  `Your saved looks tell a story`,
+    headline: `Share your style with the people you trust.`,
+    bodyText: `The outfits you love reveal something true about you — your aesthetic, your confidence, your eye. Your friends want to see them. Share your saved looks on Instagram or ask the people closest to you for a style perspective.`,
+  };
+}

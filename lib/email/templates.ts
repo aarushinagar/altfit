@@ -345,6 +345,7 @@ export interface EveningEmailData {
   tomorrowTeaser:  string;        // AI-generated — one line teasing tomorrow
   wardrobeStat?:   { label: string; value: string }; // e.g. { label: "pieces styled this week", value: "8" }
   streak?:         number;
+  outfitPieces?:   OutfitPiece[]; // up to 4 pieces for evening preview
 }
 
 export function eveningEngagementEmail(data: EveningEmailData): string {
@@ -416,6 +417,182 @@ export function eveningEngagementEmail(data: EveningEmailData): string {
             <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:11px 22px;font-family:${FONTS.sans};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;">
               Plan Tomorrow's Outfit
             </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+
+  return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/today.*/, "")}/unsubscribe?token={{TOKEN}}`);
+}
+
+// ── Good Morning Email ──────────────────────────────────────────────────────
+
+export interface GoodMorningEmailData {
+  firstName:     string;
+  dayOfWeek:     string;
+  ctaUrl:        string;
+  headline:      string;        // AI-generated
+  bodyText:      string;        // AI-generated
+  outfitPieces?: OutfitPiece[]; // up to 6 pieces from wardrobe for visual grid
+  outfitName?:   string;        // e.g. "Friday Minimalist"
+  mood?:         string;        // e.g. "Casual"
+}
+
+export function goodMorningEmail(data: GoodMorningEmailData): string {
+  const pieces = (data.outfitPieces ?? []).slice(0, 6);
+  
+  // 6-column grid: 78px each (since 560-88 padding = 472 / 6 ~78px, -1px gaps = 77px)
+  const outfitGrid = pieces.length > 0
+    ? `<tr>
+        <td style="padding:0 44px 20px;">
+          <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 14px;">Your ${data.dayOfWeek} outfit</p>
+          <table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:1px;width:100%;">
+            <tr>
+              ${pieces.map(p => `
+                <td style="width:77px;vertical-align:top;padding:0;">
+                  <div style="background:${COLORS.cream};border:1px solid ${COLORS.linen};overflow:hidden;">
+                    ${p.imageUrl 
+                      ? `<img src="${p.imageUrl}" alt="${p.name}" width="77" style="display:block;width:77px;height:100px;object-fit:cover;border:0;" />`
+                      : `<div style="width:77px;height:100px;background:${COLORS.linen};display:flex;align-items:center;justify-content:center;"><span style="font-size:18px;opacity:0.25;">✦</span></div>`
+                    }
+                    <div style="padding:6px 4px;text-align:center;">
+                      <p style="font-family:${FONTS.sans};font-size:7px;letter-spacing:0.12em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 2px;">${p.category}</p>
+                      <p style="font-family:${FONTS.serif};font-size:10px;font-weight:300;color:${COLORS.ink};margin:0;line-height:1.2;word-break:break-word;">${p.name}</p>
+                    </div>
+                  </div>
+                </td>
+              `).join("")}
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  const inner = `
+  <tr>
+    <td style="padding:36px 44px 20px;">
+      <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 12px;">Good morning, ${data.firstName}</p>
+      <h1 style="font-family:${FONTS.serif};font-size:36px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
+      <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0;font-weight:300;">${data.bodyText}</p>
+    </td>
+  </tr>
+  ${outfitGrid}
+  <tr>
+    <td style="padding:20px 44px;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td>
+            <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">
+              See Full Outfit →
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+
+  return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", data.ctaUrl.replace(/\/today.*/, "/unsubscribe?token={{TOKEN}}"));
+}
+
+// ── Share Your Outfits Email ────────────────────────────────────────────────
+
+export interface ShareOutfitsEmailData {
+  firstName:  string;
+  ctaUrl:     string;
+  headline:   string;        // AI-generated
+  bodyText:   string;        // AI-generated
+  savedCount? : number;       // number of saved outfits
+}
+
+export function shareOutfitsEmail(data: ShareOutfitsEmailData): string {
+  const inner = `
+  <tr>
+    <td style="padding:36px 44px 28px;">
+      <h1 style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 12px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
+      <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0 0 32px;font-weight:300;">${data.bodyText}</p>
+    </td>
+  </tr>
+
+  <!-- Share options grid -->
+  <tr>
+    <td style="padding:0 44px 28px;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <!-- Instagram row -->
+        <tr>
+          <td style="padding:0 0 16px;">
+            <table cellpadding="0" cellspacing="0" width="100%" style="border:1px solid ${COLORS.linen};background:${COLORS.cream};">
+              <tr>
+                <td style="padding:20px 24px;">
+                  <table cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="width:32px;vertical-align:middle;padding-right:12px;">
+                        <div style="font-size:24px;">📸</div>
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <p style="font-family:${FONTS.sans};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 2px;">Share to Instagram</p>
+                        <p style="font-family:${FONTS.serif};font-size:14px;font-weight:300;color:${COLORS.charcoal};margin:0;">Show your saved looks</p>
+                      </td>
+                      <td style="vertical-align:middle;padding-left:16px;text-align:right;">
+                        <a href="${data.ctaUrl}/saved-outfits" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:10px 18px;font-family:${FONTS.sans};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;">Open</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- WhatsApp row -->
+        <tr>
+          <td style="padding:0 0 16px;">
+            <table cellpadding="0" cellspacing="0" width="100%" style="border:1px solid ${COLORS.linen};background:${COLORS.cream};">
+              <tr>
+                <td style="padding:20px 24px;">
+                  <table cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="width:32px;vertical-align:middle;padding-right:12px;">
+                        <div style="font-size:24px;">💚</div>
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <p style="font-family:${FONTS.sans};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 2px;">Share with Friends</p>
+                        <p style="font-family:${FONTS.serif};font-size:14px;font-weight:300;color:${COLORS.charcoal};margin:0;">Ask advice on your style</p>
+                      </td>
+                      <td style="vertical-align:middle;padding-left:16px;text-align:right;">
+                        <a href="${data.ctaUrl}/saved-outfits" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:10px 18px;font-family:${FONTS.sans};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;">Open</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Community row -->
+        <tr>
+          <td style="padding:0;">
+            <table cellpadding="0" cellspacing="0" width="100%" style="border:1px solid ${COLORS.linen};background:${COLORS.cream};">
+              <tr>
+                <td style="padding:20px 24px;">
+                  <table cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="width:32px;vertical-align:middle;padding-right:12px;">
+                        <div style="font-size:24px;">✨</div>
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <p style="font-family:${FONTS.sans};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 2px;">View All Saved</p>
+                        <p style="font-family:${FONTS.serif};font-size:14px;font-weight:300;color:${COLORS.charcoal};margin:0;">${data.savedCount ?? "Browse"} curated looks</p>
+                      </td>
+                      <td style="vertical-align:middle;padding-left:16px;text-align:right;">
+                        <a href="${data.ctaUrl}/saved-outfits" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:10px 18px;font-family:${FONTS.sans};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;">View</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
       </table>
