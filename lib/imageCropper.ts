@@ -272,3 +272,96 @@ export async function cropItemFromImage(
     }
   }
 }
+
+/**
+ * Smart crop by category — applies fixed percentage regions on a person-only buffer.
+ * No Claude bounding boxes needed. Each category covers the region where that
+ * item type typically appears on the body.
+ */
+export async function smartCropByCategory(
+  imageBuffer: Buffer,
+  category: string,
+): Promise<Buffer> {
+  try {
+    const meta = await sharp(imageBuffer).metadata()
+    const w = meta.width!
+    const h = meta.height!
+
+    const cat = (category ?? 'FULL_OUTFIT').toUpperCase()
+
+    // Percentage-based regions — where each item type lives on a person
+    const regions: Record<string, { top: number; left: number; width: number; height: number }> = {
+      TOP: {
+        top:    Math.round(h * 0.12),
+        left:   Math.round(w * 0.05),
+        width:  Math.round(w * 0.90),
+        height: Math.round(h * 0.40),
+      },
+      BOTTOM: {
+        top:    Math.round(h * 0.45),
+        left:   Math.round(w * 0.05),
+        width:  Math.round(w * 0.90),
+        height: Math.round(h * 0.50),
+      },
+      DRESS: {
+        top:    Math.round(h * 0.08),
+        left:   Math.round(w * 0.03),
+        width:  Math.round(w * 0.94),
+        height: Math.round(h * 0.88),
+      },
+      FULL_OUTFIT: {
+        top:    0,
+        left:   0,
+        width:  w,
+        height: h,
+      },
+      OUTERWEAR: {
+        top:    Math.round(h * 0.08),
+        left:   Math.round(w * 0.03),
+        width:  Math.round(w * 0.94),
+        height: Math.round(h * 0.65),
+      },
+      FOOTWEAR: {
+        top:    Math.round(h * 0.68),
+        left:   Math.round(w * 0.05),
+        width:  Math.round(w * 0.90),
+        height: Math.round(h * 0.30),
+      },
+      BAG: {
+        top:    Math.round(h * 0.30),
+        left:   Math.round(w * 0.30),
+        width:  Math.round(w * 0.65),
+        height: Math.round(h * 0.45),
+      },
+    }
+
+    const region = regions[cat] ?? regions.FULL_OUTFIT
+
+    // Clamp to image bounds
+    const left   = Math.max(0, Math.min(region.left,   w - 10))
+    const top    = Math.max(0, Math.min(region.top,    h - 10))
+    const width  = Math.min(region.width,  w - left)
+    const height = Math.min(region.height, h - top)
+
+    console.log(`[Cropper] smartCrop ${cat}: extract ${left},${top} ${width}x${height} from ${w}x${h}`)
+
+    return await sharp(imageBuffer)
+      .extract({ left, top, width, height })
+      .resize(600, 750, {
+        fit: 'contain',
+        background: { r: 248, g: 246, b: 242, alpha: 1 },
+      })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+  } catch (err: any) {
+    console.error('[Cropper] smartCropByCategory failed:', err.message)
+    // Fallback — return full image resized
+    return sharp(imageBuffer)
+      .resize(600, 750, {
+        fit: 'contain',
+        background: { r: 248, g: 246, b: 242, alpha: 1 },
+      })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+  }
+}

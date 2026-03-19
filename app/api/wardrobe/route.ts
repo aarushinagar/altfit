@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase'
-import { cropToPersonOnly, isValidPersonBox } from '@/lib/imageCropper'
+import { cropToPersonOnly, isValidPersonBox, smartCropByCategory } from '@/lib/imageCropper'
 import { uploadItemImage } from '@/lib/storageEngine'
 import { validateEnv } from '@/lib/env'
 import { requireAuth } from '@/backend/database/auth-middleware'
@@ -333,24 +333,15 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
     const savedItems: ReturnType<typeof serializeItem>[] = []
     const failedItems: { name: string; error: string }[] = []
 
-    // Pre-build the resized buffer once — same image used for all pieces
-    // Always use full person image (or original). No per-piece cropping.
-    let sharedImageBuffer: Buffer
+    // Pre-crop to person region once — all per-piece crops operate on this
+    const isProductPhoto = !personBox || pieces.length === 1
+    let personBuffer: Buffer
     try {
-      const sourceBuffer = personBox && isValidPersonBox(personBox)
+      personBuffer = personBox && isValidPersonBox(personBox)
         ? await cropToPersonOnly(originalBuffer, personBox)
         : originalBuffer
-      sharedImageBuffer = await sharp(sourceBuffer)
-        .resize(600, 750, {
-          fit: 'contain',
-          background: { r: 248, g: 246, b: 242, alpha: 1 },
-        })
-        .jpeg({ quality: 90 })
-        .toBuffer()
-      console.log('[Wardrobe] ── Shared image buffer ready')
     } catch {
-      console.warn('[Wardrobe] ── Resize failed, using original buffer')
-      sharedImageBuffer = originalBuffer
+      personBuffer = originalBuffer
     }
 
     for (const piece of pieces) {
@@ -376,15 +367,31 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
         itemId = item.id.toString()
         console.log(`[Wardrobe] ── DB row created: ${itemId}`)
 
-        // 7b. UPLOAD IMAGE — always full person/original image, no cropping
-        console.log('[Wardrobe] Saving full image for:', piece.name)
+        // 7b. BUILD IMAGE BUFFER — product photo: full image; outfit: smart crop by category
+        let imageBuffer: Buffer
+        if (isProductPhoto) {
+          console.log('[Wardrobe] Product photo — full image for:', piece.name)
+          imageBuffer = await sharp(originalBuffer)
+            .resize(600, 750, {
+              fit: 'contain',
+              background: { r: 248, g: 246, b: 242, alpha: 1 },
+            })
+            .jpeg({ quality: 90 })
+            .toBuffer()
+        } else {
+          console.log('[Wardrobe] Outfit photo — smart crop for:', piece.name, piece.category)
+          imageBuffer = await smartCropByCategory(personBuffer, piece.category)
+        }
+
+        // 7c. UPLOAD IMAGE
+        console.log('[Wardrobe] Uploading image for:', piece.name)
         let publicUrl: string
         try {
           publicUrl = await uploadItemImage(
             adminClient,
             userId,
             itemId,
-            sharedImageBuffer
+            imageBuffer
           )
           console.log(`[Wardrobe] ── Uploaded: ${publicUrl}`)
         } catch (uploadErr: unknown) {
@@ -396,7 +403,7 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
           throw uploadErr
         }
 
-        // 7c. UPDATE DB WITH IMAGE URL
+        // 7d. UPDATE DB WITH IMAGE URL
         const storagePath = `${userId}/${itemId}.jpg`
         const updated = await prisma.wardrobeItem.update({
           where: { id: item.id },
