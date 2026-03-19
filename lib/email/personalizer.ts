@@ -1,0 +1,171 @@
+/**
+ * Email Personalizer
+ *
+ * Uses Claude to generate personalised subject lines and body copy for
+ * each email type based on the user's style profile, wardrobe, and streak.
+ * Kept intentionally lightweight — short prompts, low token budgets.
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+export interface UserContext {
+  firstName:            string;
+  styleProfiles:        string[];     // e.g. ["minimal", "editorial"]
+  favoriteColors:       string[];     // from UserStyleProfile
+  wardrobeCount:        number;
+  streak:               number;
+  dayOfWeek:            string;       // "Thursday"
+  lastOutfitName?:      string;       // e.g. "Monochrome Morning"
+  previewItemName?:     string;       // wardrobe item to tease
+  previewItemCategory?: string;
+  daysSinceLastVisit:   number;
+}
+
+interface PersonalizedCopy {
+  subject:      string;
+  headline:     string;
+  subheadline:  string;
+  bodyText:     string;
+}
+
+/**
+ * Generate personalized copy for a daily engagement email.
+ * Falls back gracefully if Claude is unreachable.
+ */
+export async function personalizeDailyEmail(ctx: UserContext): Promise<PersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice — refined, warm, fashion-forward. Never sycophantic or pushy.
+
+User context:
+- Name: ${ctx.firstName}
+- Day: ${ctx.dayOfWeek}
+- Style: ${ctx.styleProfiles.join(", ") || "not set"}
+- Favorite colors: ${ctx.favoriteColors.join(", ") || "varied"}
+- Wardrobe size: ${ctx.wardrobeCount} pieces
+- Current streak: ${ctx.streak} days
+${ctx.lastOutfitName ? `- Last outfit they saw: "${ctx.lastOutfitName}"` : ""}
+${ctx.previewItemName ? `- Featured piece today: ${ctx.previewItemName} (${ctx.previewItemCategory})` : ""}
+
+Write a personalized daily outfit reminder email. Return ONLY valid JSON with these keys:
+{
+  "subject": "short, intriguing subject line (max 9 words, no punctuation at end)",
+  "headline": "one line displayed large in the email (max 10 words, can end with a period)",
+  "subheadline": "one short uppercase subtitle (max 7 words, no period)",
+  "bodyText": "2-3 sentences in an editorial voice. Mention their style or a specific piece if context given. End with a reason to open the app now."
+}
+
+Rules:
+- Never use "hey" or "hi" as openers
+- No exclamation marks
+- Headline should reference ${ctx.dayOfWeek} or the specific occasion
+- bodyText should feel like it comes from a personal stylist, not a marketing bot
+- Keep total word count under 60 words across all fields`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 300,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    // Strip markdown code fences if present
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as PersonalizedCopy;
+  } catch (err) {
+    console.error("[Personalizer] Claude error, using fallback:", err);
+    return fallbackDailyCopy(ctx);
+  }
+}
+
+export async function personalizeReEngagementEmail(ctx: UserContext): Promise<PersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice — refined, warm, never guilt-tripping.
+
+User context:
+- Name: ${ctx.firstName}
+- Days since last visit: ${ctx.daysSinceLastVisit}
+- Wardrobe size: ${ctx.wardrobeCount} pieces
+- Style: ${ctx.styleProfiles.join(", ") || "not set"}
+
+Write a re-engagement email for someone who hasn't visited in ${ctx.daysSinceLastVisit} days. Return ONLY valid JSON:
+{
+  "subject": "short, intriguing subject line (max 9 words)",
+  "headline": "one evocative line (max 10 words)",
+  "subheadline": "short uppercase subtitle (max 6 words)",
+  "bodyText": "2-3 sentences. Warm, curious tone. Remind them their wardrobe is waiting without sounding desperate. Reference their wardrobe count."
+}
+
+Rules: No exclamation marks. No guilt. No "we miss you" clichés in the headline. Speak like a trusted stylist checking in.`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 300,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as PersonalizedCopy;
+  } catch {
+    return fallbackReEngagementCopy(ctx);
+  }
+}
+
+export async function personalizeMilestoneEmail(ctx: UserContext): Promise<PersonalizedCopy> {
+  const prompt = `You are ALT FIT's editorial voice.
+
+User: ${ctx.firstName}, ${ctx.streak}-day streak, style: ${ctx.styleProfiles.join(", ") || "not set"}.
+
+Write a milestone celebration email for a ${ctx.streak}-day streak. Return ONLY valid JSON:
+{
+  "subject": "short celebratory subject line (max 8 words, no exclamation mark)",
+  "headline": "one warm, memorable line celebrating the streak (max 10 words)",
+  "subheadline": "short uppercase acknowledgement (max 6 words)",
+  "bodyText": "2 sentences. Celebratory but understated. Reference what consistent style practice means."
+}`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 250,
+      messages:   [{ role: "user", content: prompt }],
+    });
+
+    const raw = (response.content[0] as { text: string }).text.trim();
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    return JSON.parse(jsonStr) as PersonalizedCopy;
+  } catch {
+    return fallbackMilestoneCopy(ctx);
+  }
+}
+
+// ── Fallback copy (used when Claude is unavailable) ──────────────────────────
+
+function fallbackDailyCopy(ctx: UserContext): PersonalizedCopy {
+  return {
+    subject:     `Your ${ctx.dayOfWeek} look is ready`,
+    headline:    `Your ${ctx.dayOfWeek} look is waiting.`,
+    subheadline: "Curated from your wardrobe",
+    bodyText:    `Three outfits, built from your ${ctx.wardrobeCount} pieces. Each one considered, intentional, and uniquely yours. Open the app to see what we put together for you today.`,
+  };
+}
+
+function fallbackReEngagementCopy(ctx: UserContext): PersonalizedCopy {
+  return {
+    subject:     `Your wardrobe has been waiting`,
+    headline:    `${ctx.wardrobeCount} pieces. Endless possibilities.`,
+    subheadline: "Your next outfit is ready",
+    bodyText:    `It's been a few days, and your ${ctx.wardrobeCount}-piece wardrobe has been sitting untapped. Come back and let AI show you what you've been missing — a fresh look, built entirely from what you already own.`,
+  };
+}
+
+function fallbackMilestoneCopy(ctx: UserContext): PersonalizedCopy {
+  return {
+    subject:     `${ctx.streak} days of intentional style`,
+    headline:    `${ctx.streak} days in a row.`,
+    subheadline: "A streak worth celebrating",
+    bodyText:    `Consistency is the foundation of great personal style. ${ctx.streak} days of showing up for yourself — that's not nothing. Keep going.`,
+  };
+}

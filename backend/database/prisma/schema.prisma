@@ -47,6 +47,11 @@ model User {
   outfitHistories OutfitHistory[]
   styleProfile    UserStyleProfile?
   savedOutfits    SavedOutfit[]
+  emailLogs       EmailLog[]
+
+  // Email marketing preferences
+  emailOptOut   Boolean  @default(false)    // true = never send marketing emails
+  unsubToken    String?  @unique            // random token for one-click unsub link
 
   @@index([email])
   @@index([googleId])
@@ -361,4 +366,22 @@ model UserStreak {
   updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("UserStreak")
+}
+
+// ── EMAIL LOGS ────────────────────────────────────────────────
+// Records every marketing email sent so we never double-send
+// and can track open/click rates via Resend webhooks later.
+model EmailLog {
+  id         BigInt   @id
+  userId     BigInt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailType  String   // "daily_engagement" | "re_engagement" | "milestone"
+  subject    String
+  sentAt     DateTime @default(now())
+  resendId   String?  // Resend's message ID for tracking
+  localDate  String   // "YYYY-MM-DD" — deduplicate: one email per type per day per user
+
+  @@unique([userId, emailType, localDate])
+  @@index([userId, sentAt])
 }

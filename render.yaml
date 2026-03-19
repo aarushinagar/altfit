@@ -43,3 +43,15 @@ services:
         value: ${RAZORPAY_KEY_ID}
       - key: RAZORPAY_KEY_SECRET
         value: ${RAZORPAY_KEY_SECRET}
+      - key: RESEND_API_KEY
+        value: ${RESEND_API_KEY}
+      - key: CRON_SECRET
+        value: ${CRON_SECRET}
+
+crons:
+  - name: daily-email-agent
+    schedule: "30 2 * * *"   # 2:30 AM UTC = 8:00 AM IST
+    command: >
+      curl -s -X POST https://altfit-6fma.onrender.com/api/emails/daily
+      -H "Authorization: Bearer $CRON_SECRET"
+      -H "Content-Type: application/json"
