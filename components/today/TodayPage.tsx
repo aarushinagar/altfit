@@ -10,6 +10,7 @@ import StyleOnboarding from "@/components/today/StyleOnboarding";
 import SwipeCard from "@/components/today/SwipeCard";
 import SwipeToast from "@/components/today/SwipeToast";
 import SwipeHint from "@/components/today/SwipeHint";
+import OutfitGeneratingScreen from "@/components/today/OutfitGeneratingScreen";
 
 // ── Loading copy ────────────────────────────────────────────────────────────
 
@@ -141,6 +142,11 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
   const [refreshingLook, setRefreshingLook] = useState<string | null>(null);
   const [savedLooks, setSavedLooks] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'save' | 'skip'; visible: boolean }>({ message: '', type: 'save', visible: false });
+  // Cinematic loading screen — stays mounted until API responds + animation completes
+  const [cinematicVisible, setCinematicVisible] = useState(false);
+  // Streak
+  const [streak, setStreak] = useState(0);
+  const [streakMilestone, setStreakMilestone] = useState<number | null>(null);
 
   const showToast = (message: string, type: 'save' | 'skip') => {
     setToast({ message, type, visible: true });
@@ -176,6 +182,11 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     return () => timers.forEach(clearTimeout);
   }, [isLoading, isRefreshing]);
 
+  // Show cinematic screen whenever an outfit fetch starts
+  useEffect(() => {
+    if (isLoading || isRefreshing) setCinematicVisible(true);
+  }, [isLoading, isRefreshing]);
+
   const fetchOutfit = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -195,6 +206,21 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       }
       const data = await res.json();
       setOutfit(data.outfit);
+      // Update streak after successful outfit load
+      const token2 = getAuthToken();
+      fetch("/api/user/streak", {
+        method: "POST",
+        credentials: "include",
+        headers: token2 ? { Authorization: `Bearer ${token2}` } : {},
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d) {
+            setStreak(d.currentStreak ?? 0);
+            if (d.newMilestone) setStreakMilestone(d.newMilestone);
+          }
+        })
+        .catch(() => {});
     } catch (_err: unknown) {
       setError((_err as Error).message || "Could not load today's outfit.");
     } finally {
@@ -366,6 +392,13 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
 
   return (
     <Box className="today-page page">
+      {/* Cinematic outfit-generating overlay — full screen, above everything */}
+      {cinematicVisible && (
+        <OutfitGeneratingScreen
+          done={!isLoading && !isRefreshing}
+          onDone={() => setCinematicVisible(false)}
+        />
+      )}
       {showOnboarding && (
         <StyleOnboarding onComplete={() => setShowOnboarding(false)} />
       )}
@@ -401,6 +434,34 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
             AI-designed from your wardrobe. Intelligent, intentional, yours.
           </p>
 
+          {/* Streak badge */}
+          {streak > 0 && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 16,
+              padding: "6px 14px",
+              border: "1px solid rgba(160,98,44,0.28)",
+              background: "rgba(160,98,44,0.05)",
+            }}>
+              <span style={{ fontSize: 14 }}>🔥</span>
+              <span style={{
+                fontFamily: "DM Sans, sans-serif",
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#A0622C",
+              }}>
+                {streakMilestone
+                  ? `${streak} day streak — you're on fire!`
+                  : streak === 1
+                  ? "Day 1  — come back tomorrow"
+                  : `${streak} day streak`}
+              </span>
+            </div>
+          )}
+
           {/* Empty wardrobe — only show if wardrobe has loaded, confirmed empty, and no outfit */}
           {!hasWardrobe && !wardrobeLoading && !showLoader && !outfit && (
             <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>
@@ -423,32 +484,15 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
             </Box>
           )}
 
-          {/* Loading / refreshing */}
+          {/* Loading / refreshing — minimal inline indicator while cinematic overlay is active */}
           {showLoader && (
             <div style={{
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center",
               padding: "80px 24px", gap: "20px",
+              opacity: 0,
             }}>
-              <div style={{ display: "flex", gap: "6px" }}>
-                {[0, 1, 2].map((i) => (
-                  <div key={i} style={{
-                    width: "6px", height: "6px", borderRadius: "50%",
-                    backgroundColor: "#a8a29e",
-                    animation: `dotPulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-                  }} />
-                ))}
-              </div>
-              <p
-                key={loadingText}
-                style={{
-                  fontSize: "12px", letterSpacing: "0.14em",
-                  textTransform: "uppercase", color: "#a8a29e",
-                  margin: 0, animation: "msgFadeIn 0.5s ease",
-                }}
-              >
-                {loadingText}
-              </p>
+              {/* Invisible placeholder keeps layout stable while cinematic overlay shows */}
             </div>
           )}
 

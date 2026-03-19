@@ -19,6 +19,7 @@ import MobileTopBar from "@/components/layout/MobileTopBar";
 import MobileTabBar from "@/components/layout/MobileTabBar";
 import Paywall from "@/components/paywall/Paywall";
 import Toast from "@/components/common/Toast";
+import { Toaster } from "react-hot-toast";
 
 /** Inner shell — rendered inside AppProvider so it can consume the context. */
 function AppShell({ children }: { children: React.ReactNode }) {
@@ -116,6 +117,24 @@ function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <Toast message={toast} />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            background: "#1c1917",
+            color: "#F7F3EC",
+            fontFamily: "DM Sans, sans-serif",
+            fontSize: "11px",
+            letterSpacing: "0.08em",
+            borderRadius: 0,
+            padding: "12px 20px",
+            border: "1px solid rgba(255,255,255,0.08)",
+          },
+          success: {
+            iconTheme: { primary: "#A0622C", secondary: "#F7F3EC" },
+          },
+        }}
+      />
     </div>
   );
 }

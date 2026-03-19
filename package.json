@@ -42,6 +42,7 @@
     "razorpay": "^2.9.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-hot-toast": "^2.6.0",
     "react-spring": "^10.0.3",
     "resend": "^6.9.4",
     "sharp": "^0.34.5"

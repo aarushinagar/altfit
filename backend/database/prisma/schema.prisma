@@ -349,3 +349,16 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
 }
+
+// ── USER STREAKS ──────────────────────────────────────────────
+// Tracks consecutive daily visit streaks per user.
+model UserStreak {
+  userId         BigInt    @id
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastActiveDate DateTime? @db.Date
+  seenMilestones Json      @default("[]") // array of milestone numbers already celebrated
+  updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("UserStreak")
+}
