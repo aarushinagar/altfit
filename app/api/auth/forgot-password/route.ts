@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         console.log(`[ForgotPassword] DEV reset link for ${email}: ${resetLink}`);
       } else {
         await resend.emails.send({
-          from: "ALT FIT <noreply@altfit.app>",
+          from: "ALT FIT <contact@altfit.co.in>",
           to: email,
           subject: "Reset your ALT FIT password",
           html: `
