@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase'
-import { cropToPersonOnly, isValidPersonBox, precisionCrop } from '@/lib/imageCropper'
+import { cropToPersonOnly, isValidPersonBox, precisionCropItem, resizeProductPhoto } from '@/lib/imageCropper'
 import { uploadItemImage } from '@/lib/storageEngine'
 import { validateEnv } from '@/lib/env'
 import { requireAuth } from '@/backend/database/auth-middleware'
@@ -444,8 +444,8 @@ Return ONLY JSON array. No markdown.`,
     const savedItems: ReturnType<typeof serializeItem>[] = []
     const failedItems: { name: string; error: string }[] = []
 
-    // isProductPhoto: flat lay or single item → full original; outfit → precision crop per piece
-    const isProductPhoto = !personBox || pieces.length === 1
+    // isProductPhoto: flat lay or single-item photo → resize only; outfit → precision crop per piece
+    const isProductPhoto = !personBox || pieces.length <= 1
 
     for (const piece of pieces) {
       let itemId: string | null = null
@@ -470,40 +470,19 @@ Return ONLY JSON array. No markdown.`,
         itemId = item.id.toString()
         console.log(`[Wardrobe] ── DB row created: ${itemId}`)
 
-        // 7b. BUILD IMAGE BUFFER — product/single item: full image; outfit: precision crop + verify
+        // 7b. BUILD IMAGE BUFFER
         let imageBuffer: Buffer
         if (isProductPhoto) {
-          console.log('[Wardrobe] Product photo — full image for:', piece.name)
-          imageBuffer = await sharp(originalBuffer)
-            .resize(600, 750, {
-              fit: 'contain',
-              background: { r: 248, g: 246, b: 242, alpha: 1 },
-            })
-            .jpeg({ quality: 92 })
-            .toBuffer()
+          console.log('[Wardrobe] Product photo — resizing for:', piece.name)
+          imageBuffer = await resizeProductPhoto(originalBuffer, piece.category)
         } else {
           console.log('[Wardrobe] Outfit photo — precision crop for:', piece.name, piece.category)
-          const croppedBuffer = await precisionCrop(
+          imageBuffer = await precisionCropItem(
             personBuffer,
             piece.boundingBox ?? null,
             piece.category,
             piece.confidence ?? 0.8
           )
-          const verification = await verifyCrop(croppedBuffer, piece.category, piece.name, anthropic)
-
-          if (verification.valid && verification.confidence >= 0.65) {
-            console.log(`[Wardrobe] ✅ Crop verified for ${piece.name}:`, verification.confidence)
-            imageBuffer = croppedBuffer
-          } else {
-            console.log(`[Wardrobe] ⚠️ Crop rejected for ${piece.name} — using full person image`)
-            imageBuffer = await sharp(personBuffer)
-              .resize(600, 750, {
-                fit: 'contain',
-                background: { r: 248, g: 246, b: 242, alpha: 1 },
-              })
-              .jpeg({ quality: 92 })
-              .toBuffer()
-          }
         }
 
         // 7c. UPLOAD IMAGE
