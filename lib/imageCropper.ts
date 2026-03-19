@@ -39,7 +39,7 @@ const FALLBACK_CROPS: Record<string, BoundingBox> = {
   DRESS:       { top: 2,  left: 2,  width: 96, height: 96 },
   FULL_OUTFIT: { top: 0,  left: 0,  width: 100, height: 100 },
   OUTERWEAR:   { top: 2,  left: 2,  width: 96, height: 72 },
-  FOOTWEAR:    { top: 75, left: 10, width: 80, height: 24 },
+  FOOTWEAR:    { top: 55, left: 5,  width: 90, height: 45 },
   BAG:         { top: 38, left: 45, width: 52, height: 42 },
   ACCESSORY:   { top: 2,  left: 20, width: 60, height: 28 },
 }
@@ -178,10 +178,23 @@ export async function cropItemFromImage(
   category: string,
   itemName: string = '',
   confidence: number = 1.0,
+  personDetected: boolean = true,
 ): Promise<Buffer> {
   const cat = (category ?? 'TOP').toUpperCase()
 
   try {
+    // If no person detected → it's a product photo, return full image resized only
+    if (!personDetected) {
+      console.log('[Cropper] Product photo (no person detected) — returning full image resized')
+      return await sharp(imageBuffer)
+        .resize(600, 750, {
+          fit: 'contain',
+          background: { r: 248, g: 246, b: 242, alpha: 1 },
+        })
+        .jpeg({ quality: 90 })
+        .toBuffer()
+    }
+
     const isAccessory = cat === 'ACCESSORY'
     const lowConfidence = (confidence ?? 0) < 0.8
 
@@ -203,8 +216,15 @@ export async function cropItemFromImage(
     const validation = validateBoundingBox(boundingBox, cat)
 
     let cropPixels: { left: number; top: number; width: number; height: number }
+    let validBox = validation.valid && boundingBox
 
-    if (validation.valid && boundingBox) {
+    // For FOOTWEAR specifically, reject bounding box if it's too low (foot position shifted too far down)
+    if (cat === 'FOOTWEAR' && boundingBox && boundingBox.top > 70) {
+      console.log('[Cropper] Footwear bbox too low — using fallback')
+      validBox = false
+    }
+
+    if (validBox && boundingBox) {
       console.log(`[Cropper] ✅ Using Claude bbox for ${itemName} (${cat}):`, boundingBox)
       cropPixels = boxToPixels(boundingBox, cat, imgWidth, imgHeight)
     } else {

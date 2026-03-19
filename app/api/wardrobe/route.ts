@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase'
 import { cropItemFromImage, cropToPersonOnly, isValidPersonBox } from '@/lib/imageCropper'
 import { uploadItemImage } from '@/lib/storageEngine'
@@ -347,22 +348,68 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
 
         // 7b. CROP IMAGE
         let croppedBuffer: Buffer
-        try {
-          croppedBuffer = await cropItemFromImage(
-            personBox && isValidPersonBox(personBox)
+
+        // If no person detected → it's a product/flat lay photo, skip cropping
+        if (!personBox) {
+          console.log('[Wardrobe] No person detected — product photo, no crop')
+          try {
+            croppedBuffer = await sharp(originalBuffer)
+              .resize(600, 800, {
+                fit: 'contain',
+                background: { r: 248, g: 246, b: 242, alpha: 1 },
+              })
+              .jpeg({ quality: 90 })
+              .toBuffer()
+            console.log('[Wardrobe] ── Resize complete (product photo)')
+          } catch (resizeErr: unknown) {
+            const msg =
+              resizeErr instanceof Error ? resizeErr.message : String(resizeErr)
+            console.warn('[Wardrobe] ── Resize failed, using original:', msg)
+            croppedBuffer = originalBuffer
+          }
+        }
+        // If only 1 piece detected → skip crop, use original/person buffer resized
+        else if (pieces.length === 1) {
+          console.log('[Wardrobe] Single item — skipping crop, using full image')
+          try {
+            const bufferToResize = isValidPersonBox(personBox)
               ? await cropToPersonOnly(originalBuffer, personBox)
-              : originalBuffer,
-            piece.boundingBox ?? null,
-            piece.category,
-            piece.name,
-            piece.confidence ?? 1.0,
-          )
-          console.log('[Wardrobe] ── Crop complete')
-        } catch (cropErr: unknown) {
-          const msg =
-            cropErr instanceof Error ? cropErr.message : String(cropErr)
-          console.warn('[Wardrobe] ── Crop failed, using original:', msg)
-          croppedBuffer = originalBuffer
+              : originalBuffer
+            croppedBuffer = await sharp(bufferToResize)
+              .resize(600, 800, {
+                fit: 'contain',
+                background: { r: 248, g: 246, b: 242, alpha: 1 },
+              })
+              .jpeg({ quality: 90 })
+              .toBuffer()
+            console.log('[Wardrobe] ── Resize complete (single item)')
+          } catch (resizeErr: unknown) {
+            const msg =
+              resizeErr instanceof Error ? resizeErr.message : String(resizeErr)
+            console.warn('[Wardrobe] ── Resize failed, using original:', msg)
+            croppedBuffer = originalBuffer
+          }
+        }
+        // Multiple pieces detected → crop normally
+        else {
+          try {
+            croppedBuffer = await cropItemFromImage(
+              isValidPersonBox(personBox)
+                ? await cropToPersonOnly(originalBuffer, personBox)
+                : originalBuffer,
+              piece.boundingBox ?? null,
+              piece.category,
+              piece.name,
+              piece.confidence ?? 1.0,
+              true // personDetected
+            )
+            console.log('[Wardrobe] ── Crop complete')
+          } catch (cropErr: unknown) {
+            const msg =
+              cropErr instanceof Error ? cropErr.message : String(cropErr)
+            console.warn('[Wardrobe] ── Crop failed, using original:', msg)
+            croppedBuffer = originalBuffer
+          }
         }
 
         // 7c. UPLOAD IMAGE

@@ -1,3 +1,6 @@
+// Force dynamic rendering — prevent static generation attempts on API routes
+export const dynamic = 'force-dynamic'
+
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/backend/database/prisma";
