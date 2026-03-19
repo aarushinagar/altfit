@@ -190,12 +190,16 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
   const fetchOutfit = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const token = getAuthToken();
       const res = await fetch("/api/curate-outfit", {
         credentials: "include",
+        signal: controller.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+      clearTimeout(timeoutId);
       if (res.status === 504) {
         setError("Taking longer than usual. Tap to try again.");
         return;
@@ -222,7 +226,13 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         })
         .catch(() => {});
     } catch (_err: unknown) {
-      setError((_err as Error).message || "Could not load today's outfit.");
+      clearTimeout(timeoutId);
+      const msg = (_err as Error).message || "";
+      if (msg === "signal is aborted without reason" || msg.includes("abort") || msg.includes("Abort")) {
+        setError("Taking longer than usual. Tap to try again.");
+      } else {
+        setError(msg || "Could not load today's outfit.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -233,6 +243,8 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
   const handleRefreshLook = async (lookType: string) => {
     if (refreshingLook) return;
     setRefreshingLook(lookType);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const token = getAuthToken();
       const otherItemIds = looks
@@ -242,12 +254,14 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       const res = await fetch("/api/curate-outfit/single", {
         method: "POST",
         credentials: "include",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ lookType, existingItemIds: otherItemIds }),
       });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error("Could not refresh look");
       const { look } = await res.json();
       // Replace only this look in state — other two are untouched
@@ -259,6 +273,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         return next;
       });
     } catch (err: unknown) {
+      clearTimeout(timeoutId);
       console.error("[Refresh Look]", (err as Error).message);
     } finally {
       setRefreshingLook(null);
@@ -312,6 +327,8 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     setOutfit(null);
     setLooks([]);
     setSavedLooks(new Set());
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const token = getAuthToken();
       const authHeader: Record<string, string> = token
@@ -331,12 +348,14 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       const timestamp = Date.now();
       const res = await fetch(`/api/curate-outfit?t=${timestamp}`, {
         credentials: "include",
+        signal: controller.signal,
         headers: {
           ...authHeader,
           "Cache-Control": "no-cache, no-store",
           "Pragma": "no-cache",
         },
       });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || `Server error ${res.status}`);
@@ -347,6 +366,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       setOutfit(data.outfit);
       // looks will be set by the outfit → looks useEffect
     } catch (_err: unknown) {
+      clearTimeout(timeoutId);
       console.error("[Refresh] ❌", (_err as Error).message);
       setOutfit(previousOutfit); // restore previous outfit so page isn't blank
       setLooks(previousLooks);

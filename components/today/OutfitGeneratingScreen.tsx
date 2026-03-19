@@ -9,6 +9,7 @@ const STAGES = [
   { text: "Crafting three distinct looks...", ms: 11000 },
   { text: "Adding the finishing touches...", ms: 15500 },
   { text: "Worth the wait, we promise.", ms: 20000 },
+  { text: "Almost ready — just a moment more...", ms: 25000 },
 ];
 
 interface Props {
