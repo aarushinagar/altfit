@@ -446,12 +446,35 @@ export async function precisionCrop(
   }
   const [outW, outH] = outputSizes[cat] ?? [500, 650]
 
+  // ── ZOOM IN (not hard-crop) ─────────────────────────────────────────────
+  // Scale the full image so the item region fills ~78% of the output frame,
+  // then extract an outW×outH window centered on the item.
+  // This keeps a slice of context around each piece — avoiding the "cut off"
+  // look of a tight extract.
+
+  const centerX = crop.left + crop.width  / 2   // px in original
+  const centerY = crop.top  + crop.height / 2
+
+  // Item should fill ~78% of the output (1.28 context factor)
+  const scaleX = outW / (crop.width  * 1.28)
+  const scaleY = outH / (crop.height * 1.28)
+  const scale  = Math.min(scaleX, scaleY)
+
+  // Scaled image size — preserve aspect ratio; must be ≥ output dimensions
+  const scaledW = Math.max(outW, Math.round(imgW * scale))
+  const scaledH = Math.max(outH, Math.round(imgH * scale))
+
+  // Item center position in scaled image
+  const scaledCX = Math.round(centerX * (scaledW / imgW))
+  const scaledCY = Math.round(centerY * (scaledH / imgH))
+
+  // Extract window: clamp so it stays within bounds
+  const extractLeft = Math.max(0, Math.min(scaledCX - Math.floor(outW / 2), scaledW - outW))
+  const extractTop  = Math.max(0, Math.min(scaledCY - Math.floor(outH / 2), scaledH - outH))
+
   return sharp(imageBuffer)
-    .extract(crop)
-    .resize(outW, outH, {
-      fit: 'contain',
-      background: { r: 248, g: 246, b: 242, alpha: 1 },
-    })
+    .resize(scaledW, scaledH, { fit: 'fill' })  // same aspect ratio → no stretch
+    .extract({ left: extractLeft, top: extractTop, width: outW, height: outH })
     .jpeg({ quality: 92, progressive: true })
     .toBuffer()
 }
