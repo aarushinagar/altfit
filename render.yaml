@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: altfit
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm run start
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        scope: run
+      - key: NEXT_PUBLIC_APP_URL
+        scope: run
+      - key: JWT_SECRET
+        scope: run
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://euwyvotkrbivyahysuqm.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1d3l2b3RrcmJpdnlhaHlzdXFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MjI4NjMsImV4cCI6MjA4ODk5ODg2M30.ftiZIUGF_b8dGXBaToJWAyVktxmDt377UPJ0EEkNS1g
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        scope: run
+      - key: SUPABASE_SERVICE_KEY
+        scope: run
+      - key: DATABASE_URL
+        scope: run
+      - key: DIRECT_URL
+        scope: run
+      - key: ANTHROPIC_API_KEY
+        scope: run
+      - key: GOOGLE_CLIENT_ID
+        scope: run
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: 663049403443-3sgpef1bknq6on4sffka5ctps9afr48l.apps.googleusercontent.com
+      - key: GOOGLE_SECRET_KEY
+        scope: run
+      - key: GEMINI_API_KEY
+        scope: run
+      - key: RAZORPAY_KEY_ID
+        scope: run
+      - key: RAZORPAY_KEY_SECRET
+        scope: run
