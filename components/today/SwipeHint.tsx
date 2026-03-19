@@ -2,75 +2,128 @@
 import { useEffect, useState } from 'react'
 
 export default function SwipeHint() {
-  const [visible, setVisible] = useState(false)
+  const [phase, setPhase] = useState<'hidden' | 'in' | 'visible' | 'out'>('hidden')
 
   useEffect(() => {
-    const seen = localStorage.getItem('altfit_swipe_hint_v1')
-    if (!seen) {
-      const showTimer = setTimeout(() => setVisible(true), 1000)
-      const hideTimer = setTimeout(() => {
-        setVisible(false)
-        localStorage.setItem('altfit_swipe_hint_v1', 'true')
-      }, 5000)
-      return () => {
-        clearTimeout(showTimer)
-        clearTimeout(hideTimer)
+    try {
+      if (!localStorage.getItem('altfit_swipe_v2')) {
+        setTimeout(() => setPhase('in'), 1200)
+        setTimeout(() => setPhase('visible'), 1600)
+        setTimeout(() => setPhase('out'), 5500)
+        setTimeout(() => {
+          setPhase('hidden')
+          localStorage.setItem('altfit_swipe_v2', '1')
+        }, 6200)
       }
-    }
+    } catch {}
   }, [])
 
-  if (!visible) return null
+  if (phase === 'hidden') return null
+
+  const isVisible = phase === 'visible' || phase === 'in'
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: '80px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 999,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      backgroundColor: 'rgba(28, 25, 23, 0.85)',
-      backdropFilter: 'blur(8px)',
-      padding: '12px 24px',
-      borderRadius: '40px',
-      animation: 'altfit-fadein 0.5s ease',
-      pointerEvents: 'none'
-    }}>
-      {/* Left arrow animation */}
+    <>
+      {/* Backdrop blur hint */}
       <div style={{
+        position: 'fixed',
+        bottom: '88px',
+        left: '50%',
+        transform: `translateX(-50%) translateY(${isVisible ? '0px' : '12px'})`,
+        opacity: isVisible ? 1 : 0,
+        transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        zIndex: 9997,
+        pointerEvents: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: '6px',
-        animation: 'altfit-slide-left 1.5s ease-in-out infinite'
+        gap: '0',
+        background: 'rgba(20,18,17,0.90)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        padding: '0',
+        borderRadius: '50px',
+        overflow: 'hidden',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.25)'
       }}>
-        <span style={{ color: '#a8a29e', fontSize: '14px' }}>←</span>
-        <span style={{
-          fontSize: '10px', textTransform: 'uppercase',
-          letterSpacing: '0.12em', color: '#a8a29e'
-        }}>Skip</span>
-      </div>
 
-      <div style={{
-        width: '1px', height: '16px',
-        backgroundColor: 'rgba(255,255,255,0.15)'
-      }} />
+        {/* Skip side */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 18px 12px 20px',
+          borderRight: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          <div style={{
+            width: '28px', height: '28px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.1)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'hint-nudge-left 2s ease-in-out infinite'
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M10 6H2M2 6l4-4M2 6l4 4"
+                stroke="rgba(255,255,255,0.5)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <p style={{
+              fontSize: '8px', textTransform: 'uppercase' as const,
+              letterSpacing: '0.18em', color: 'rgba(255,255,255,0.4)',
+              margin: 0, lineHeight: 1
+            }}>Swipe left</p>
+            <p style={{
+              fontSize: '10px',
+              color: 'rgba(255,255,255,0.7)',
+              margin: '3px 0 0', lineHeight: 1,
+              fontWeight: 500
+            }}>Skip look</p>
+          </div>
+        </div>
 
-      {/* Right arrow animation */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        animation: 'altfit-slide-right 1.5s ease-in-out infinite'
-      }}>
-        <span style={{
-          fontSize: '10px', textTransform: 'uppercase',
-          letterSpacing: '0.12em', color: '#ffffff',
-          fontWeight: 600
-        }}>Save</span>
-        <span style={{ color: '#ffffff', fontSize: '14px' }}>→</span>
+        {/* Save side */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 20px 12px 18px'
+        }}>
+          <div>
+            <p style={{
+              fontSize: '8px', textTransform: 'uppercase' as const,
+              letterSpacing: '0.18em', color: 'rgba(255,255,255,0.4)',
+              margin: 0, lineHeight: 1, textAlign: 'right' as const
+            }}>Swipe right</p>
+            <p style={{
+              fontSize: '10px',
+              color: '#ffffff',
+              margin: '3px 0 0', lineHeight: 1,
+              fontWeight: 700, textAlign: 'right' as const
+            }}>Save outfit</p>
+          </div>
+          <div style={{
+            width: '28px', height: '28px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'hint-nudge-right 2s ease-in-out infinite'
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M3 6l4-4M3 6l4 4M3 6h7"
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
       </div>
-    </div>
+    </>
   )
 }

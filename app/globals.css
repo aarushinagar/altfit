@@ -42,3 +42,35 @@
         transform: translateX(-50%) translateY(0);
     }
 }
+
+@keyframes hint-nudge-left {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    40% {
+        transform: translateX(-4px);
+    }
+
+    60% {
+        transform: translateX(-4px);
+    }
+}
+
+@keyframes hint-nudge-right {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    40% {
+        transform: translateX(4px);
+    }
+
+    60% {
+        transform: translateX(4px);
+    }
+}

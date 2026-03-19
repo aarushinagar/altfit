@@ -1,104 +1,156 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useSpring, animated, config } from 'react-spring'
 import { useDrag } from '@use-gesture/react'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface SwipeCardProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   look: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSwipeRight: (look: any) => Promise<void>
   onSwipeLeft: (lookType: string) => Promise<void>
   isSaved: boolean
   children: React.ReactNode
 }
 
-const SWIPE_THRESHOLD = 120  // px to trigger action
-const ROTATION_FACTOR = 0.08 // how much card tilts per px
+const THRESHOLD  = 110  // px to trigger
+const MAX_TILT   = 18   // max rotation degrees
+const TILT_SPEED = 0.08 // rotation per px
 
 export default function SwipeCard({
-  look,
-  onSwipeRight,
-  onSwipeLeft,
-  isSaved,
-  children
+  look, onSwipeRight, onSwipeLeft, isSaved, children
 }: SwipeCardProps) {
-  const [isFlying, setIsFlying] = useState(false)
+  const [flying, setFlying]     = useState(false)
+  const [direction, setDirection] = useState<'left' | 'right' | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const [{ x, rotate, opacity }, api] = useSpring(() => ({
-    x: 0,
-    rotate: 0,
-    opacity: 1,
+  // Main card spring
+  const [cardSpring, cardApi] = useSpring(() => ({
+    x: 0, rotate: 0, opacity: 1, scale: 1,
     config: config.stiff
   }))
 
-  // Indicator opacity scales with drag distance
-  const rightIndicatorOpacity = x.to(v =>
-    Math.min(1, Math.max(0, v / SWIPE_THRESHOLD))
-  )
-  const leftIndicatorOpacity = x.to(v =>
-    Math.min(1, Math.max(0, -v / SWIPE_THRESHOLD))
-  )
-  const rightIndicatorScale = x.to(v =>
-    0.6 + Math.min(0.4, Math.max(0, v / SWIPE_THRESHOLD) * 0.4)
-  )
-  const leftIndicatorScale = x.to(v =>
-    0.6 + Math.min(0.4, Math.max(0, -v / SWIPE_THRESHOLD) * 0.4)
-  )
+  // Save indicator spring
+  const [saveSpring, saveApi] = useSpring(() => ({
+    opacity: 0, scale: 0.4, y: 0,
+    config: { tension: 280, friction: 18 }
+  }))
 
-  const flyOut = useCallback(async (direction: 'left' | 'right') => {
-    setIsFlying(true)
+  // Skip indicator spring  
+  const [skipSpring, skipApi] = useSpring(() => ({
+    opacity: 0, scale: 0.4, y: 0,
+    config: { tension: 280, friction: 18 }
+  }))
 
-    const targetX = direction === 'right'
-      ? window.innerWidth + 200
-      : -(window.innerWidth + 200)
+  // Overlay tint spring
+  const [overlaySpring, overlayApi] = useSpring(() => ({
+    opacity: 0,
+    config: { tension: 200, friction: 20 }
+  }))
 
-    await api.start({
-      x: targetX,
-      rotate: direction === 'right' ? 20 : -20,
-      opacity: 0,
-      config: { tension: 180, friction: 20 }
+  const updateIndicators = useCallback((mx: number) => {
+    const progress = Math.min(1, Math.max(0, Math.abs(mx) / THRESHOLD))
+    
+    if (mx > 20) {
+      // Right swipe — show save
+      setDirection('right')
+      saveApi.start({
+        opacity: progress,
+        scale: 0.4 + progress * 0.7,
+        y: -(progress * 8)
+      })
+      skipApi.start({ opacity: 0, scale: 0.4 })
+      overlayApi.start({ opacity: progress * 0.06 })
+    } else if (mx < -20) {
+      // Left swipe — show skip
+      setDirection('left')
+      skipApi.start({
+        opacity: progress,
+        scale: 0.4 + progress * 0.7,
+        y: -(progress * 8)
+      })
+      saveApi.start({ opacity: 0, scale: 0.4 })
+      overlayApi.start({ opacity: 0 })
+    } else {
+      setDirection(null)
+      saveApi.start({ opacity: 0, scale: 0.4, y: 0 })
+      skipApi.start({ opacity: 0, scale: 0.4, y: 0 })
+      overlayApi.start({ opacity: 0 })
+    }
+  }, [saveApi, skipApi, overlayApi])
+
+  const resetAll = useCallback(() => {
+    saveApi.start({ opacity: 0, scale: 0.4, y: 0 })
+    skipApi.start({ opacity: 0, scale: 0.4, y: 0 })
+    overlayApi.start({ opacity: 0 })
+    setDirection(null)
+  }, [saveApi, skipApi, overlayApi])
+
+  const flyOut = useCallback(async (dir: 'right' | 'left') => {
+    setFlying(true)
+
+    // Quick pulse before flying
+    await cardApi.start({
+      scale: 1.02,
+      config: { tension: 400, friction: 15 }
     })
 
-    if (direction === 'right') {
-      await onSwipeRight(look)
-    } else {
-      await onSwipeLeft(look.lookType)
-    }
+    const targetX = dir === 'right'
+      ? (window.innerWidth + 400)
+      : -(window.innerWidth + 400)
+    const targetRotate = dir === 'right' ? MAX_TILT + 5 : -(MAX_TILT + 5)
 
-    // Reset for if the card re-renders in place
-    api.start({ x: 0, rotate: 0, opacity: 1, immediate: true })
-    setIsFlying(false)
-  }, [api, look, onSwipeRight, onSwipeLeft])
+    // Fly out
+    await cardApi.start({
+      x: targetX,
+      rotate: targetRotate,
+      opacity: 0,
+      scale: 0.92,
+      config: { tension: 220, friction: 18 }
+    })
+
+    resetAll()
+
+    // Trigger callback
+    if (dir === 'right') await onSwipeRight(look)
+    else await onSwipeLeft(look.lookType)
+
+    // Reset card instantly
+    cardApi.set({ x: 0, rotate: 0, opacity: 1, scale: 1 })
+    setFlying(false)
+    setDirection(null)
+  }, [cardApi, look, onSwipeRight, onSwipeLeft, resetAll])
 
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], last }) => {
-      if (isFlying) return
+      if (flying) return
 
       if (active) {
-        api.start({
+        const rotate = Math.max(-MAX_TILT,
+          Math.min(MAX_TILT, mx * TILT_SPEED))
+
+        cardApi.start({
           x: mx,
-          rotate: mx * ROTATION_FACTOR,
-          opacity: 1,
+          rotate,
+          scale: 1,
           immediate: true
         })
+
+        updateIndicators(mx)
       }
 
       if (last) {
-        const shouldTrigger =
-          Math.abs(mx) > SWIPE_THRESHOLD ||
-          (Math.abs(vx) > 0.5 && Math.abs(mx) > 50)
+        const shouldFly =
+          Math.abs(mx) > THRESHOLD ||
+          (Math.abs(vx) > 0.5 && Math.abs(mx) > 60)
 
-        if (shouldTrigger) {
+        if (shouldFly) {
           flyOut(mx > 0 ? 'right' : 'left')
         } else {
-          api.start({
-            x: 0,
-            rotate: 0,
-            opacity: 1,
+          // Snap back with satisfying wobble
+          cardApi.start({
+            x: 0, rotate: 0, scale: 1,
             config: config.wobbly
           })
+          resetAll()
         }
       }
     },
@@ -106,132 +158,200 @@ export default function SwipeCard({
       axis: 'x',
       pointer: { touch: true, mouse: true },
       filterTaps: true,
-      rubberband: 0.2
+      rubberband: 0.15
     }
   )
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', marginBottom: '24px' }}
+    >
 
-      {/* ── SAVE INDICATOR (right swipe) ── */}
-      <animated.div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '28px',
-          transform: 'translateY(-50%)',
-          opacity: rightIndicatorOpacity,
-          scale: rightIndicatorScale,
-          zIndex: 20,
-          pointerEvents: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px'
-        }}
-      >
-        <div style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          backgroundColor: '#1c1917',
-          border: '2px solid #1c1917',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
-        }}>
-          <span style={{
-            color: '#fff',
-            fontSize: '24px',
-            lineHeight: 1,
-            fontWeight: 300
+      {/* ── SAVE INDICATOR ────────────────────── */}
+      <animated.div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '20px',
+        translateY: '-50%',
+        opacity: saveSpring.opacity,
+        scale: saveSpring.scale,
+        y: saveSpring.y,
+        zIndex: 30,
+        pointerEvents: 'none',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        {/* Outer ring pulse */}
+        <div style={{ position: 'relative' }}>
+          <animated.div style={{
+            position: 'absolute',
+            inset: '-8px',
+            borderRadius: '50%',
+            border: '1.5px solid rgba(28,25,23,0.2)',
+            opacity: saveSpring.opacity
+          }} />
+          <div style={{
+            width: '64px', height: '64px',
+            borderRadius: '50%',
+            background: '#1c1917',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.35)'
           }}>
-            ✓
-          </span>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <path
+                d="M5 13l6 6L21 7"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
         </div>
         <p style={{
           fontSize: '9px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.18em',
+          textTransform: 'uppercase' as const,
+          letterSpacing: '0.2em',
           color: '#1c1917',
           margin: 0,
-          fontWeight: 600
+          fontWeight: 800
         }}>
-          Save
+          SAVE
         </p>
       </animated.div>
 
-      {/* ── SKIP INDICATOR (left swipe) ── */}
-      <animated.div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          right: '28px',
-          transform: 'translateY(-50%)',
-          opacity: leftIndicatorOpacity,
-          scale: leftIndicatorScale,
-          zIndex: 20,
-          pointerEvents: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px'
-        }}
-      >
+      {/* ── SKIP INDICATOR ────────────────────── */}
+      <animated.div style={{
+        position: 'absolute',
+        top: '50%',
+        right: '20px',
+        translateY: '-50%',
+        opacity: skipSpring.opacity,
+        scale: skipSpring.scale,
+        y: skipSpring.y,
+        zIndex: 30,
+        pointerEvents: 'none',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        alignItems: 'center',
+        gap: '8px'
+      }}>
         <div style={{
-          width: '64px',
-          height: '64px',
+          width: '64px', height: '64px',
           borderRadius: '50%',
-          backgroundColor: '#ffffff',
+          background: '#ffffff',
           border: '1.5px solid #d6d3d1',
-          display: 'flex',
-          alignItems: 'center',
+          display: 'flex', alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.10)'
+          boxShadow: '0 12px 40px rgba(0,0,0,0.12)'
         }}>
-          <span style={{
-            color: '#78716c',
-            fontSize: '20px',
-            lineHeight: 1
-          }}>
-            ↺
-          </span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M20 12H4M4 12l6-6M4 12l6 6"
+              stroke="#78716c"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
         <p style={{
           fontSize: '9px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.18em',
+          textTransform: 'uppercase' as const,
+          letterSpacing: '0.2em',
           color: '#78716c',
           margin: 0,
-          fontWeight: 600
+          fontWeight: 800
         }}>
-          Skip
+          SKIP
         </p>
       </animated.div>
 
-      {/* ── THE CARD ── */}
+      {/* ── CARD ─────────────────────────────── */}
       <animated.div
         {...bind()}
         style={{
-          x,
-          rotate,
-          opacity,
-          cursor: isFlying ? 'default' : 'grab',
-          userSelect: 'none',
+          x: cardSpring.x,
+          rotate: cardSpring.rotate,
+          opacity: cardSpring.opacity,
+          scale: cardSpring.scale,
+          cursor: flying ? 'default' : 'grab',
+          userSelect: 'none' as const,
           touchAction: 'pan-y',
           willChange: 'transform',
           position: 'relative',
           zIndex: 10,
-          boxShadow: x.to(v => {
-            if (v > 30) return '0 0 0 2px #1c1917, 0 24px 48px rgba(0,0,0,0.12)'
-            if (v < -30) return '0 0 0 1.5px #d6d3d1, 0 24px 48px rgba(0,0,0,0.08)'
-            return '0 4px 24px rgba(0,0,0,0.06)'
-          }),
-          borderRadius: '2px',
+          transformOrigin: 'center 80%',
+          // Dynamic shadow based on drag direction
+          filter: cardSpring.x.to(v =>
+            Math.abs(v) > 20
+              ? `drop-shadow(0 ${8 + Math.abs(v) * 0.05}px ${20 + Math.abs(v) * 0.1}px rgba(0,0,0,${0.08 + Math.abs(v) * 0.001}))`
+              : 'drop-shadow(0 4px 16px rgba(0,0,0,0.06))'
+          )
         }}
       >
+        {/* Subtle tint overlay */}
+        <animated.div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: '#1c1917',
+            opacity: overlaySpring.opacity,
+            zIndex: 5,
+            pointerEvents: 'none',
+            borderRadius: '2px'
+          }}
+        />
+
+        {/* Outline glow */}
+        <animated.div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '2px',
+          zIndex: 4,
+          pointerEvents: 'none',
+          boxShadow: cardSpring.x.to(v => {
+            if (v > 30) return `inset 0 0 0 2px rgba(28,25,23,${Math.min(0.8, v/THRESHOLD)})`
+            if (v < -30) return `inset 0 0 0 1.5px rgba(214,211,209,${Math.min(0.6, -v/THRESHOLD)})`
+            return 'none'
+          })
+        }} />
+
         {children}
+      </animated.div>
+
+      {/* ── SWIPE PROGRESS BAR ───────────────── */}
+      <animated.div style={{
+        position: 'absolute',
+        bottom: '-4px',
+        left: 0,
+        right: 0,
+        height: '2px',
+        background: '#f5f3f0',
+        borderRadius: '1px',
+        overflow: 'hidden',
+        opacity: cardSpring.x.to(v => Math.abs(v) > 10 ? 1 : 0)
+      }}>
+        <animated.div style={{
+          position: 'absolute',
+          top: 0,
+          height: '100%',
+          borderRadius: '1px',
+          background: cardSpring.x.to(v =>
+            v > 0 ? '#1c1917' : '#d6d3d1'
+          ),
+          // Progress bar fills left-to-right for right swipe
+          // and right-to-left for left swipe
+          left: cardSpring.x.to(v => v > 0 ? '0%' : 'auto'),
+          right: cardSpring.x.to(v => v < 0 ? '0%' : 'auto'),
+          width: cardSpring.x.to(v =>
+            `${Math.min(100, (Math.abs(v) / THRESHOLD) * 100)}%`
+          )
+        }} />
       </animated.div>
 
     </div>

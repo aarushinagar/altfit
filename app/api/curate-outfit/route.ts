@@ -146,63 +146,74 @@ export async function GET(req: NextRequest) {
     console.log('[Curation] ── Calling Claude...')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    const systemPrompt = `You are ALT FIT, a personal stylist.
-Build 3 complete outfit suggestions from the user's wardrobe.
-Be specific. Be cohesive. Be fast.
+    const systemPrompt = `You are ALT FIT — a world class personal stylist
+with 20 years of editorial fashion experience.
+You have dressed celebrities, shot for Vogue, and built
+wardrobes for real women with real lives.
 
-STRICT STYLING RULES — follow these exactly:
+You know these rules like breathing:
 
-DUPLICATES — never include more than one of:
-- Maximum 1 pair of shoes/footwear per look
-- Maximum 1 bag per look
-- Maximum 1 outer layer (jacket/blazer/coat) per look
-- Maximum 2 tops per look (only if layering intentionally)
+ABSOLUTE RULES — NEVER BREAK THESE:
+1. ONE pair of shoes per outfit. Always. No exceptions.
+   A person has one pair of feet.
+2. ONE bag per outfit. Always. No exceptions.
+3. ONE outer layer (jacket/blazer/coat) per outfit.
+4. NEVER pair a DRESS with a BOTTOM (skirt or trousers).
+   A dress IS the outfit.
+5. Every outfit must have a clothing foundation:
+   TOP + BOTTOM, or DRESS. Nothing else is an outfit.
+6. Formality must be consistent across all pieces.
+   Never mix a ballgown with trainers.
+7. Maximum 4 items per look. Minimum 2.
 
-COMPLETE OUTFIT RULES:
-- Every look must have exactly 1 TOP or 1 DRESS (not both unless clearly layering)
-- Every look must have 1 BOTTOM (unless wearing a DRESS)
-- DRESS replaces TOP + BOTTOM — never pair a DRESS with a BOTTOM
-- FOOTWEAR is optional but if included only 1 pair
-- BAG is optional but if included only 1 bag
+STYLING INTELLIGENCE:
+- Think in color stories: monochrome, tonal, one statement piece
+- Think in silhouette: fitted top = relaxed bottom and vice versa
+- Think in occasion: every item must serve the same occasion
+- Think in weather: Mumbai is hot and humid — prioritize breathable
+- Think in the person: what would actually look good together
 
-COHESION RULES:
-- Formality must match across all items (±2 points max)
-- Color palette must work together (neutrals, analogous, or one statement piece)
-- Occasion must be consistent — do not mix gym wear with evening wear
-- Season must match — do not mix heavy winter pieces with summer pieces
+You are building complete, wearable, cohesive outfits.
+Not random item combinations.`
 
-ITEM LIMIT: Maximum 4 items per look. Minimum 2.
+    const userPrompt = `Build 3 complete outfit suggestions for today.
 
-GOOD outfit examples:
-✅ TOP + BOTTOM + FOOTWEAR (3 items)
-✅ DRESS + FOOTWEAR + BAG (3 items)
-✅ TOP + BOTTOM + OUTERWEAR + BAG (4 items)
-✅ DRESS + OUTERWEAR (2 items, weather appropriate)
-
-BAD outfit examples — never do these:
-❌ TOP + BOTTOM + FOOTWEAR + FOOTWEAR (duplicate shoes)
-❌ BAG + BAG + TOP (duplicate bags)
-❌ DRESS + BOTTOM (dress with skirt/pants)
-❌ BAG alone (not an outfit)
-❌ 5+ items (too many)
-❌ Mixing formality 1 item with formality 9 item`
-
-    const userPrompt = `Wardrobe (use exact IDs):
+WARDROBE (use EXACT IDs):
 ${wardrobeContext}
 
-Avoid repeating: ${recentNames}
-City: Mumbai, 31°C humid. Date: ${localDate}
-Seed: ${Date.now()}
+${recentNames && recentNames !== 'nothing yet' ? `Recently worn — DO NOT repeat: ${recentNames}` : ''}
+Weather: Mumbai, 31°C humid, ${new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
+Variety seed: ${Date.now()}
 
-Return 3 looks: MORNING, DAYTIME, EVENING.
-Each look: 2-4 items, no duplicates per category. Different pieces per look.
+BUILD EXACTLY:
+MORNING → relaxed, effortless, casual
+DAYTIME → smart, put-together, practical
+EVENING → elevated, intentional, polished
 
-JSON only, no markdown:
+FOR EACH LOOK YOU MUST:
+✓ Choose 1 TOP or 1 DRESS (not both)
+✓ If TOP chosen: choose 1 BOTTOM
+✓ Optionally add 1 FOOTWEAR (max one pair)
+✓ Optionally add 1 BAG (max one bag)
+✓ Total: 2-4 items maximum
+
+YOU MUST NEVER:
+✗ Include 2 pairs of shoes
+✗ Include 2 bags
+✗ Include DRESS + BOTTOM together
+✗ Mix items more than 2 formality points apart
+✗ Repeat exact combinations from recently worn list
+✗ Include more than 4 items in one look
+
+Return ONLY valid JSON:
 {"looks":[
-  {"lookType":"MORNING","outfitName":"2-3 words","mood":"word","formality":"RELAXED","items":[{"id":"exact-id","reason":"10 words max"}],"stylingNote":"2 sentences","occasionTags":["tag1","tag2"],"tip":"1 sentence"},
-  {"lookType":"DAYTIME","outfitName":"2-3 words","mood":"word","formality":"SMART","items":[{"id":"exact-id","reason":"10 words max"}],"stylingNote":"2 sentences","occasionTags":["tag1","tag2"],"tip":"1 sentence"},
-  {"lookType":"EVENING","outfitName":"2-3 words","mood":"word","formality":"ELEVATED","items":[{"id":"exact-id","reason":"10 words max"}],"stylingNote":"2 sentences","occasionTags":["tag1","tag2"],"tip":"1 sentence"}
-]}`
+  {"lookType":"MORNING","outfitName":"2-4 word editorial name","mood":"one word","formality":"RELAXED|SMART|ELEVATED","items":[{"id":"exact-uuid","reason":"specific why in 8 words"}],"stylingNote":"2 sentences explaining color + silhouette logic","occasionTags":["tag1","tag2"],"tip":"one specific actionable tip"},
+  {"lookType":"DAYTIME","outfitName":"...","mood":"...","formality":"...","items":[...],"stylingNote":"...","occasionTags":[...],"tip":"..."},
+  {"lookType":"EVENING","outfitName":"...","mood":"...","formality":"...","items":[...],"stylingNote":"...","occasionTags":[...],"tip":"..."}
+]}
+
+CRITICAL: Copy UUIDs EXACTLY from the wardrobe list.
+Each look must pass: has clothing + no duplicates + cohesive.`
 
     const claudePromise = anthropic.messages.create({
       model:      'claude-sonnet-4-6',
@@ -263,47 +274,69 @@ JSON only, no markdown:
     )
 
     // ── 5b. Deduplicate + validate looks (before enriching) ─────────────────
-    const categoryLimits: Record<string, number> = {
-      FOOTWEAR: 1, BAG: 1, OUTERWEAR: 1, TOP: 2, BOTTOM: 1, DRESS: 1,
-    }
-
-    function deduplicateLook(look: any): any {
-      const items: any[] = look.items ?? []
-      const seenCategories: Record<string, number> = {}
-
-      const deduped = items.filter((item: any) => {
-        const cat = (item.category ?? '').toUpperCase()
-        seenCategories[cat] = (seenCategories[cat] ?? 0) + 1
-        const limit = categoryLimits[cat] ?? 1
-        if (seenCategories[cat] > limit) {
-          console.log(`[Curation] Removed duplicate ${cat}:`, item.name ?? item.id)
-          return false
-        }
-        return true
-      })
-
-      // Remove BOTTOM if DRESS is present
-      const hasDress = deduped.some((i: any) => (i.category ?? '').toUpperCase() === 'DRESS')
-      const finalItems = hasDress
-        ? deduped.filter((i: any) => (i.category ?? '').toUpperCase() !== 'BOTTOM')
-        : deduped
-
-      return { ...look, items: finalItems }
-    }
-
-    outfit.looks = outfit.looks
-      .map(deduplicateLook)
-      .filter((look: any) => {
+    // BULLETPROOF VALIDATION: enforce hard limits on all categories
+    function enforceStylingRules(looks: any[]): any[] {
+      return looks.map((look: any) => {
         const items: any[] = look.items ?? []
-        const hasClothing = items.some((i: any) =>
-          ['TOP', 'BOTTOM', 'DRESS', 'OUTERWEAR', 'FULL_OUTFIT'].includes((i.category ?? '').toUpperCase())
+        const seen: Record<string, number> = {}
+        
+        // Hard category limits
+        const limits: Record<string, number> = {
+          FOOTWEAR:   1,
+          BAG:        1,
+          OUTERWEAR:  1,
+          BOTTOM:     1,
+          DRESS:      1,
+          TOP:        1,  // Changed from 2 to 1 for strict enforcement
+        }
+
+        // Filter duplicates within category
+        const deduped = items.filter((item: any) => {
+          const cat = (item.category ?? '').toUpperCase()
+          seen[cat] = (seen[cat] ?? 0) + 1
+          const limit = limits[cat] ?? 1
+          if (seen[cat] > limit) {
+            console.log(`[Style] ❌ Removed duplicate ${cat}:`, item.name ?? item.id)
+            return false
+          }
+          return true
+        })
+
+        // Remove BOTTOM if DRESS present (dress replaces top+bottom)
+        const hasDress = deduped.some((i: any) =>
+          (i.category ?? '').toUpperCase() === 'DRESS'
         )
+        const final = hasDress
+          ? deduped.filter((i: any) => {
+              const cat = (i.category ?? '').toUpperCase()
+              return cat !== 'BOTTOM' && cat !== 'TOP'
+            })
+          : deduped
+
+        // Log final look composition
+        const composition = final.map((i: any) => i.category).join(' + ')
+        console.log(`[Style] ${look.lookType}: ${composition}`)
+
+        return { ...look, items: final }
+      }).filter((look: any) => {
+        const items: any[] = look.items ?? []
+        
+        // Must have at least clothing base
+        const hasClothing = items.some((i: any) =>
+          ['TOP', 'BOTTOM', 'DRESS', 'OUTERWEAR', 'FULL_OUTFIT']
+            .includes((i.category ?? '').toUpperCase())
+        )
+        
+        // Must have 2+ items and valid clothing
         if (items.length < 2 || !hasClothing) {
-          console.log('[Curation] Rejected invalid look after dedup:', look.outfitName)
+          console.log(`[Style] ❌ Rejected ${look.outfitName}: incomplete (${items.length} items, clothing=${hasClothing})`)
           return false
         }
         return true
       })
+    }
+
+    outfit.looks = enforceStylingRules(outfit.looks)
 
     if (outfit.looks.length === 0) {
       console.error('[Curation] All looks rejected after deduplication')
