@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       styleProfiles: true,
       wardrobeItems: {
         where:  { isActive: true },
-        take:   1,
+        take:   4,
         orderBy: { createdAt: "desc" },
         select: { id: true, name: true, category: true, imageUrl: true },
       },
@@ -149,6 +149,11 @@ export async function POST(req: NextRequest) {
 
       // ── Build context for personalizer ───────────────────────────────────
       const previewItem = user.wardrobeItems[0];
+      const outfitPieces = user.wardrobeItems.map((item) => ({
+        name:     item.name ?? "",
+        category: item.category ?? "",
+        imageUrl: item.imageUrl ?? undefined,
+      }));
       const userCtx = {
         firstName,
         styleProfiles:        user.styleProfiles ?? [],
@@ -211,9 +216,7 @@ export async function POST(req: NextRequest) {
           subheadline:  copy.subheadline,
           bodyText:     copy.bodyText,
           streak:       currentStreak,
-          previewItem:  previewItem
-            ? { name: previewItem.name ?? "", category: previewItem.category ?? "", imageUrl: previewItem.imageUrl ?? undefined }
-            : undefined,
+          outfitPieces: outfitPieces.length > 0 ? outfitPieces : undefined,
         });
       }
 

@@ -71,15 +71,42 @@ function baseWrapper(innerHtml: string): string {
 </html>`;
 }
 
+export interface OutfitPiece {
+  name:      string;
+  category:  string;
+  imageUrl?: string;
+}
+
 export interface DailyEmailData {
   firstName:    string;
-  dayOfWeek:    string;   // "Wednesday"
+  dayOfWeek:    string;
   ctaUrl:       string;
-  headline:     string;   // AI-generated, e.g. "Your Wednesday look is ready."
-  subheadline:  string;   // AI-generated, e.g. "Three outfits crafted from your wardrobe."
-  bodyText:     string;   // AI-generated 2-3 sentences
+  headline:     string;
+  subheadline:  string;
+  bodyText:     string;
   streak?:      number;
-  previewItem?: { name: string; category: string; imageUrl?: string };
+  outfitPieces?: OutfitPiece[];   // up to 4 actual wardrobe items with photos
+}
+
+/** Render a single wardrobe card cell for the piece strip */
+function pieceCard(piece: OutfitPiece): string {
+  const photo = piece.imageUrl
+    ? `<img src="${piece.imageUrl}" alt="${piece.name}" width="114" style="display:block;width:114px;height:148px;object-fit:cover;border:0;" />`
+    : `<div style="width:114px;height:148px;background:${COLORS.linen};display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:22px;opacity:0.25;">✦</span>
+       </div>`;
+  return `
+    <td style="width:114px;padding-right:8px;vertical-align:top;">
+      <table cellpadding="0" cellspacing="0" style="border:1px solid ${COLORS.linen};overflow:hidden;background:${COLORS.cream};">
+        <tr><td style="padding:0;">${photo}</td></tr>
+        <tr>
+          <td style="padding:8px 10px 10px;">
+            <p style="font-family:${FONTS.sans};font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 3px;">${piece.category}</p>
+            <p style="font-family:${FONTS.serif};font-size:13px;font-weight:300;color:${COLORS.ink};margin:0;line-height:1.3;">${piece.name}</p>
+          </td>
+        </tr>
+      </table>
+    </td>`;
 }
 
 export function dailyEngagementEmail(data: DailyEmailData): string {
@@ -99,15 +126,46 @@ export function dailyEngagementEmail(data: DailyEmailData): string {
       </tr>`
     : "";
 
-  const previewBlock = data.previewItem
+  // Wardrobe photo strip — full-bleed swipe-card preview
+  const pieces = (data.outfitPieces ?? []).slice(0, 4);
+  const pieceStrip = pieces.length > 0
     ? `<tr>
-        <td style="padding:0 44px 28px;">
-          <table cellpadding="0" cellspacing="0" style="border:1px solid ${COLORS.linen};background:${COLORS.cream};width:100%;">
+        <td style="padding:0 44px 8px;">
+          <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 14px;">Today's pieces — from your wardrobe</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 44px 0;overflow:hidden;">
+          <table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;">
             <tr>
-              <td style="padding:16px 20px;">
-                <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 4px;">${data.previewItem.category}</p>
-                <p style="font-family:${FONTS.serif};font-size:17px;font-weight:300;color:${COLORS.ink};margin:0;line-height:1.2;">${data.previewItem.name}</p>
-                <p style="font-family:${FONTS.sans};font-size:11px;color:${COLORS.warmGray};margin:6px 0 0;">Featured in today's look ✦</p>
+              ${pieces.map(pieceCard).join("\n")}
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  // Swipe feature callout
+  const swipeCallout = pieces.length > 0
+    ? `<tr>
+        <td style="padding:20px 44px 0;">
+          <table cellpadding="0" cellspacing="0" width="100%" style="background:${COLORS.ink};">
+            <tr>
+              <td style="padding:16px 22px;">
+                <table cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="vertical-align:middle;width:36px;">
+                      <div style="font-size:20px;line-height:1;">👆</div>
+                    </td>
+                    <td style="vertical-align:middle;padding-left:12px;">
+                      <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:${COLORS.gold};margin:0 0 4px;">Swipe to style</p>
+                      <p style="font-family:${FONTS.serif};font-size:14px;font-weight:300;color:${COLORS.cream};margin:0;line-height:1.4;">Open the app and swipe through full outfits built from these exact pieces.</p>
+                    </td>
+                    <td style="vertical-align:middle;padding-left:16px;white-space:nowrap;">
+                      <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:9px 16px;font-family:${FONTS.sans};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;">Swipe →</a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
           </table>
@@ -121,13 +179,13 @@ export function dailyEngagementEmail(data: DailyEmailData): string {
       <h1 style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
       <p style="font-family:${FONTS.sans};font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:${COLORS.warmGray};margin:0 0 24px;">${data.subheadline}</p>
       <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0 0 32px;font-weight:300;">${data.bodyText}</p>
-      <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">
-        See Today's Look
-      </a>
+      ${pieces.length === 0 ? `<a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Look</a>` : ""}
     </td>
   </tr>
   ${streakBadge}
-  ${previewBlock}`;
+  ${pieceStrip}
+  ${swipeCallout}
+  <tr><td style="padding:28px 44px 4px;"><a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Full Look</a></td></tr>`;
 
   return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", data.ctaUrl.replace(/\/today.*/, "/unsubscribe?token={{TOKEN}}"));
 }
