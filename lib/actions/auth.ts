@@ -48,11 +48,13 @@ export async function registerUser(
   email: string,
   password: string,
   name: string,
+  phone: string,
 ): Promise<ApiResult<AuthPayload>> {
   const result = await post<AuthPayload>("/api/auth/register", {
     email,
     password,
     name,
+    phone,
   });
   if (result.success && result.data)
     setAuthState({

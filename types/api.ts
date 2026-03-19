@@ -24,6 +24,7 @@ export interface AuthPayload {
   user: {
     id: string;
     email: string;
+    phone?: string | null;
     name: string | null;
     avatar: string | null;
     provider: string;
@@ -33,6 +34,7 @@ export interface AuthPayload {
 
 export interface RegisterRequest {
   email: string;
+  phone: string; // Mandatory: E.164 format
   password: string;
   name?: string;
 }

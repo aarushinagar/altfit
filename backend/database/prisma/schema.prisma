@@ -16,6 +16,7 @@ datasource db {
 model User {
   id           BigInt   @id
   email        String   @unique
+  phone        String?  // E.164 format for WhatsApp: +919876543210
   name         String?
   avatar       String?  // Supabase Storage URL or Google picture URL
   passwordHash String?  // null for Google OAuth users
@@ -48,6 +49,7 @@ model User {
   styleProfile    UserStyleProfile?
   savedOutfits    SavedOutfit[]
   emailLogs       EmailLog[]
+  whatsappLogs    WhatsAppLog[]
 
   // Email marketing preferences
   emailOptOut   Boolean  @default(false)    // true = never send marketing emails
@@ -383,5 +385,22 @@ model EmailLog {
   localDate  String   // "YYYY-MM-DD" — deduplicate: one email per type per day per user
 
   @@unique([userId, emailType, localDate])
+  @@index([userId, sentAt])
+}
+
+// ── WHATSAPP MESSAGE LOG ───────────────────────────────────────
+// Track WhatsApp messages sent for deduplication and analytics
+model WhatsAppLog {
+  id         BigInt   @id
+  userId     BigInt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messageType String   // "good_morning" | "daily_engagement" | "share_outfits" | "evening" | etc
+  sentAt      DateTime @default(now())
+  whatsappId  String?  // Provider's message ID (Twilio SID, WhatsApp API message_id, etc)
+  status      String   @default("sent") // "sent" | "delivered" | "read" | "failed"
+  localDate   String   // "YYYY-MM-DD" — deduplicate: one per type per day per user
+
+  @@unique([userId, messageType, localDate])
   @@index([userId, sentAt])
 }

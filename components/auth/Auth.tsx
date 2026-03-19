@@ -26,6 +26,7 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
     defaultMode,
   );
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -163,11 +164,20 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
       setError("What should we call you?");
       return;
     }
+    if (mode === "email-signup" && !phone.trim()) {
+      setError("Phone number is required.");
+      return;
+    }
+    // Basic E.164 validation: +[country code][number], at least 10 digits after +
+    if (mode === "email-signup" && !/^\+\d{10,}$/.test(phone.replace(/[\s\-()]/g, ""))) {
+      setError("Enter a valid phone number (e.g., +919876543210).");
+      return;
+    }
     setLoading(true);
     try {
       const res =
         mode === "email-signup"
-          ? await registerUser(email, password, name || email.split("@")[0])
+          ? await registerUser(email, password, name || email.split("@")[0], phone)
           : await loginUser(email, password);
       if (res.success && res.data) {
         onAuth(res.data.user as Record<string, unknown>);
@@ -567,6 +577,24 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name"
+                      style={inputStyle}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = "var(--gold)")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = "var(--linen)")
+                      }
+                    />
+                  </div>
+                )}
+                {mode === "email-signup" && (
+                  <div>
+                    <label style={labelStyle}>Phone Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+919876543210"
                       style={inputStyle}
                       onFocus={(e) =>
                         (e.target.style.borderColor = "var(--gold)")

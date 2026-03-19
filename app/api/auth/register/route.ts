@@ -52,16 +52,24 @@ export async function POST(request: NextRequest) {
     console.log("[Auth Register] Processing registration request");
 
     const body = await request.json();
-    const { email, password, name } = body as RegisterRequest;
+    const { email, password, name, phone } = body as RegisterRequest;
 
     // Validate required fields
-    const validation = validateRequired(body, ["email", "password"]);
+    const validation = validateRequired(body, ["email", "password", "phone"]);
     if (validation) return validation;
 
     // Validate email format
     if (!isValidEmail(email)) {
       console.warn(`[Auth Register] Invalid email format: ${email}`);
       return errorResponse("Invalid email format", 400);
+    }
+
+    // Validate phone format (E.164: +[country code][number], at least 10 digits)
+    const phoneRegex = /^\+\d{10,}$/;
+    const normalizedPhone = phone.replace(/[\s\-()]/g, "");
+    if (!phoneRegex.test(normalizedPhone)) {
+      console.warn(`[Auth Register] Invalid phone format: ${phone}`);
+      return errorResponse("Phone must be in E.164 format (e.g., +919876543210)", 400);
     }
 
     // Validate password strength
@@ -98,6 +106,7 @@ export async function POST(request: NextRequest) {
       data: {
         id: generatePrismaId("User") as never,
         email,
+        phone: normalizedPhone,
         name: name || null,
         passwordHash,
         provider: "email",
@@ -141,6 +150,7 @@ export async function POST(request: NextRequest) {
         user: {
           id: user.id.toString(),
           email: user.email,
+          phone: user.phone,
           name: user.name,
           avatar: user.avatar,
           provider: user.provider,
