@@ -45,6 +45,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
  * Call Claude and parse a JSON response.
  * Strips markdown fences if present, then JSON.parse.
  * Hard timeout: 45 seconds — on expiry throws so the caller can fall back.
+ * Logs performance metrics for latency tracking.
  */
 async function callClaude(
   prompt: string,
@@ -54,6 +55,7 @@ async function callClaude(
   const timeoutMs = 45_000;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), timeoutMs);
+  const startTime = Date.now();
 
   try {
     const response = await anthropic.messages.create(
@@ -65,6 +67,8 @@ async function callClaude(
       },
       { signal: ac.signal },
     );
+    const elapsed = Date.now() - startTime;
+    
     if (response.stop_reason === "max_tokens") {
       throw new Error(
         `Claude response was truncated (max_tokens=${maxTokens}). Increase the token limit.`,
@@ -80,6 +84,9 @@ async function callClaude(
     if (!cleaned) {
       throw new Error("Claude returned empty response");
     }
+    
+    // Log performance metrics for monitoring
+    console.log(`[Claude API] ${model} completed in ${elapsed}ms (tokens: input=${response.usage.input_tokens}, output=${response.usage.output_tokens})`);
     
     return JSON.parse(cleaned);
   } finally {
@@ -133,6 +140,8 @@ export async function fetchWeatherNode(
 export async function interpretWeatherNode(
   state: CurationState,
 ): Promise<Partial<CurationState>> {
+  const nodeStart = Date.now();
+  
   if (!state.weatherRaw) {
     // This shouldn't happen now (we always have a fallback), but handle it just in case
     const season = getCurrentSeason(state.userTimezone);
@@ -177,6 +186,8 @@ Respond with ONLY a valid JSON object (no markdown) with these exact fields:
 }`;
 
     const raw = await callClaude(prompt, getModelForTask("weatherInterpret"));
+    const elapsed = Date.now() - nodeStart;
+    console.log(`[Node] interpretWeather completed in ${elapsed}ms (model: ${getModelForTask("weatherInterpret")})`);
 
     const ctx: WeatherContext = {
       season_context: (raw.season_context as SeasonContext) ?? "transitional",
@@ -197,7 +208,8 @@ Respond with ONLY a valid JSON object (no markdown) with these exact fields:
       status: "querying_wardrobe",
     };
   } catch (err) {
-    console.error("[interpretWeatherNode] LLM call failed:", err);
+    const elapsed = Date.now() - nodeStart;
+    console.error(`[Node] interpretWeather FAILED after ${elapsed}ms:`, err);
     // Degrade gracefully to weather data without LLM interpretation
     return {
       weatherContext: {
@@ -281,6 +293,7 @@ function buildCandidateSummary(items: WardrobeCandidate[]): string {
 export async function curateOutfitsNode(
   state: CurationState,
 ): Promise<Partial<CurationState>> {
+  const nodeStart = Date.now();
   const ctx = state.weatherContext;
   const regen = state.regenConfig ?? REGEN_CONFIG;
 
@@ -380,8 +393,13 @@ Return a JSON object with a "slots" array containing exactly 3 slot objects.`;
       slots.map((s, i) => `slot${i + 1}: [${s.outfit_ids.join(", ")}]`).join(" | "),
     );
 
+    const elapsed = Date.now() - nodeStart;
+    console.log(`[Node] curateOutfits completed in ${elapsed}ms (model: ${curationModel})`);
+
     return { curatedSlots: slots, status: "validating" };
   } catch (err) {
+    const elapsed = Date.now() - nodeStart;
+    console.error(`[Node] curateOutfits FAILED after ${elapsed}ms:`, err);
     return {
       status: "failed",
       error: `Outfit curation failed: ${err instanceof Error ? err.message : String(err)}`,

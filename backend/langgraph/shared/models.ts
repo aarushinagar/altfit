@@ -37,9 +37,9 @@ export const ANTHROPIC_MODELS = {
 export const TASK_MODEL_CONFIG = {
   /** Image analysis during ingestion (must support inline image data). */
   visionAnalysis: process.env.GEMINI_VISION_MODEL ?? GEMINI_MODELS.FLASH_LITE,
-  /** Weather data → dressing context interpretation. Text-only, cheap. */
+  /** Weather data → dressing context interpretation. Text-only, deterministic task. Use Haiku for speed. */
   weatherInterpret:
-    process.env.CLAUDE_WEATHER_MODEL ?? ANTHROPIC_MODELS.SONNET,
+    process.env.CLAUDE_WEATHER_MODEL ?? ANTHROPIC_MODELS.HAIKU,
   /** Main stylist LLM: candidates + weather → 3 outfit slots. */
   outfitCuration: process.env.CLAUDE_CURATION_MODEL ?? ANTHROPIC_MODELS.SONNET,
 } as const;

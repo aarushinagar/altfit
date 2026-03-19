@@ -8,6 +8,39 @@
 import type { WeatherOutput, WeatherCondition } from "../shared/types";
 import { wmoToCondition } from "../shared/types";
 
+// ── Weather Cache (30-minute TTL) ──────────────────────────────────────────
+
+const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const weatherCache = new Map<string, { data: WeatherOutput; timestamp: number }>();
+
+function getCacheKey(lat: number, lon: number): string {
+  // Round to 2 decimal places (~1km precision) to improve cache hit rate
+  const roundedLat = Math.round(lat * 100) / 100;
+  const roundedLon = Math.round(lon * 100) / 100;
+  return `${roundedLat},${roundedLon}`;
+}
+
+function getCachedWeather(lat: number, lon: number): WeatherOutput | null {
+  const key = getCacheKey(lat, lon);
+  const cached = weatherCache.get(key);
+  if (!cached) return null;
+  
+  const age = Date.now() - cached.timestamp;
+  if (age > WEATHER_CACHE_TTL_MS) {
+    weatherCache.delete(key);
+    return null;
+  }
+  
+  console.log(`[WeatherCache] ✅ HIT (age: ${Math.round(age / 1000)}s): ${key}`);
+  return cached.data;
+}
+
+function setCachedWeather(lat: number, lon: number, data: WeatherOutput): void {
+  const key = getCacheKey(lat, lon);
+  weatherCache.set(key, { data, timestamp: Date.now() });
+  console.log(`[WeatherCache] SET: ${key}`);
+}
+
 // ── Generic Indian weather fallback ────────────────────────────────────────
 
 /**
@@ -94,12 +127,21 @@ async function fetchCityName(lat: number, lon: number): Promise<string> {
 
 /**
  * Fetches current weather conditions for the given coordinates.
+ * Results are cached by coordinate (rounded to 1km precision) for 30 minutes.
  * Nominatim failures are non-fatal — city defaults to "your location".
  */
 export async function getWeatherTool(
   lat: number,
   lon: number,
 ): Promise<WeatherOutput> {
+  // Check cache first
+  const cached = getCachedWeather(lat, lon);
+  if (cached) {
+    return cached;
+  }
+  
+  console.log(`[WeatherCache] MISS: ${getCacheKey(lat, lon)}`);
+  
   const [weatherData, cityName] = await Promise.all([
     fetchOpenMeteo(lat, lon),
     fetchCityName(lat, lon),
@@ -112,7 +154,7 @@ export async function getWeatherTool(
   const feelsLikeC = current.apparent_temperature;
   const windKph = current.wind_speed_10m;
 
-  return {
+  const result: WeatherOutput = {
     temp_c: tempC,
     feels_like_c: feelsLikeC,
     condition,
@@ -126,4 +168,7 @@ export async function getWeatherTool(
     description: `${condition}, ${Math.round(tempC)}°C (feels ${Math.round(feelsLikeC)}°C), wind ${Math.round(windKph)} km/h in ${cityName}`,
     fetched_at_utc: new Date().toISOString(),
   };
+  
+  setCachedWeather(lat, lon, result);
+  return result;
 }
