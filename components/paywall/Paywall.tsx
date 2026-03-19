@@ -103,24 +103,29 @@ export default function Paywall({
           razorpay_payment_id: string;
           razorpay_signature: string;
         }) => {
-          const verifyRes = await fetch("/api/razorpay-verify-payment", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              plan: selected,
-            }),
-          });
-          const verifyData = await verifyRes.json();
-          if (!verifyRes.ok)
-            throw new Error(verifyData.error || "Payment verification failed.");
-          onUpgrade(selected);
+          try {
+            const verifyRes = await fetch("/api/razorpay-verify-payment", {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                plan: selected,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok)
+              throw new Error(verifyData.error || "Payment verification failed.");
+            onUpgrade(selected);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Payment verification failed.");
+            setLoading(false);
+          }
         },
       };
 
