@@ -171,9 +171,10 @@ export async function POST(req: NextRequest) {
     const userId = auth.userId
     console.log(`[Wardrobe] ── User authenticated: ${userId}`)
 
-    // ── 4. CONVERT TO BUFFER
-    const originalBuffer = Buffer.from(await file.arrayBuffer())
-    console.log(`[Wardrobe] ── Buffer ready: ${originalBuffer.length} bytes`)
+    // ── 4. CONVERT TO BUFFER + auto-rotate via EXIF
+    const rawBuffer = Buffer.from(await file.arrayBuffer())
+    const originalBuffer = await sharp(rawBuffer).rotate().toBuffer()
+    console.log(`[Wardrobe] ── Buffer ready (EXIF-corrected): ${originalBuffer.length} bytes`)
 
     // ── 5. CALL CLAUDE FOR ANALYSIS
     console.log('[Wardrobe] ── Calling Claude (pass 1: locate person)...')
