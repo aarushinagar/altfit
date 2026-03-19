@@ -116,10 +116,11 @@ const LookItemGrid = ({ items }: { items: any[] }) => {
 
 interface TodayPageProps {
   wardrobeTotal: number;
+  wardrobeLoading?: boolean;
   onGoToUpload: () => void;
 }
 
-export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProps) {
+export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGoToUpload }: TodayPageProps) {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -330,12 +331,15 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
   };
 
   // Fetch outfit once user + wardrobe are ready
+  // wardrobeTotal is in deps because it often resolves AFTER user?.id,
+  // so we need to re-check when it arrives. The !outfit && !isLoading guards
+  // prevent duplicate fetches.
   useEffect(() => {
     if (user?.id && wardrobeTotal >= 2 && !outfit && !isLoading) {
       fetchOutfit();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, wardrobeTotal]);
 
   // Check style profile once per session
   useEffect(() => {
@@ -358,7 +362,7 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
   }, [user?.id]);
 
   const hasWardrobe = wardrobeTotal >= 2;
-  const showLoader  = isLoading || isRefreshing;
+  const showLoader  = isLoading || isRefreshing || wardrobeLoading;
 
   return (
     <Box className="today-page page">
@@ -397,8 +401,8 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
             AI-designed from your wardrobe. Intelligent, intentional, yours.
           </p>
 
-          {/* Empty wardrobe — only show if truly no wardrobe AND no outfit has been fetched */}
-          {!hasWardrobe && !showLoader && !outfit && (
+          {/* Empty wardrobe — only show if wardrobe has loaded, confirmed empty, and no outfit */}
+          {!hasWardrobe && !wardrobeLoading && !showLoader && !outfit && (
             <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>
               <Box component="span" sx={{ fontSize: 32, mb: 2, display: "block" }}>
                 👗
