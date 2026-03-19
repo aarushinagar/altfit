@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAppContext } from "@/lib/contexts/AppContext";
 import { getAuthToken } from "@/lib/utils/authUtils";
+import ShareSheet from "@/components/saved-outfits/ShareSheet";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SavedOutfit = Record<string, any>;
+type SavedOutfit = {
+  id:          string;
+  outfitName:  string;
+  lookType:    string;
+  formality?:  string;
+  savedAt:     string;
+  stylingNote?: string;
+  tip?:        string;
+  occasionTags?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  items:       any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+};
 
 function LoadingSkeleton() {
   return (
@@ -41,6 +55,9 @@ export default function SavedOutfitsPage() {
   const { loadSavedOutfitsCount } = useAppContext();
   const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [openShareId, setOpenShareId] = useState<string | null>(null);
+  // map of outfit id → button ref
+  const shareRefs = useRef<Record<string, React.RefObject<HTMLButtonElement | null>>>({});
 
   const authHeader = useCallback((): Record<string, string> => {
     const token = getAuthToken();
@@ -205,6 +222,56 @@ export default function SavedOutfitsPage() {
                     {outfit.formality}
                   </span>
                 )}
+
+                {/* Share */}
+                <div style={{ position: "relative" }}>
+                  {(() => {
+                    if (!shareRefs.current[outfit.id]) {
+                      shareRefs.current[outfit.id] = { current: null } as React.RefObject<HTMLButtonElement | null>;
+                    }
+                    const ref = shareRefs.current[outfit.id];
+                    return (
+                      <>
+                        <button
+                          ref={ref}
+                          onClick={() =>
+                            setOpenShareId((prev) =>
+                              prev === outfit.id ? null : outfit.id
+                            )
+                          }
+                          style={{
+                            background: "none",
+                            border:     "none",
+                            cursor:     "pointer",
+                            color:      openShareId === outfit.id ? "#b5956a" : "#c4bfbb",
+                            padding:    "0 4px",
+                            lineHeight: 1,
+                            flexShrink: 0,
+                            display:    "flex",
+                            alignItems: "center",
+                          }}
+                          title="Share outfit"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="18" cy="5" r="3"/>
+                            <circle cx="6" cy="12" r="3"/>
+                            <circle cx="18" cy="19" r="3"/>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                          </svg>
+                        </button>
+                        {openShareId === outfit.id && (
+                          <ShareSheet
+                            outfit={outfit}
+                            anchorRef={ref}
+                            onClose={() => setOpenShareId(null)}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
                 {/* Delete */}
                 <button
                   onClick={() => handleDelete(outfit.id)}
