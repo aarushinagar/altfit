@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase'
-import { cropItemFromImage, cropToPersonOnly, isValidPersonBox } from '@/lib/imageCropper'
+import { cropToPersonOnly, isValidPersonBox } from '@/lib/imageCropper'
 import { uploadItemImage } from '@/lib/storageEngine'
 import { validateEnv } from '@/lib/env'
 import { requireAuth } from '@/backend/database/auth-middleware'
@@ -323,8 +323,25 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
     const savedItems: ReturnType<typeof serializeItem>[] = []
     const failedItems: { name: string; error: string }[] = []
 
-    // Determine if this is a product photo vs outfit photo
-    const isProductPhoto = !personBox || pieces.length === 1
+    // Pre-build the resized buffer once — same image used for all pieces
+    // Always use full person image (or original). No per-piece cropping.
+    let sharedImageBuffer: Buffer
+    try {
+      const sourceBuffer = personBox && isValidPersonBox(personBox)
+        ? await cropToPersonOnly(originalBuffer, personBox)
+        : originalBuffer
+      sharedImageBuffer = await sharp(sourceBuffer)
+        .resize(600, 750, {
+          fit: 'contain',
+          background: { r: 248, g: 246, b: 242, alpha: 1 },
+        })
+        .jpeg({ quality: 90 })
+        .toBuffer()
+      console.log('[Wardrobe] ── Shared image buffer ready')
+    } catch {
+      console.warn('[Wardrobe] ── Resize failed, using original buffer')
+      sharedImageBuffer = originalBuffer
+    }
 
     for (const piece of pieces) {
       let itemId: string | null = null
@@ -349,58 +366,15 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
         itemId = item.id.toString()
         console.log(`[Wardrobe] ── DB row created: ${itemId}`)
 
-        // 7b. PROCESS IMAGE
-        let imageBuffer: Buffer
-
-        if (isProductPhoto) {
-          // Single item or no person — use full image, just resize
-          console.log('[Wardrobe] Product photo — saving full image for:', piece.name)
-          try {
-            imageBuffer = await sharp(originalBuffer)
-              .resize(600, 750, {
-                fit: 'contain',
-                background: { r: 248, g: 246, b: 242, alpha: 1 },
-              })
-              .jpeg({ quality: 90 })
-              .toBuffer()
-            console.log('[Wardrobe] ── Full image resized (product photo)')
-          } catch (resizeErr: unknown) {
-            const msg =
-              resizeErr instanceof Error ? resizeErr.message : String(resizeErr)
-            console.warn('[Wardrobe] ── Resize failed, using original:', msg)
-            imageBuffer = originalBuffer
-          }
-        } else {
-          // Outfit photo with multiple pieces — crop each one
-          console.log('[Wardrobe] Outfit photo — cropping:', piece.name)
-          try {
-            imageBuffer = await cropItemFromImage(
-              isValidPersonBox(personBox)
-                ? await cropToPersonOnly(originalBuffer, personBox)
-                : originalBuffer,
-              piece.boundingBox ?? null,
-              piece.category,
-              piece.name,
-              piece.confidence ?? 1.0,
-              true // personDetected
-            )
-            console.log('[Wardrobe] ── Crop complete')
-          } catch (cropErr: unknown) {
-            const msg =
-              cropErr instanceof Error ? cropErr.message : String(cropErr)
-            console.warn('[Wardrobe] ── Crop failed, using original:', msg)
-            imageBuffer = originalBuffer
-          }
-        }
-
-        // 7c. UPLOAD IMAGE
+        // 7b. UPLOAD IMAGE — always full person/original image, no cropping
+        console.log('[Wardrobe] Saving full image for:', piece.name)
         let publicUrl: string
         try {
           publicUrl = await uploadItemImage(
             adminClient,
             userId,
             itemId,
-            imageBuffer
+            sharedImageBuffer
           )
           console.log(`[Wardrobe] ── Uploaded: ${publicUrl}`)
         } catch (uploadErr: unknown) {
@@ -412,7 +386,7 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
           throw uploadErr
         }
 
-        // 7d. UPDATE DB WITH IMAGE URL
+        // 7c. UPDATE DB WITH IMAGE URL
         const storagePath = `${userId}/${itemId}.jpg`
         const updated = await prisma.wardrobeItem.update({
           where: { id: item.id },
