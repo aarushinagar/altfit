@@ -30,14 +30,9 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clientIdMissing, setClientIdMissing] = useState(false);
   const isGoogleInitialized = useRef(false);
 
   useEffect(() => {
-    if (GOOGLE_CLIENT_ID === "YOUR_GOOGLE_CLIENT_ID_HERE") {
-      setClientIdMissing(true);
-      return;
-    }
     if (isGoogleInitialized.current) return;
 
     loadGisScript()
@@ -372,60 +367,6 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
               >
                 Sign in or create your account to start.
               </p>
-
-              {clientIdMissing && (
-                <Box
-                  sx={{
-                    background: "var(--paper)",
-                    border: "1px solid var(--linen)",
-                    p: "14px 16px",
-                    mb: 2.5,
-                    fontSize: 11,
-                    color: "var(--charcoal)",
-                    lineHeight: 1.7,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 9,
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                      color: "var(--gold)",
-                      marginBottom: 8,
-                      fontWeight: 500,
-                    }}
-                  >
-                    ⚙ Google OAuth Setup Required
-                  </div>
-                  <ol style={{ paddingLeft: 16, color: "var(--warm-gray)" }}>
-                    <li>
-                      Go to <strong>console.cloud.google.com</strong>
-                    </li>
-                    <li>
-                      APIs &amp; Services → Credentials → Create OAuth 2.0
-                      Client ID
-                    </li>
-                    <li>
-                      Type: <strong>Web application</strong>
-                    </li>
-                    <li>
-                      Add your domain to <strong>Authorized JS origins</strong>
-                    </li>
-                    <li>
-                      Copy the Client ID → set{" "}
-                      <code
-                        style={{
-                          background: "var(--linen)",
-                          padding: "1px 4px",
-                        }}
-                      >
-                        NEXT_PUBLIC_GOOGLE_CLIENT_ID
-                      </code>{" "}
-                      in your .env
-                    </li>
-                  </ol>
-                </Box>
-              )}
 
               <button
                 onClick={handleGoogle}
