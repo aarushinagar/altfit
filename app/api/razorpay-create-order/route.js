@@ -36,20 +36,15 @@ function logSuccess(context, message, metadata = {}) {
  * Plan pricing configuration (in paise - 1 rupee = 100 paise)
  */
 const PLANS = {
-  pro: {
-    amount: 49900, // ₹499
+  monthly: {
+    amount: 19900, // ₹199
     currency: "INR",
-    description: "Pro Plan - Monthly",
+    description: "Monthly Plan — ₹199/month",
   },
-  premium: {
-    amount: 199900, // ₹1,999
+  yearly: {
+    amount: 69900, // ₹699
     currency: "INR",
-    description: "Premium Plan - Monthly",
-  },
-  lifetime: {
-    amount: 999900, // ₹9,999
-    currency: "INR",
-    description: "Lifetime Access",
+    description: "Annual Plan — ₹699/year",
   },
 };
 

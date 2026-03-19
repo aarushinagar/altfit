@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Box, Stack } from "@mui/material";
 import { FREE_LIMIT } from "@/lib/constants";
+import { getAuthToken } from "@/lib/utils/authUtils";
 
 interface PaywallProps {
   onUpgrade: (plan: string) => void;
@@ -104,7 +105,11 @@ export default function Paywall({
         }) => {
           const verifyRes = await fetch("/api/razorpay-verify-payment", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+            },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
