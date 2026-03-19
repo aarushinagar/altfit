@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase'
-import { cropToPersonOnly, isValidPersonBox, smartCropByCategory } from '@/lib/imageCropper'
+import { cropToPersonOnly, isValidPersonBox, precisionCrop } from '@/lib/imageCropper'
 import { uploadItemImage } from '@/lib/storageEngine'
 import { validateEnv } from '@/lib/env'
 import { requireAuth } from '@/backend/database/auth-middleware'
@@ -49,6 +49,37 @@ function serializeItem(item: Record<string, unknown>) {
     ...item,
     id: String(item.id),
     userId: String(item.userId),
+  }
+}
+
+/**
+ * Verify a cropped image actually shows the expected clothing item.
+ * Returns { valid: true } on any error so a bad verify doesn't block saves.
+ */
+async function verifyCrop(
+  croppedBuffer: Buffer,
+  expectedCategory: string,
+  expectedName: string,
+  anthropic: Anthropic,
+): Promise<{ valid: boolean; confidence: number }> {
+  try {
+    const base64 = croppedBuffer.toString('base64')
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 60,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+          { type: 'text', text: `Does this image clearly show a ${expectedCategory} clothing item (specifically: ${expectedName})? The item should be the main focus, clearly visible, not cut off or obscured. Reply with JSON only: {"valid": true/false, "confidence": 0.0-1.0}` },
+        ],
+      }],
+    })
+    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
+    const result = JSON.parse(text.replace(/```json|```/g, '').trim())
+    return { valid: !!result.valid, confidence: Number(result.confidence) || 0 }
+  } catch {
+    return { valid: true, confidence: 0.8 } // default pass on error
   }
 }
 
@@ -148,9 +179,10 @@ export async function POST(req: NextRequest) {
     console.log('[Wardrobe] ── Calling Claude (pass 1: locate person)...')
     let pieces: DetectedPiece[] = []
     let personBox: { top: number; left: number; width: number; height: number } | null = null
+    let personBuffer: Buffer = originalBuffer
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     try {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const base64Image = originalBuffer.toString('base64')
       const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
@@ -175,6 +207,16 @@ export async function POST(req: NextRequest) {
         }
       } catch (personErr) {
         console.warn('[Wardrobe] ── Pass 1 failed (non-fatal):', personErr instanceof Error ? personErr.message : String(personErr))
+      }
+
+      // Crop to person-only immediately after locating person
+      if (personBox && isValidPersonBox(personBox)) {
+        try {
+          personBuffer = await cropToPersonOnly(originalBuffer, personBox)
+          console.log('[Wardrobe] ── Person cropped ✅')
+        } catch {
+          console.warn('[Wardrobe] ── Person crop failed, using original')
+        }
       }
 
       // ── PASS 2: Detect clothing items ──────────────────────────────────
@@ -291,6 +333,75 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
             { status: 400 }
           )
         }
+
+        // ── PASS 2b: Precise bounding boxes on person-only image ──────────
+        // Only runs for outfit photos (person detected, multiple pieces)
+        if (personBox && isValidPersonBox(personBox) && pieces.length > 1) {
+          try {
+            console.log('[Wardrobe] ── Calling Claude (pass 2b: precise bboxes on person-only)...')
+            const personJpeg = await sharp(personBuffer).jpeg({ quality: 92 }).toBuffer()
+            const personBase64 = personJpeg.toString('base64')
+
+            const bboxResponse = await anthropic.messages.create({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 800,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: personBase64 } },
+                  {
+                    type: 'text',
+                    text: `This image shows ONLY a person with no distracting background.
+Your task: draw PRECISE bounding boxes around each clothing item listed below.
+
+Rules:
+- Bounding box wraps TIGHTLY around the item on the body, include 8% padding
+- Exclude face, hands, bare skin not covered by the item
+- TOP: box starts at shoulders, ends at waist/hem
+- BOTTOM: box starts at waist, ends at ankle/hem
+- DRESS: box starts at shoulders, ends at hem
+- FOOTWEAR: just above ankle to sole
+- BAG: wraps only the bag, not the arm holding it
+
+Items to locate (already confirmed visible in this image):
+${pieces.map(p => `- ${p.name} (${p.category})`).join('\n')}
+
+Return a bounding box for each item:
+[{
+  "name": "exact name from list above",
+  "category": "category",
+  "boundingBox": { "top": 0-100, "left": 0-100, "width": 1-100, "height": 1-100 },
+  "confidence": 0.0-1.0,
+  "visible": true/false
+}]
+
+All coordinates as % of THIS image dimensions.
+Set visible: false if item is not clearly visible.
+Return ONLY JSON array. No markdown.`,
+                  },
+                ],
+              }],
+            })
+
+            const bboxText = bboxResponse.content[0].type === 'text' ? bboxResponse.content[0].text.trim() : '[]'
+            const bboxData = JSON.parse(bboxText.replace(/```json|```/g, '').trim())
+
+            if (Array.isArray(bboxData)) {
+              for (const entry of bboxData) {
+                if (!entry.visible || (entry.confidence ?? 0) < 0.7) continue
+                const match = pieces.find(p => p.name.toLowerCase() === (entry.name ?? '').toLowerCase())
+                  ?? pieces.find(p => p.category.toUpperCase() === (entry.category ?? '').toUpperCase())
+                if (match && entry.boundingBox) {
+                  match.boundingBox = entry.boundingBox
+                  console.log(`[Wardrobe] ── Precise bbox for ${match.name}:`, entry.boundingBox)
+                }
+              }
+            }
+          } catch (bboxErr) {
+            console.warn('[Wardrobe] ── Pass 2b failed (non-fatal):', bboxErr instanceof Error ? bboxErr.message : String(bboxErr))
+          }
+        }
+
       } catch (_parseErr: unknown) {
         console.warn('[Wardrobe] ── Claude parse failed, using fallback')
         pieces = [
@@ -333,16 +444,8 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
     const savedItems: ReturnType<typeof serializeItem>[] = []
     const failedItems: { name: string; error: string }[] = []
 
-    // Pre-crop to person region once — all per-piece crops operate on this
+    // isProductPhoto: flat lay or single item → full original; outfit → precision crop per piece
     const isProductPhoto = !personBox || pieces.length === 1
-    let personBuffer: Buffer
-    try {
-      personBuffer = personBox && isValidPersonBox(personBox)
-        ? await cropToPersonOnly(originalBuffer, personBox)
-        : originalBuffer
-    } catch {
-      personBuffer = originalBuffer
-    }
 
     for (const piece of pieces) {
       let itemId: string | null = null
@@ -367,7 +470,7 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
         itemId = item.id.toString()
         console.log(`[Wardrobe] ── DB row created: ${itemId}`)
 
-        // 7b. BUILD IMAGE BUFFER — product photo: full image; outfit: smart crop by category
+        // 7b. BUILD IMAGE BUFFER — product/single item: full image; outfit: precision crop + verify
         let imageBuffer: Buffer
         if (isProductPhoto) {
           console.log('[Wardrobe] Product photo — full image for:', piece.name)
@@ -376,11 +479,31 @@ Return ONLY valid JSON array. No markdown. Raw JSON only.
               fit: 'contain',
               background: { r: 248, g: 246, b: 242, alpha: 1 },
             })
-            .jpeg({ quality: 90 })
+            .jpeg({ quality: 92 })
             .toBuffer()
         } else {
-          console.log('[Wardrobe] Outfit photo — smart crop for:', piece.name, piece.category)
-          imageBuffer = await smartCropByCategory(personBuffer, piece.category)
+          console.log('[Wardrobe] Outfit photo — precision crop for:', piece.name, piece.category)
+          const croppedBuffer = await precisionCrop(
+            personBuffer,
+            piece.boundingBox ?? null,
+            piece.category,
+            piece.confidence ?? 0.8
+          )
+          const verification = await verifyCrop(croppedBuffer, piece.category, piece.name, anthropic)
+
+          if (verification.valid && verification.confidence >= 0.65) {
+            console.log(`[Wardrobe] ✅ Crop verified for ${piece.name}:`, verification.confidence)
+            imageBuffer = croppedBuffer
+          } else {
+            console.log(`[Wardrobe] ⚠️ Crop rejected for ${piece.name} — using full person image`)
+            imageBuffer = await sharp(personBuffer)
+              .resize(600, 750, {
+                fit: 'contain',
+                background: { r: 248, g: 246, b: 242, alpha: 1 },
+              })
+              .jpeg({ quality: 92 })
+              .toBuffer()
+          }
         }
 
         // 7c. UPLOAD IMAGE

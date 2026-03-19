@@ -365,3 +365,93 @@ export async function smartCropByCategory(
       .toBuffer()
   }
 }
+
+/**
+ * Precision crop — uses Claude bounding box if valid, otherwise falls back
+ * to category-specific region cuts on the person-only buffer.
+ * Always produces a clean, tightly-framed product-style output.
+ */
+export async function precisionCrop(
+  imageBuffer: Buffer,
+  boundingBox: BoundingBox | null,
+  category: string,
+  confidence: number,
+): Promise<Buffer> {
+  const meta = await sharp(imageBuffer).metadata()
+  const imgW = meta.width!
+  const imgH = meta.height!
+  const cat = (category ?? 'FULL_OUTFIT').toUpperCase()
+
+  const isValidBox = (box: BoundingBox): boolean => {
+    if (!box) return false
+    if (box.width < 5 || box.height < 5) return false
+    if (box.top < 0 || box.left < 0) return false
+    if (box.top + box.height > 102) return false
+    if (box.left + box.width > 102) return false
+    if (confidence < 0.75) return false
+    const area = box.width * box.height
+    const maxArea: Record<string, number> = {
+      TOP: 5000, BOTTOM: 5500, DRESS: 9000,
+      FOOTWEAR: 2500, BAG: 3000, OUTERWEAR: 6000,
+      FULL_OUTFIT: 10000,
+    }
+    if (area > (maxArea[cat] ?? 10000)) return false
+    return true
+  }
+
+  let crop: { left: number; top: number; width: number; height: number }
+
+  if (boundingBox && isValidBox(boundingBox)) {
+    // Use Claude's bounding box with padding
+    const pad = (cat === 'FOOTWEAR' || cat === 'BAG') ? 15 : 8
+    const rawLeft   = (boundingBox.left   / 100) * imgW
+    const rawTop    = (boundingBox.top    / 100) * imgH
+    const rawWidth  = (boundingBox.width  / 100) * imgW
+    const rawHeight = (boundingBox.height / 100) * imgH
+    const padX = (pad / 100) * imgW
+    const padY = (pad / 100) * imgH
+    const left   = Math.max(0, Math.round(rawLeft - padX))
+    const top    = Math.max(0, Math.round(rawTop  - padY))
+    const right  = Math.min(imgW, Math.round(rawLeft + rawWidth  + padX))
+    const bottom = Math.min(imgH, Math.round(rawTop  + rawHeight + padY))
+    crop = { left, top, width: right - left, height: bottom - top }
+    console.log(`[Crop] ✅ Using Claude bbox for ${category}:`, boundingBox)
+  } else {
+    // Smart fallback — fixed percentage regions of person-only image
+    console.log(`[Crop] ⚠️ Using fallback for ${category}`)
+    const fallbacks: Record<string, { left: number; top: number; width: number; height: number }> = {
+      TOP:         { left: Math.round(imgW * 0.05), top: Math.round(imgH * 0.12), width: Math.round(imgW * 0.90), height: Math.round(imgH * 0.38) },
+      BOTTOM:      { left: Math.round(imgW * 0.05), top: Math.round(imgH * 0.47), width: Math.round(imgW * 0.90), height: Math.round(imgH * 0.48) },
+      DRESS:       { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.08), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.88) },
+      OUTERWEAR:   { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.08), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.65) },
+      FOOTWEAR:    { left: Math.round(imgW * 0.10), top: Math.round(imgH * 0.70), width: Math.round(imgW * 0.80), height: Math.round(imgH * 0.28) },
+      BAG:         { left: Math.round(imgW * 0.35), top: Math.round(imgH * 0.35), width: Math.round(imgW * 0.60), height: Math.round(imgH * 0.40) },
+      FULL_OUTFIT: { left: 0, top: 0, width: imgW, height: imgH },
+    }
+    crop = fallbacks[cat] ?? fallbacks.FULL_OUTFIT
+    crop.left   = Math.max(0, Math.min(crop.left,   imgW - 50))
+    crop.top    = Math.max(0, Math.min(crop.top,    imgH - 50))
+    crop.width  = Math.min(crop.width,  imgW - crop.left)
+    crop.height = Math.min(crop.height, imgH - crop.top)
+  }
+
+  // Enforce minimum dimensions
+  if (crop.width < 50)  { crop.width  = Math.min(50, imgW - crop.left) }
+  if (crop.height < 50) { crop.height = Math.min(50, imgH - crop.top)  }
+
+  const outputSizes: Record<string, [number, number]> = {
+    TOP: [500, 600], BOTTOM: [500, 650], DRESS: [500, 750],
+    OUTERWEAR: [500, 700], FOOTWEAR: [500, 400],
+    BAG: [500, 500], FULL_OUTFIT: [500, 750],
+  }
+  const [outW, outH] = outputSizes[cat] ?? [500, 650]
+
+  return sharp(imageBuffer)
+    .extract(crop)
+    .resize(outW, outH, {
+      fit: 'contain',
+      background: { r: 248, g: 246, b: 242, alpha: 1 },
+    })
+    .jpeg({ quality: 92, progressive: true })
+    .toBuffer()
+}
