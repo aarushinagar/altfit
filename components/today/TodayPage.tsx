@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Box, Stack } from "@mui/material";
 import { useAuth } from "@/lib/hooks";
 import { getHourGreeting } from "@/lib/utils/clothing";
@@ -120,6 +121,7 @@ interface TodayPageProps {
 
 export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProps) {
   const { user } = useAuth();
+  const router = useRouter();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [outfit, setOutfit] = useState<any>(null);
@@ -134,6 +136,7 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
   // Per-look state
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [looks, setLooks] = useState<any[]>([]);
+  const [topIndex, setTopIndex] = useState(0);
   const [refreshingLook, setRefreshingLook] = useState<string | null>(null);
   const [savedLooks, setSavedLooks] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'save' | 'skip'; visible: boolean }>({ message: '', type: 'save', visible: false });
@@ -154,7 +157,10 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
 
   // Sync outfit.looks → looks state whenever outfit updates
   useEffect(() => {
-    if (outfit?.looks) setLooks(outfit.looks);
+    if (outfit?.looks) {
+      setLooks(outfit.looks);
+      setTopIndex(0);
+    }
   }, [outfit]);
 
   // Cycle loading messages while loading or refreshing
@@ -232,46 +238,42 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
     }
   };
 
-  // Swipe right → save
+  // Swipe right → advance deck immediately, save in background
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSwipeRight = async (look: any) => {
-    if (savedLooks.has(look.lookType)) {
-      showToast('Already saved ✓', 'save');
-      return;
-    }
-    try {
-      const token = getAuthToken();
-      const res = await fetch('/api/saved-outfits', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          outfitName:   look.outfitName,
-          lookType:     look.lookType,
-          mood:         look.mood,
-          formality:    look.formality,
-          items:        look.items,
-          stylingNote:  look.stylingNote,
-          occasionTags: look.occasionTags,
-          tip:          look.tip,
-        }),
-      });
-      if (res.ok) {
-        setSavedLooks(prev => new Set([...prev, look.lookType]));
-        showToast('Saved to your collection', 'save');
-      }
-    } catch {
-      showToast('Could not save. Try again.', 'skip');
-    }
+  const handleSwipeRight = (look: any) => {
+    // Advance the deck instantly so the next card springs up right away
+    setTopIndex(prev => prev + 1);
+    showToast('SAVED TO COLLECTION', 'save');
+
+    if (savedLooks.has(look.lookType)) return;
+    setSavedLooks(prev => new Set([...prev, look.lookType]));
+    // Fire API in background (no await, no blocking)
+    const token = getAuthToken();
+    fetch('/api/saved-outfits', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        outfitName:   look.outfitName,
+        lookType:     look.lookType,
+        mood:         look.mood,
+        formality:    look.formality,
+        items:        look.items,
+        stylingNote:  look.stylingNote,
+        occasionTags: look.occasionTags,
+        tip:          look.tip,
+      }),
+    }).catch(() => {});
   };
 
-  // Swipe left → refresh
-  const handleSwipeLeft = async (lookType: string) => {
-    showToast('Refreshing look...', 'skip');
-    await handleRefreshLook(lookType);
+  // Swipe left → advance deck immediately
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSwipeLeft = (_lookType: string) => {
+    setTopIndex(prev => prev + 1);
+    showToast('NEXT LOOK', 'skip');
   };
 
   const handleRefresh = async () => {
@@ -373,17 +375,30 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
       <Box className="today-hero">
         <Box className="today-greeting fade-up">
           <div className="greeting-eyebrow">{dateStr}</div>
-          <h1 className="greeting-title">
-            {greeting ? `${greeting}.` : ""} <br />
-            <em>Here&apos;s your look</em> <br />
-            for today.
+          <h1 className="greeting-title" style={{
+            fontFamily: 'Cormorant Garamond, serif',
+            fontSize: 'clamp(28px, 6vw, 52px)',
+            fontWeight: 300,
+            letterSpacing: '-0.015em',
+            lineHeight: 1.1,
+            color: '#1c1917',
+            marginBottom: '12px'
+          }}>
+            {greeting ? `${greeting}.` : ""} Your Curated Look<br />
+            <em style={{ fontStyle: 'italic', fontWeight: 300, fontSize: '0.9em', opacity: 0.8 }}>for today</em>
           </h1>
-          <p className="greeting-sub">
-            Curated from your wardrobe. Intelligent, intentional, yours.
+          <p className="greeting-sub" style={{
+            fontSize: '14px',
+            fontWeight: 300,
+            color: '#a8a29e',
+            letterSpacing: '0.03em',
+            marginTop: '16px'
+          }}>
+            AI-designed from your wardrobe. Intelligent, intentional, yours.
           </p>
 
-          {/* Empty wardrobe */}
-          {!hasWardrobe && !showLoader && (
+          {/* Empty wardrobe — only show if truly no wardrobe AND no outfit has been fetched */}
+          {!hasWardrobe && !showLoader && !outfit && (
             <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>
               <Box component="span" sx={{ fontSize: 32, mb: 2, display: "block" }}>
                 👗
@@ -464,20 +479,36 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
             </p>
           )}
 
-          {/* 3 Look cards */}
+          {/* Card stack — render back-to-front so top card is last in DOM */}
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {!showLoader && !error && looks.length > 0 && looks.map((look: any, index: number) => (
-            <SwipeCard
-              key={`${look.lookType}-${index}`}
-              look={look}
-              onSwipeRight={handleSwipeRight}
-              onSwipeLeft={handleSwipeLeft}
-              isSaved={savedLooks.has(look.lookType)}
-            >
+          {!showLoader && !error && looks.length > 0 && topIndex < looks.length && (() => {
+            const visibleLooks = looks.slice(topIndex, topIndex + 3);
+            return (
+              <div style={{
+                position: 'relative',
+                height: '680px',
+                marginBottom: '40px',
+                marginTop: '32px',
+              }}>
+                {[...visibleLooks].reverse().map((look: any, reversedIdx: number) => {
+                  const positionInStack = visibleLooks.length - 1 - reversedIdx;
+                  const isTopCard = positionInStack === 0;
+                  return (
+                  <SwipeCard
+                    key={`look-${look.lookType}`}
+                    look={look}
+                    positionInStack={positionInStack}
+                    isTopCard={isTopCard}
+                    onSwipeRight={handleSwipeRight}
+                    onSwipeLeft={handleSwipeLeft}
+                  >
             <div style={{
-              border: "1px solid rgba(0,0,0,0.07)",
+              border: "1px solid rgba(0,0,0,0.06)",
               marginTop: "24px",
               backgroundColor: "#ffffff",
+              borderRadius: "4px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
+              overflow: "hidden",
             }}>
 
               {/* Header */}
@@ -634,27 +665,95 @@ export default function TodayPage({ wardrobeTotal, onGoToUpload }: TodayPageProp
                   {refreshingLook === look.lookType ? "Finding look..." : "Refresh Look"}
                 </button>
 
-                {/* Saved indicator — swipe right to save */}
-                {savedLooks.has(look.lookType) && (
-                  <div style={{
-                    display: "inline-flex",
+                {/* Save button */}
+                <button
+                  onClick={() => handleSwipeRight(look)}
+                  style={{
+                    display: "flex",
                     alignItems: "center",
-                    gap: "6px",
+                    gap: "8px",
+                    background: savedLooks.has(look.lookType) ? "#1c1917" : "#ffffff",
+                    border: savedLooks.has(look.lookType) ? "1px solid #1c1917" : "1px solid #d6d3d1",
+                    padding: "8px 16px",
+                    cursor: "pointer",
                     fontSize: "10px",
-                    textTransform: "uppercase",
                     letterSpacing: "0.14em",
-                    color: "#a8a29e",
-                    padding: "8px 0",
-                  }}>
-                    <span>✓</span>
-                    <span>Saved</span>
-                  </div>
-                )}
+                    textTransform: "uppercase",
+                    color: savedLooks.has(look.lookType) ? "#ffffff" : "#1c1917",
+                    transition: "all 0.2s ease",
+                    fontWeight: 700,
+                    borderRadius: "2px",
+                    boxShadow: savedLooks.has(look.lookType) ? "0 2px 8px rgba(0,0,0,0.15)" : "0 1px 3px rgba(0,0,0,0.05)",
+                  }}
+                >
+                  <span>{savedLooks.has(look.lookType) ? "✓" : "♡"}</span>
+                  <span>{savedLooks.has(look.lookType) ? "Saved" : "Save Outfit"}</span>
+                </button>
               </div>
 
             </div>
-            </SwipeCard>
-          ))}
+                  </SwipeCard>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* All looks seen */}
+          {!showLoader && !error && looks.length > 0 && topIndex >= looks.length && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column' as const,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '24px',
+              padding: '80px 24px',
+              border: '1px solid rgba(0,0,0,0.06)',
+              minHeight: '300px',
+              marginTop: '24px',
+            }}>
+              <div style={{ textAlign: 'center' as const }}>
+                <p style={{
+                  fontFamily: 'Cormorant Garamond, serif',
+                  fontSize: '22px', fontWeight: 300,
+                  color: '#1c1917', margin: '0 0 8px', lineHeight: 1.4,
+                }}>
+                  All looks reviewed
+                </p>
+                <p style={{ fontSize: '13px', fontWeight: 300, color: '#a8a29e', margin: 0 }}>
+                  {savedLooks.size > 0
+                    ? `You saved ${savedLooks.size} look${savedLooks.size > 1 ? 's' : ''} today`
+                    : 'Come back tomorrow for fresh curation'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {savedLooks.size > 0 && (
+                  <button
+                    onClick={() => router.push('/saved-outfits')}
+                    style={{
+                      background: '#1c1917', border: 'none',
+                      padding: '10px 20px', fontSize: '10px',
+                      letterSpacing: '0.14em', textTransform: 'uppercase' as const,
+                      cursor: 'pointer', color: '#fff',
+                    }}
+                  >
+                    View Saved
+                  </button>
+                )}
+                <button
+                  onClick={() => setTopIndex(0)}
+                  style={{
+                    background: 'none', border: '1px solid #e7e5e4',
+                    padding: '10px 20px', fontSize: '10px',
+                    letterSpacing: '0.14em', textTransform: 'uppercase' as const,
+                    cursor: 'pointer', color: '#78716c',
+                  }}
+                >
+                  Keep Styling
+                </button>
+              </div>
+            </div>
+          )}
         </Box>
       </Box>
     </Box>
