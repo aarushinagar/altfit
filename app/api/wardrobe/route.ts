@@ -52,37 +52,6 @@ function serializeItem(item: Record<string, unknown>) {
   }
 }
 
-/**
- * Verify a cropped image actually shows the expected clothing item.
- * Returns { valid: true } on any error so a bad verify doesn't block saves.
- */
-async function verifyCrop(
-  croppedBuffer: Buffer,
-  expectedCategory: string,
-  expectedName: string,
-  anthropic: Anthropic,
-): Promise<{ valid: boolean; confidence: number }> {
-  try {
-    const base64 = croppedBuffer.toString('base64')
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 60,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-          { type: 'text', text: `Does this image clearly show a ${expectedCategory} clothing item (specifically: ${expectedName})? The item should be the main focus, clearly visible, not cut off or obscured. Reply with JSON only: {"valid": true/false, "confidence": 0.0-1.0}` },
-        ],
-      }],
-    })
-    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
-    const result = JSON.parse(text.replace(/```json|```/g, '').trim())
-    return { valid: !!result.valid, confidence: Number(result.confidence) || 0 }
-  } catch {
-    return { valid: true, confidence: 0.8 } // default pass on error
-  }
-}
-
 export async function GET(req: NextRequest) {
   try {
     validateEnv()
@@ -187,30 +156,67 @@ export async function POST(req: NextRequest) {
       const base64Image = originalBuffer.toString('base64')
       const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
-      // ── PASS 1: Locate the person ──────────────────────────────────────
+      // ── PASS 1: Detect person + clothing in a single Claude call ──────────
       try {
-        const personResponse = await anthropic.messages.create({
+        console.log('[Wardrobe] ── Calling Claude (pass 1: combined person + items)...')
+        const combinedResponse = await anthropic.messages.create({
           model: 'claude-sonnet-4-6',
-          max_tokens: 200,
+          max_tokens: 1200,
+          system: `You are a CV specialist for a fashion app. You detect people and clothing items in photos with high precision.
+Always return raw JSON only — never markdown, never prose.`,
           messages: [{
             role: 'user',
             content: [
               { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
-              { type: 'text', text: `Where is the person in this image?\nReturn ONLY JSON: { "personBox": { "top": number, "left": number, "width": number, "height": number }, "hasPerson": true/false }\nCoordinates are % of image dimensions. No markdown.` }
-            ]
-          }]
+              {
+                type: 'text',
+                text: `Analyze this image and return a single JSON object with:
+1. "hasPerson": true if a person is visible
+2. "personBox": { "top", "left", "width", "height" } as % of image — the bounding box around the entire person (null if no person)
+3. "pieces": array of clothing items worn by the person
+
+STRICT RULES for pieces:
+- Only detect items from: TOP, BOTTOM, DRESS, OUTERWEAR, FOOTWEAR, BAG, FULL_OUTFIT
+- Skip items where < 50% is visible
+- Skip ALL jewelry: earrings, necklaces, bracelets, rings, watches, hair accessories
+- Skip background objects: walls, furniture, art, mirrors, plants
+- Only include confidence >= 0.75
+
+For each piece:
+{
+  "name": "string",
+  "category": "TOP|BOTTOM|DRESS|OUTERWEAR|FOOTWEAR|BAG|FULL_OUTFIT",
+  "color": "string",
+  "fit": "relaxed|regular|fitted|oversized",
+  "season": "springsummer|fallwinter|allseason",
+  "formality": 1-10,
+  "confidence": 0.0-1.0,
+  "boundingBox": { "top": number, "left": number, "width": number, "height": number }
+}
+
+Return ONLY: { "hasPerson": bool, "personBox": {...}|null, "pieces": [...] }
+No markdown. Raw JSON only.`,
+              },
+            ],
+          }],
         })
-        const personText = personResponse.content[0].type === 'text' ? personResponse.content[0].text.trim() : '{}'
-        const personData = JSON.parse(personText.replace(/```json|```/g, '').trim())
-        if (personData.hasPerson && personData.personBox) {
-          personBox = personData.personBox
+
+        const combinedText = combinedResponse.content[0].type === 'text' ? combinedResponse.content[0].text.trim() : '{}'
+        const combinedData = JSON.parse(combinedText.replace(/```json|```/g, '').trim())
+
+        if (combinedData.hasPerson && combinedData.personBox) {
+          personBox = combinedData.personBox
           console.log(`[Wardrobe] ── Person located:`, personBox)
         }
-      } catch (personErr) {
-        console.warn('[Wardrobe] ── Pass 1 failed (non-fatal):', personErr instanceof Error ? personErr.message : String(personErr))
+
+        if (Array.isArray(combinedData.pieces)) {
+          pieces = combinedData.pieces
+        }
+      } catch (pass1Err) {
+        console.warn('[Wardrobe] ── Pass 1 failed (non-fatal):', pass1Err instanceof Error ? pass1Err.message : String(pass1Err))
       }
 
-      // Crop to person-only immediately after locating person
+      // Crop to person-only immediately after the combined call
       if (personBox && isValidPersonBox(personBox)) {
         try {
           personBuffer = await cropToPersonOnly(originalBuffer, personBox)
@@ -220,202 +226,102 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── PASS 2: Detect clothing items ──────────────────────────────────
-      console.log('[Wardrobe] ── Calling Claude (pass 2: detect items)...')
-      const personContext = personBox
-        ? `The person in this image is located at:\nTop: ${personBox.top}%, Left: ${personBox.left}%, Width: ${personBox.width}%, Height: ${personBox.height}%\n\nIdentify ONLY clothing items worn ON this person's body.\nNEVER detect jewelry, accessories, earrings, necklaces, bracelets, rings, watches, or hair accessories.\nThe large painting/artwork in the background is NOT a clothing item — ignore it completely.\nBackground objects, walls, mirrors, and furniture are NOT clothing items.\n\nFor each worn clothing item, provide a bounding box that:\n- Falls WITHIN or near the person's region above\n- Tightly wraps ONLY that specific item on the person's body\n- For dress/top: crop the torso/body area\n- For shoes: crop just the feet area\n- For bag: crop just the bag being held`
-        : `Identify ONLY clothing items WORN by the person in this photo.\nNever detect background objects, art, furniture, walls, or jewelry of any kind.`
-
-      const analysisResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
-            {
-              type: 'text',
-              text: `${personContext}
-
-VISIBILITY RULES — Only detect items that are CLEARLY and FULLY VISIBLE:
-- Skip items mostly hidden behind other objects or the person's body
-- Skip items where less than 50% of the item is visible
-- Skip items obscured by outerwear or other clothing
-- Skip items barely visible in the background
-- If a bag is mostly hidden behind the person's body → skip it
-- If shoes are cut off at the bottom edge → skip them
-- If a top is mostly covered by a jacket → skip it
-Set confidence below 0.6 for anything you are not sure about. Only include items where confidence >= 0.75.
-
-STRICT RULES — NEVER detect or return these item types, skip them completely:
-- Earrings of any kind (studs, hoops, dangles)
-- Necklaces of any kind (chains, pendants, chokers)
-- Bracelets of any kind
-- Watches of any kind
-- Rings of any kind
-- Any jewelry whatsoever
-- Hair accessories (clips, bands, pins)
-
-ONLY detect and return items from these categories:
-- TOP (shirts, blouses, crop tops, bodysuits, tube tops, corsets)
-- BOTTOM (trousers, jeans, skirts, shorts)
-- DRESS (any one-piece dress or jumpsuit)
-- OUTERWEAR (jackets, coats, blazers)
-- FOOTWEAR (shoes, sandals, heels, boots, sneakers)
-- BAG (handbags, clutches, shoulder bags, totes, crossbody)
-- FULL_OUTFIT (when shooting the complete look)
-
-If the image contains ONLY jewelry with no clothing → return []
-
-BOUNDING BOX RULES:
-- top: y-coordinate of TOP EDGE (0=top, 100=bottom)
-- left: x-coordinate of LEFT EDGE (0=left, 100=right)
-- width/height: span of item only, as % of image dimensions
-- confidence must reflect certainty of BOTH item identity AND location
-
-Return ONLY valid JSON array. No markdown. Raw JSON only.
-[{
-  "name": "string",
-  "category": "TOP|BOTTOM|DRESS|OUTERWEAR|FOOTWEAR|BAG|FULL_OUTFIT",
-  "color": "string",
-  "fit": "relaxed|regular|fitted|oversized",
-  "season": "springsummer|fallwinter|allseason",
-  "formality": 1-10,
-  "confidence": 0.0-1.0,
-  "boundingBox": { "top": number, "left": number, "width": number, "height": number }
-}]`,
-            },
-          ],
-        }]
+      // Filter: remove any low-confidence or bad-keyword items
+      const BAD_KEYWORDS = [
+        'earring', 'necklace', 'bracelet', 'watch', 'ring',
+        'jewelry', 'jewellery', 'chain', 'pendant', 'choker',
+        'stud', 'hoop', 'bangle', 'cuff', 'anklet',
+        'hair clip', 'hair band', 'scrunchie',
+        'painting', 'art', 'wall', 'background', 'furniture',
+        'floor', 'ceiling', 'lamp', 'plant', 'frame', 'mirror',
+        'sign', 'text', 'door', 'window', 'pillar', 'column',
+      ]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pieces = pieces.filter((piece: any) => {
+        const name = (piece.name ?? '').toLowerCase()
+        if (BAD_KEYWORDS.some(kw => name.includes(kw))) {
+          console.log('[Wardrobe] ❌ Skipped bad keyword:', piece.name)
+          return false
+        }
+        if ((piece.confidence ?? 1) < 0.75) {
+          console.log('[Wardrobe] ❌ Low confidence:', piece.name, piece.confidence)
+          return false
+        }
+        return true
       })
 
-      const rawText =
-        analysisResponse.content[0].type === 'text'
-          ? analysisResponse.content[0].text.trim()
-          : '[]'
+      if (pieces.length === 0) {
+        return NextResponse.json(
+          { error: 'No clothing items detected. Please upload a photo of an outfit or clothing piece.' },
+          { status: 400 }
+        )
+      }
 
-      try {
-        const cleaned = rawText.replace(/```json|```/g, '').trim()
-        const parsed = JSON.parse(cleaned)
-        pieces = Array.isArray(parsed) ? parsed : [parsed]
+      // ── PASS 2: Precise bounding boxes on person-only image ─────────────
+      // Only runs for outfit photos (person detected, multiple pieces)
+      if (personBox && isValidPersonBox(personBox) && pieces.length > 1) {
+        try {
+          console.log('[Wardrobe] ── Calling Claude (pass 2: precise bboxes on person-only)...')
+          const personJpeg = await sharp(personBuffer).jpeg({ quality: 92 }).toBuffer()
+          const personBase64 = personJpeg.toString('base64')
 
-        // ── FILTERING ──
-        const BAD_KEYWORDS = [
-          'earring', 'necklace', 'bracelet', 'watch', 'ring',
-          'jewelry', 'jewellery', 'chain', 'pendant', 'choker',
-          'stud', 'hoop', 'bangle', 'cuff', 'anklet',
-          'hair clip', 'hair band', 'scrunchie',
-          'painting', 'art', 'wall', 'background', 'furniture',
-          'floor', 'ceiling', 'lamp', 'plant', 'frame', 'mirror',
-          'sign', 'text', 'door', 'window', 'pillar', 'column',
-        ]
+          const bboxResponse = await anthropic.messages.create({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 800,
+            system: `You are a CV specialist drawing precise bounding boxes around clothing items on a person.
+Return raw JSON array only — never markdown, never prose.`,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: personBase64 } },
+                {
+                  type: 'text',
+                  text: `Draw PRECISE bounding boxes around each clothing item listed below.
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        pieces = pieces.filter((piece: any) => {
-          const name = (piece.name ?? '').toLowerCase()
-          const isBad = BAD_KEYWORDS.some(kw => name.includes(kw))
-          if (isBad) {
-            console.log('[Wardrobe] ❌ Skipped:', piece.name)
-            return false
-          }
-          if ((piece.confidence ?? 1) < 0.75) {
-            console.log('[Wardrobe] ❌ Low confidence:', piece.name, piece.confidence)
-            return false
-          }
-          return true
-        })
+RULES (strictly enforced):
+- Wrap TIGHTLY around the item — include 8% padding only
+- TOP: shoulders to waist/hem — NEVER include the face
+- BOTTOM: waist to ankle/hem — NEVER include the torso
+- DRESS: shoulders to hem — NEVER include the face
+- FOOTWEAR: ankle to sole — start below 50% of image height
+- BAG: the bag only — not the arm holding it
+- Set visible: false if item is not clearly visible
 
-        if (pieces.length === 0) {
-          return NextResponse.json(
-            {
-              error:
-                'No clothing items detected. Please upload a photo of an outfit or clothing piece.',
-            },
-            { status: 400 }
-          )
-        }
-
-        // ── PASS 2b: Precise bounding boxes on person-only image ──────────
-        // Only runs for outfit photos (person detected, multiple pieces)
-        if (personBox && isValidPersonBox(personBox) && pieces.length > 1) {
-          try {
-            console.log('[Wardrobe] ── Calling Claude (pass 2b: precise bboxes on person-only)...')
-            const personJpeg = await sharp(personBuffer).jpeg({ quality: 92 }).toBuffer()
-            const personBase64 = personJpeg.toString('base64')
-
-            const bboxResponse = await anthropic.messages.create({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 800,
-              messages: [{
-                role: 'user',
-                content: [
-                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: personBase64 } },
-                  {
-                    type: 'text',
-                    text: `This image shows ONLY a person with no distracting background.
-Your task: draw PRECISE bounding boxes around each clothing item listed below.
-
-Rules:
-- Bounding box wraps TIGHTLY around the item on the body, include 8% padding
-- Exclude face, hands, bare skin not covered by the item
-- TOP: box starts at shoulders, ends at waist/hem
-- BOTTOM: box starts at waist, ends at ankle/hem
-- DRESS: box starts at shoulders, ends at hem
-- FOOTWEAR: just above ankle to sole
-- BAG: wraps only the bag, not the arm holding it
-
-Items to locate (already confirmed visible in this image):
+Items to locate:
 ${pieces.map(p => `- ${p.name} (${p.category})`).join('\n')}
 
-Return a bounding box for each item:
+Return ONLY:
 [{
-  "name": "exact name from list above",
+  "name": "exact name from list",
   "category": "category",
   "boundingBox": { "top": 0-100, "left": 0-100, "width": 1-100, "height": 1-100 },
   "confidence": 0.0-1.0,
   "visible": true/false
 }]
 
-All coordinates as % of THIS image dimensions.
-Set visible: false if item is not clearly visible.
-Return ONLY JSON array. No markdown.`,
-                  },
-                ],
-              }],
-            })
+Coordinates as % of THIS image dimensions. No markdown.`,
+                },
+              ],
+            }],
+          })
 
-            const bboxText = bboxResponse.content[0].type === 'text' ? bboxResponse.content[0].text.trim() : '[]'
-            const bboxData = JSON.parse(bboxText.replace(/```json|```/g, '').trim())
+          const bboxText = bboxResponse.content[0].type === 'text' ? bboxResponse.content[0].text.trim() : '[]'
+          const bboxData = JSON.parse(bboxText.replace(/```json|```/g, '').trim())
 
-            if (Array.isArray(bboxData)) {
-              for (const entry of bboxData) {
-                if (!entry.visible || (entry.confidence ?? 0) < 0.7) continue
-                const match = pieces.find(p => p.name.toLowerCase() === (entry.name ?? '').toLowerCase())
-                  ?? pieces.find(p => p.category.toUpperCase() === (entry.category ?? '').toUpperCase())
-                if (match && entry.boundingBox) {
-                  match.boundingBox = entry.boundingBox
-                  console.log(`[Wardrobe] ── Precise bbox for ${match.name}:`, entry.boundingBox)
-                }
+          if (Array.isArray(bboxData)) {
+            for (const entry of bboxData) {
+              if (!entry.visible || (entry.confidence ?? 0) < 0.7) continue
+              const match = pieces.find(p => p.name.toLowerCase() === (entry.name ?? '').toLowerCase())
+                ?? pieces.find(p => p.category.toUpperCase() === (entry.category ?? '').toUpperCase())
+              if (match && entry.boundingBox) {
+                match.boundingBox = entry.boundingBox
+                console.log(`[Wardrobe] ── Precise bbox for ${match.name}:`, entry.boundingBox)
               }
             }
-          } catch (bboxErr) {
-            console.warn('[Wardrobe] ── Pass 2b failed (non-fatal):', bboxErr instanceof Error ? bboxErr.message : String(bboxErr))
           }
+        } catch (bboxErr) {
+          console.warn('[Wardrobe] ── Pass 2 bbox failed (non-fatal):', bboxErr instanceof Error ? bboxErr.message : String(bboxErr))
         }
-
-      } catch (_parseErr: unknown) {
-        console.warn('[Wardrobe] ── Claude parse failed, using fallback')
-        pieces = [
-          {
-            name: 'Clothing item',
-            category: 'TOP',
-            color: 'unknown',
-            fit: 'regular',
-            season: 'allseason',
-            formality: 5,
-            boundingBox: null,
-          },
-        ]
       }
     } catch (claudeErr: unknown) {
       const msg =

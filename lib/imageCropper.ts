@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import sharp from 'sharp'
-import { validateAndRefineCrop } from './cropValidator'
 
 export interface BoundingBox {
   top: number    // percentage 0-100
@@ -18,6 +17,7 @@ const FALLBACK_REGIONS: Record<string, BoundingBox> = {
   OUTERWEAR:   { top: 10, left: 3,  width: 94, height: 62 },
   FOOTWEAR:    { top: 70, left: 12, width: 76, height: 28 },
   BAG:         { top: 34, left: 32, width: 62, height: 42 },
+  ACCESSORY:   { top: 30, left: 25, width: 50, height: 40 },
   FULL_OUTFIT: { top: 0,  left: 0,  width: 100, height: 100 },
 }
 
@@ -28,7 +28,94 @@ const OUTPUT_SIZES: Record<string, [number, number]> = {
   OUTERWEAR:   [500, 700],
   FOOTWEAR:    [520, 420],
   BAG:         [520, 520],
+  ACCESSORY:   [480, 480],
   FULL_OUTFIT: [500, 750],
+}
+
+interface ValidationResult {
+  valid: boolean
+  reason: string
+  adjustedBox?: BoundingBox
+}
+
+/** Inline validation — no external dependency on cropValidator.ts */
+function validateBox(
+  box: BoundingBox,
+  category: string,
+  confidence: number,
+): ValidationResult {
+  const cat = category.toUpperCase()
+
+  // Confidence threshold per category
+  const minConfidence: Record<string, number> = {
+    TOP: 0.72, BOTTOM: 0.72, DRESS: 0.70,
+    OUTERWEAR: 0.68, FOOTWEAR: 0.75, BAG: 0.70,
+    ACCESSORY: 0.68, FULL_OUTFIT: 0.60,
+  }
+  if (confidence < (minConfidence[cat] ?? 0.70)) {
+    return { valid: false, reason: `Confidence ${confidence.toFixed(2)} below threshold` }
+  }
+
+  // Box dimensions sanity
+  if (box.width < 4 || box.height < 4) {
+    return { valid: false, reason: 'Box too small' }
+  }
+  if (box.top + box.height > 103 || box.left + box.width > 103) {
+    return { valid: false, reason: 'Box exceeds image bounds' }
+  }
+
+  // Area plausibility by category
+  const area = box.width * box.height
+  const areaRules: Record<string, [number, number]> = {
+    TOP:         [200,  4500],
+    BOTTOM:      [200,  5000],
+    DRESS:       [1000, 9000],
+    OUTERWEAR:   [500,  7000],
+    FOOTWEAR:    [30,   2500],
+    BAG:         [50,   3500],
+    ACCESSORY:   [30,   3000],
+    FULL_OUTFIT: [2000, 10000],
+  }
+  const [minArea, maxArea] = areaRules[cat] ?? [100, 10000]
+  if (area < minArea) return { valid: false, reason: `Area ${area.toFixed(0)} too small` }
+  if (area > maxArea) return { valid: false, reason: `Area ${area.toFixed(0)} too large` }
+
+  // Face exclusion — push TOP/DRESS/OUTERWEAR boxes down if they start too high
+  const faceExcludeCategories = ['TOP', 'DRESS', 'OUTERWEAR']
+  if (faceExcludeCategories.includes(cat) && box.top < 12) {
+    const pushDown = 14 - box.top
+    const adjusted: BoundingBox = {
+      top:    14,
+      left:   box.left,
+      width:  box.width,
+      height: Math.max(box.height - pushDown, 20),
+    }
+    return { valid: true, reason: 'Face excluded', adjustedBox: adjusted }
+  }
+
+  // Floor exclusion — FOOTWEAR should not start above mid-image
+  if (cat === 'FOOTWEAR' && box.top < 45) {
+    return { valid: false, reason: `FOOTWEAR top=${box.top} too high, likely wrong item` }
+  }
+
+  // Category position plausibility
+  const expectedRegions: Record<string, { topMin: number; topMax: number }> = {
+    TOP:       { topMin: 8,  topMax: 60 },
+    BOTTOM:    { topMin: 35, topMax: 75 },
+    DRESS:     { topMin: 8,  topMax: 40 },
+    OUTERWEAR: { topMin: 5,  topMax: 55 },
+    FOOTWEAR:  { topMin: 45, topMax: 95 },
+    BAG:       { topMin: 20, topMax: 85 },
+  }
+  const region = expectedRegions[cat]
+  if (region && (box.top < region.topMin || box.top > region.topMax)) {
+    return {
+      valid: false,
+      reason: `${cat} top=${box.top} outside expected range [${region.topMin}, ${region.topMax}]`,
+    }
+  }
+
+  return { valid: true, reason: 'OK' }
 }
 
 export function isValidPersonBox(box: any): box is BoundingBox {
@@ -61,6 +148,7 @@ export async function cropToPersonOnly(
   const bottom = Math.min(H, Math.round(((personBox.top  + personBox.height) / 100) * H) + Math.round((py / 100) * H))
 
   return sharp(imageBuffer)
+    .rotate()
     .extract({ left, top, width: right - left, height: bottom - top })
     .toBuffer()
 }
@@ -82,9 +170,7 @@ export async function precisionCropItem(
     let source = 'FALLBACK'
 
     if (boundingBox) {
-      const validation = await validateAndRefineCrop(
-        boundingBox, cat, confidence, imgW, imgH
-      )
+      const validation = validateBox(boundingBox, cat, confidence)
 
       if (validation.valid) {
         const finalBox = validation.adjustedBox ?? boundingBox
@@ -161,6 +247,7 @@ export async function resizeProductPhoto(
   const [outW, outH] = OUTPUT_SIZES[cat] ?? [500, 650]
 
   return sharp(imageBuffer)
+    .rotate()
     .resize(outW, outH, {
       fit: 'contain',
       background: { r: 248, g: 246, b: 242, alpha: 1 },
