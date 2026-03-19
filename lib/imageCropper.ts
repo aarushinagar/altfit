@@ -396,20 +396,38 @@ export async function precisionCrop(
       FULL_OUTFIT: 10000,
     }
     if (area > (maxArea[cat] ?? 10000)) return false
+
+    // Category vertical-position sanity check.
+    // Rejects a Claude bbox whose center is clearly in the wrong part of the image.
+    const centerY = box.top + box.height / 2
+    const validRange: Record<string, [number, number]> = {
+      TOP:         [2,  60],   // torso region
+      BOTTOM:      [35, 100],  // hip-to-ankle region
+      DRESS:       [5,  92],
+      OUTERWEAR:   [2,  72],
+      FOOTWEAR:    [58, 100],  // feet/shoe region
+      BAG:         [15, 88],
+      FULL_OUTFIT: [0,  100],
+    }
+    const [minY, maxY] = validRange[cat] ?? [0, 100]
+    if (centerY < minY || centerY > maxY) {
+      console.log(`[Crop] ❌ Rejected bbox for ${cat}: center Y ${centerY.toFixed(1)}% outside [${minY}–${maxY}]`)
+      return false
+    }
     return true
   }
 
   let crop: { left: number; top: number; width: number; height: number }
 
   if (boundingBox && isValidBox(boundingBox)) {
-    // Use Claude's bounding box with padding
-    const pad = (cat === 'FOOTWEAR' || cat === 'BAG') ? 15 : 8
+    // Padded extract — generous padding gives breathing room (the "zoom" feel)
+    const padPct = (cat === 'FOOTWEAR' || cat === 'BAG') ? 20 : 15
     const rawLeft   = (boundingBox.left   / 100) * imgW
     const rawTop    = (boundingBox.top    / 100) * imgH
     const rawWidth  = (boundingBox.width  / 100) * imgW
     const rawHeight = (boundingBox.height / 100) * imgH
-    const padX = (pad / 100) * imgW
-    const padY = (pad / 100) * imgH
+    const padX = (padPct / 100) * imgW
+    const padY = (padPct / 100) * imgH
     const left   = Math.max(0, Math.round(rawLeft - padX))
     const top    = Math.max(0, Math.round(rawTop  - padY))
     const right  = Math.min(imgW, Math.round(rawLeft + rawWidth  + padX))
@@ -417,15 +435,15 @@ export async function precisionCrop(
     crop = { left, top, width: right - left, height: bottom - top }
     console.log(`[Crop] ✅ Using Claude bbox for ${category}:`, boundingBox)
   } else {
-    // Smart fallback — fixed percentage regions of person-only image
+    // Fallback — fixed percentage regions of the person-only image
     console.log(`[Crop] ⚠️ Using fallback for ${category}`)
     const fallbacks: Record<string, { left: number; top: number; width: number; height: number }> = {
-      TOP:         { left: Math.round(imgW * 0.05), top: Math.round(imgH * 0.12), width: Math.round(imgW * 0.90), height: Math.round(imgH * 0.38) },
-      BOTTOM:      { left: Math.round(imgW * 0.05), top: Math.round(imgH * 0.47), width: Math.round(imgW * 0.90), height: Math.round(imgH * 0.48) },
-      DRESS:       { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.08), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.88) },
-      OUTERWEAR:   { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.08), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.65) },
-      FOOTWEAR:    { left: Math.round(imgW * 0.10), top: Math.round(imgH * 0.70), width: Math.round(imgW * 0.80), height: Math.round(imgH * 0.28) },
-      BAG:         { left: Math.round(imgW * 0.35), top: Math.round(imgH * 0.35), width: Math.round(imgW * 0.60), height: Math.round(imgH * 0.40) },
+      TOP:         { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.07), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.44) },
+      BOTTOM:      { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.42), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.56) },
+      DRESS:       { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.05), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.93) },
+      OUTERWEAR:   { left: Math.round(imgW * 0.02), top: Math.round(imgH * 0.05), width: Math.round(imgW * 0.96), height: Math.round(imgH * 0.70) },
+      FOOTWEAR:    { left: Math.round(imgW * 0.08), top: Math.round(imgH * 0.65), width: Math.round(imgW * 0.84), height: Math.round(imgH * 0.33) },
+      BAG:         { left: Math.round(imgW * 0.28), top: Math.round(imgH * 0.28), width: Math.round(imgW * 0.66), height: Math.round(imgH * 0.46) },
       FULL_OUTFIT: { left: 0, top: 0, width: imgW, height: imgH },
     }
     crop = fallbacks[cat] ?? fallbacks.FULL_OUTFIT
@@ -446,35 +464,11 @@ export async function precisionCrop(
   }
   const [outW, outH] = outputSizes[cat] ?? [500, 650]
 
-  // ── ZOOM IN (not hard-crop) ─────────────────────────────────────────────
-  // Scale the full image so the item region fills ~78% of the output frame,
-  // then extract an outW×outH window centered on the item.
-  // This keeps a slice of context around each piece — avoiding the "cut off"
-  // look of a tight extract.
-
-  const centerX = crop.left + crop.width  / 2   // px in original
-  const centerY = crop.top  + crop.height / 2
-
-  // Item should fill ~78% of the output (1.28 context factor)
-  const scaleX = outW / (crop.width  * 1.28)
-  const scaleY = outH / (crop.height * 1.28)
-  const scale  = Math.min(scaleX, scaleY)
-
-  // Scaled image size — preserve aspect ratio; must be ≥ output dimensions
-  const scaledW = Math.max(outW, Math.round(imgW * scale))
-  const scaledH = Math.max(outH, Math.round(imgH * scale))
-
-  // Item center position in scaled image
-  const scaledCX = Math.round(centerX * (scaledW / imgW))
-  const scaledCY = Math.round(centerY * (scaledH / imgH))
-
-  // Extract window: clamp so it stays within bounds
-  const extractLeft = Math.max(0, Math.min(scaledCX - Math.floor(outW / 2), scaledW - outW))
-  const extractTop  = Math.max(0, Math.min(scaledCY - Math.floor(outH / 2), scaledH - outH))
-
+  // Extract the padded/fallback region, then upscale to output size.
+  // fit: 'cover' = zoom-in: fills the frame, centred, no letterbox bars.
   return sharp(imageBuffer)
-    .resize(scaledW, scaledH, { fit: 'fill' })  // same aspect ratio → no stretch
-    .extract({ left: extractLeft, top: extractTop, width: outW, height: outH })
+    .extract(crop)
+    .resize(outW, outH, { fit: 'cover', position: 'centre' })
     .jpeg({ quality: 92, progressive: true })
     .toBuffer()
 }
