@@ -745,7 +745,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
                   </button>
                 )}
                 <button
-                  onClick={() => setTopIndex(0)}
+                  onClick={handleRefresh}
                   style={{
                     background: 'none', border: '1px solid #e7e5e4',
                     padding: '10px 20px', fontSize: '10px',
