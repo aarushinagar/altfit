@@ -255,87 +255,9 @@ Return ONLY this JSON:
       '| items per look:', outfit.looks.map((l: any) => l.items?.length ?? 0).join(', '),
     )
 
-    // ── 5b. Deduplicate + validate looks (before enriching) ─────────────────
-    // BULLETPROOF VALIDATION: enforce hard limits on all categories
-    function enforceStylingRules(looks: any[]): any[] {
-      return looks.map((look: any) => {
-        const items: any[] = look.items ?? []
-        const seen: Record<string, number> = {}
-        
-        // Hard category limits
-        const limits: Record<string, number> = {
-          FOOTWEAR:   1,
-          BAG:        1,
-          OUTERWEAR:  1,
-          BOTTOM:     1,
-          DRESS:      1,
-          TOP:        1,  // Changed from 2 to 1 for strict enforcement
-        }
-
-        // Filter duplicates within category
-        const deduped = items.filter((item: any) => {
-          const cat = (item.category ?? '').toUpperCase()
-          seen[cat] = (seen[cat] ?? 0) + 1
-          const limit = limits[cat] ?? 1
-          if (seen[cat] > limit) {
-            console.log(`[Style] ❌ Removed duplicate ${cat}:`, item.name ?? item.id)
-            return false
-          }
-          return true
-        })
-
-        // Remove BOTTOM if DRESS present (dress replaces top+bottom)
-        const hasDress = deduped.some((i: any) =>
-          (i.category ?? '').toUpperCase() === 'DRESS'
-        )
-        const final = hasDress
-          ? deduped.filter((i: any) => {
-              const cat = (i.category ?? '').toUpperCase()
-              return cat !== 'BOTTOM' && cat !== 'TOP'
-            })
-          : deduped
-
-        // Log final look composition
-        const composition = final.map((i: any) => i.category).join(' + ')
-        console.log(`[Style] ${look.lookType}: ${composition}`)
-
-        return { ...look, items: final }
-      }).filter((look: any) => {
-        const items: any[] = look.items ?? []
-        
-        // Must have at least clothing base
-        const hasClothing = items.some((i: any) =>
-          ['TOP', 'BOTTOM', 'DRESS', 'OUTERWEAR', 'FULL_OUTFIT']
-            .includes((i.category ?? '').toUpperCase())
-        )
-        
-        // Must have 2+ items and valid clothing
-        if (items.length < 2 || !hasClothing) {
-          console.log(`[Style] ❌ Rejected ${look.outfitName}: incomplete (${items.length} items, clothing=${hasClothing})`)
-          return false
-        }
-        return true
-      })
-    }
-
-    const beforeCount = outfit.looks.length
-    outfit.looks = enforceStylingRules(outfit.looks)
-
-    if (outfit.looks.length === 0) {
-      console.warn(`[Curation] All ${beforeCount} looks rejected after styling rules — using raw Claude output as fallback`)
-      // Don't hard-fail — use the raw looks with basic deduplication so the user sees *something*
-      outfit.looks = (JSON.parse(raw.replace(/```json|```/g, '').trim())).looks ?? []
-    }
-
-    if (!Array.isArray(outfit.looks) || outfit.looks.length === 0) {
-      console.error('[Curation] No looks available even after fallback')
-      return NextResponse.json(
-        { error: 'Could not generate a valid outfit. Please try again.' },
-        { status: 500 },
-      )
-    }
-
     // ── 6. Enrich all looks with real wardrobe data ─────────────────────────
+    // NOTE: Enrich BEFORE styling rules — Claude only returns {id, reason},
+    // categories come from the wardrobe DB. Rules need category to be present.
     outfit.looks = enrichLooks(outfit.looks, wardrobe)
 
     console.log(`[ALTFIT] Enriched: ${Date.now() - t0}ms`)
@@ -343,6 +265,23 @@ Return ONLY this JSON:
       const withPhotos = look.items.filter((i: any) => i.imageUrl).length
       console.log(`  ${look.lookType}: ${look.items.length} items, ${withPhotos} with photos`)
     })
+
+    // Drop looks where enrichment found zero matching wardrobe items
+    outfit.looks = outfit.looks.filter((look: any) => {
+      if (look.items.length < 1) {
+        console.warn(`[ALTFIT] ⚠️ Dropped look '${look.outfitName}' — zero items matched wardrobe`)
+        return false
+      }
+      return true
+    })
+
+    if (outfit.looks.length === 0) {
+      console.error('[ALTFIT] ❌ All looks dropped after enrichment — IDs from Claude do not match wardrobe')
+      return NextResponse.json(
+        { error: 'Could not match outfit items to your wardrobe. Please retry.' },
+        { status: 500 },
+      )
+    }
 
     // ── 7. Save to cache + history (non-blocking) ───────────────────────────
     Promise.allSettled([
