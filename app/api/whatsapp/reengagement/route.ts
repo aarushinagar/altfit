@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
       `[WhatsApp] reengagement: Starting delivery for ${today} (inactive since ${sevenDaysAgo.toLocaleDateString()})`,
     );
 
-    // Fetch users inactive for 7+ days
+    // Fetch users who joined 7+ days ago (proxy for potential inactivity)
     const users = await prisma.user.findMany({
       where: {
         phone: { not: null },
         emailOptOut: false,
-        lastSeenAt: { lt: sevenDaysAgo },
+        createdAt: { lt: sevenDaysAgo },
         wardrobeItemCount: { gte: 1 },
       },
       select: {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         name: true,
         styleProfiles: true,
         wardrobeItemCount: true,
-        lastSeenAt: true,
+        createdAt: true,
       },
     });
 
@@ -108,18 +108,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Calculate days since last seen
-        const daysInactive = Math.floor(
-          (Date.now() - (user.lastSeenAt?.getTime() || 0)) /
+        // Calculate days since account creation (used as inactivity proxy)
+        const daysInactive = Math.max(7, Math.floor(
+          (Date.now() - (user.createdAt?.getTime() || 0)) /
             (1000 * 60 * 60 * 24),
-        );
+        ));
 
         // Build user context for personalization
-        const ctx: UserContext = {
+        const ctx: UserContext & { daysInactive: number } = {
           name: user.name || "there",
           userId: user.id.toString(),
           styleProfiles: user.styleProfiles || [],
           wardrobeItemCount: user.wardrobeItemCount,
+          daysInactive,
         };
 
         // Personalize message using Claude

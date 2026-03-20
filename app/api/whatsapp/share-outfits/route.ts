@@ -103,11 +103,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Build user context for personalization
-        const ctx: UserContext = {
+        const ctx: UserContext & { savedOutfitCount: number } = {
           name: user.name || "there",
           userId: user.id.toString(),
           styleProfiles: user.styleProfiles || [],
           wardrobeItemCount: 0, // Not needed for share message
+          savedOutfitCount: user.savedOutfits.length,
         };
 
         // Personalize message using Claude

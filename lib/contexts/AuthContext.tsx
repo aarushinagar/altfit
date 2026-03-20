@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const response = await registerUser(email, password, name);
+        const response = await registerUser(email, password, name, "");
 
         if (response.success && response.data) {
           setUser(response.data.user);
