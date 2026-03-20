@@ -10,7 +10,6 @@ import StyleOnboarding from "@/components/today/StyleOnboarding";
 import SwipeCard from "@/components/today/SwipeCard";
 import SwipeToast from "@/components/today/SwipeToast";
 import SwipeHint from "@/components/today/SwipeHint";
-import OutfitGeneratingScreen from "@/components/today/OutfitGeneratingScreen";
 
 // Lazy-load confetti to avoid hydration issues
 const importConfetti = async () => {
@@ -22,16 +21,7 @@ const importConfetti = async () => {
   }
 };
 
-// ── Loading copy ────────────────────────────────────────────────────────────
-
-const LOADING_COPY = [
-  { text: "Scanning your wardrobe...", ms: 0    },
-  { text: "Matching your pieces...",   ms: 1200 },
-  { text: "Checking the vibe...",      ms: 2400 },
-  { text: "Almost there...",           ms: 3600 },
-];
-
-// ── Item photo grid (used inside each look card) ────────────────────────────
+// ── Page ────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const LookItemGrid = ({ items }: { items: any[] }) => {
@@ -121,7 +111,7 @@ const LookItemGrid = ({ items }: { items: any[] }) => {
   );
 };
 
-// ── Page ────────────────────────────────────────────────────────────────────
+// ── Item photo grid (used inside each look card) ────────────────────────────
 
 interface TodayPageProps {
   wardrobeTotal: number;
@@ -139,7 +129,6 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [loadingText, setLoadingText] = useState(LOADING_COPY[0].text);
   const [dateStr, setDateStr] = useState("");
   const [greeting, setGreeting] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -151,7 +140,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
   const [savedLooks, setSavedLooks] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'save' | 'skip'; visible: boolean }>({ message: '', type: 'save', visible: false });
   // Cinematic loading screen — stays mounted until API responds + animation completes
-  const [cinematicVisible, setCinematicVisible] = useState(false);
+  const [loadingSlow, setLoadingSlow] = useState(false);
   // Streak
   const [streak, setStreak] = useState(0);
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null);
@@ -210,21 +199,11 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     celebrateStreakMilestone();
   }, [streakMilestone]);
 
-  // Cycle loading messages while loading or refreshing
+  // After 5 s of loading show a subtle slow-label beneath the dots
   useEffect(() => {
-    if (!isLoading && !isRefreshing) {
-      setLoadingText(LOADING_COPY[0].text);
-      return;
-    }
-    const timers = LOADING_COPY.slice(1).map(({ text, ms }) =>
-      setTimeout(() => setLoadingText(text), ms)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [isLoading, isRefreshing]);
-
-  // Show cinematic screen whenever an outfit fetch starts
-  useEffect(() => {
-    if (isLoading || isRefreshing) setCinematicVisible(true);
+    if (!isLoading && !isRefreshing) { setLoadingSlow(false); return; }
+    const id = setTimeout(() => setLoadingSlow(true), 5000);
+    return () => clearTimeout(id);
   }, [isLoading, isRefreshing]);
 
   const fetchOutfit = useCallback(async (isAutoRetry = false) => {
@@ -464,13 +443,6 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
 
   return (
     <Box className="today-page page">
-      {/* Cinematic outfit-generating overlay — full screen, above everything */}
-      {cinematicVisible && (
-        <OutfitGeneratingScreen
-          done={!isLoading && !isRefreshing}
-          onDone={() => setCinematicVisible(false)}
-        />
-      )}
       {showOnboarding && (
         <StyleOnboarding onComplete={() => setShowOnboarding(false)} />
       )}
@@ -556,15 +528,36 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
             </Box>
           )}
 
-          {/* Loading / refreshing — minimal inline indicator while cinematic overlay is active */}
+          {/* Inline loading dots */}
           {showLoader && (
             <div style={{
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center",
-              padding: "80px 24px", gap: "20px",
-              opacity: 0,
+              padding: "72px 24px", gap: "18px",
             }}>
-              {/* Invisible placeholder keeps layout stable while cinematic overlay shows */}
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} style={{
+                    display: "inline-block",
+                    width: 7, height: 7,
+                    borderRadius: "50%",
+                    background: "#C9A96E",
+                    animation: `altfitDot 1.2s ease-in-out ${i * 0.18}s infinite both`,
+                  }} />
+                ))}
+              </div>
+              {loadingSlow && (
+                <p style={{
+                  fontFamily: "DM Sans, sans-serif",
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#a8a29e",
+                  margin: 0,
+                }}>
+                  Still curating your look…
+                </p>
+              )}
             </div>
           )}
 

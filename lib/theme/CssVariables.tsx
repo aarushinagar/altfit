@@ -43,6 +43,12 @@ export default function CssVariables() {
           to:   { opacity: 1, transform: "translateY(0)" },
         },
 
+        // Inline loading dots (Today page)
+        "@keyframes altfitDot": {
+          "0%, 80%, 100%": { transform: "scale(0.55)", opacity: 0.3 },
+          "40%":           { transform: "scale(1)",    opacity: 1   },
+        },
+
         // Cinematic outfit generating screen
         "@keyframes outfitStageFadeIn": {
           "0%":   { opacity: 0, transform: "translateY(14px)" },
