@@ -49,7 +49,7 @@ export default function WardrobeItemCard({
   const [imageBroken, setImageBroken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasImage = !!(item.imageUrl || item.previewUrl);
-  const isAnalyzing = item.analysisStatus === 'pending';
+  const isAnalyzing = item.name === 'Analyzing…' || (!item.name?.trim() && item.analysisStatus === 'pending');
 
   const handleAddPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -72,6 +72,11 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Wardrobe GET] Returning ${items.length} of ${total} items`)
 
+    // Drain analysis backlog in background (fire-and-forget — no await)
+    processAnalysisQueue().catch(err =>
+      console.error('[Wardrobe GET] Queue drain error:', err)
+    )
+
     return NextResponse.json({
       success: true,
       data: {

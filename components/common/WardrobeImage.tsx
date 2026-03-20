@@ -1,5 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
+
+import { useState } from "react";
+import Image from "next/image";
 
 interface WardrobeItemLike {
   imageUrl?: string | null;
@@ -19,23 +21,24 @@ export default function WardrobeImage({
   style = {},
   onBroken,
 }: WardrobeImageProps) {
+  const [loaded, setLoaded] = useState(false);
   const src = item.imageUrl || item.previewUrl;
   if (!src) return null;
   return (
-    <img
+    <Image
       src={src}
       alt={item.name || ""}
-      onError={onBroken}
-      loading="lazy"
-      decoding="async"
+      fill
+      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 20vw, 280px"
       style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        objectPosition: "center center",
-        display: "block",
         ...style,
+        objectFit: "cover",
+        objectPosition: "center",
+        opacity: loaded ? 1 : 0,
+        transition: "opacity 0.25s ease",
       }}
+      onLoad={() => setLoaded(true)}
+      onError={onBroken}
     />
   );
 }

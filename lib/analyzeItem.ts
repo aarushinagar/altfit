@@ -64,7 +64,7 @@ async function analyzeWardrobeItem(wardrobeItemId: bigint): Promise<void> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-3-5',
+    model: 'claude-haiku-4-5',
     max_tokens: 600,
     system: 'Fashion item analyzer. Return raw JSON only — no markdown.',
     messages: [
@@ -132,11 +132,11 @@ Raw JSON only. No markdown.`,
 
 // ── Queue processor ────────────────────────────────────────────
 export async function processAnalysisQueue(): Promise<void> {
-  // Claim up to 3 pending jobs atomically (mark as processing first)
+  // Claim up to 10 pending jobs atomically (mark as processing first)
   const jobs = await prisma.analysisQueue.findMany({
     where: { status: 'pending' },
     orderBy: { createdAt: 'asc' },
-    take: 3,
+    take: 10,
   })
 
   if (jobs.length === 0) return
