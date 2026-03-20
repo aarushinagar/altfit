@@ -4,12 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 const STAGES = [
   { text: "Scanning your wardrobe...", ms: 0 },
-  { text: "Understanding your style...", ms: 3500 },
-  { text: "Matching pieces with intention...", ms: 7000 },
-  { text: "Crafting three distinct looks...", ms: 11000 },
-  { text: "Adding the finishing touches...", ms: 15500 },
-  { text: "Worth the wait, we promise.", ms: 20000 },
-  { text: "Almost ready — just a moment more...", ms: 25000 },
+  { text: "Matching pieces with intention...", ms: 1200 },
+  { text: "Crafting three distinct looks...", ms: 2400 },
+  { text: "Adding the finishing touches...", ms: 3600 },
+  { text: "Almost ready...", ms: 4500 },
 ];
 
 interface Props {
@@ -138,7 +136,7 @@ export default function OutfitGeneratingScreen({ done, onDone }: Props) {
           height: "100%",
           background: "linear-gradient(90deg, #7A4010, #A0622C, #C07840)",
           width: complete ? "100%" : undefined,
-          animation: complete ? "none" : "outfitProgress 22s cubic-bezier(0.05, 0.8, 0.4, 1) forwards",
+          animation: complete ? "none" : "outfitProgress 5s cubic-bezier(0.05, 0.8, 0.4, 1) forwards",
           transition: complete ? "width 0.45s ease" : "none",
         }} />
       </div>

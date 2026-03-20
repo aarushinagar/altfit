@@ -65,14 +65,14 @@ function enrichLooks(looks: any[], wardrobe: any[]): any[] {
 
 export async function GET(req: NextRequest) {
   const t0 = Date.now()
-  console.log('[Curation] ── START')
+  console.log('[ALTFIT] Starting outfit generation')
 
   try {
     const auth = requireAuth(req)
     if (!auth.ok) return auth.response
     const userId = auth.userId
     const userIdBigInt = BigInt(userId)
-    console.log('[Curation] ── User:', userId)
+    console.log(`[ALTFIT] Auth: ${Date.now() - t0}ms`)
 
     const tz        = DEFAULT_TIMEZONE
     const localDate = new Date().toLocaleDateString('sv-SE') // "YYYY-MM-DD"
@@ -81,46 +81,39 @@ export async function GET(req: NextRequest) {
     const dailyCuration = await prisma.dailyCuration.findFirst({
       where: { userId: userIdBigInt, localDate },
     })
+    console.log(`[ALTFIT] Cache check: ${Date.now() - t0}ms — ${dailyCuration?.slot1 ? 'HIT' : 'MISS'}`)
 
     if (dailyCuration?.slot1) {
       const outfit = dailyCuration.slot1 as any
       if (Array.isArray(outfit?.looks) && outfit.looks.length > 0) {
-        // Re-enrich to get latest imageUrl values
-        const wardrobe = await prisma.wardrobeItem.findMany({
-          where: { userId: userIdBigInt, isActive: true },
-          select: { id: true, name: true, category: true, colorNames: true, imageUrl: true, formality: true, fit: true },
-        })
-        outfit.looks = enrichLooks(outfit.looks, wardrobe)
-        console.log('[Curation] ── Cache HIT — serving enriched')
+        // Cache hit — outfit is already fully enriched (name, imageUrl, etc.).
+        // No wardrobe re-fetch needed — return instantly.
+        console.log(`[ALTFIT] Cache HIT — returning in ${Date.now() - t0}ms`)
         return NextResponse.json(
           { outfit, cached: true },
           { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } },
         )
       }
     }
-    console.log('[Curation] ── Cache MISS — generating')
+    console.log('[ALTFIT] Cache MISS — generating fresh outfit')
 
     // ── 2. Fetch data in parallel ───────────────────────────────────────────
-    const [wardrobe, history, _profile] = await Promise.all([
+    const [wardrobe, history] = await Promise.all([
       prisma.wardrobeItem.findMany({
         where: { userId: userIdBigInt, isActive: true },
         select: { id: true, name: true, category: true, colorNames: true, imageUrl: true, formality: true, fit: true },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: 25,
       }),
       prisma.outfitHistory.findMany({
         where: { userId: userIdBigInt },
-        select: { outfitName: true, itemNames: true },
+        select: { outfitName: true },
         orderBy: { curatedAt: 'desc' },
-        take: 7,
-      }),
-      prisma.userStyleProfile.findUnique({
-        where: { userId: userIdBigInt },
+        take: 5,
       }),
     ])
 
-    console.log('[Curation] Total wardrobe items:', wardrobe.length)
-    console.log('[Curation] Items with photos:', wardrobe.filter((w: any) => w.imageUrl).length)
+    console.log(`[ALTFIT] Wardrobe fetched: ${Date.now() - t0}ms — ${wardrobe.length} items (${wardrobe.filter((w: any) => w.imageUrl).length} with photos)`)
 
     if (wardrobe.length === 0) {
       return NextResponse.json(
@@ -130,111 +123,77 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 3. Build prompt context ─────────────────────────────────────────────
-    // 15 items max, shuffled — fewer tokens = faster response
-    const wardrobeShuffled = shuffle(wardrobe).slice(0, 15)
+    // 20 items max, shuffled — fewer tokens = faster Haiku response
+    const wardrobeShuffled = shuffle(wardrobe).slice(0, 20)
     const wardrobeContext  = wardrobeShuffled
       .map((w: any) => `${w.id}|${w.name}|${w.category}|${w.colorNames?.[0] ?? 'unknown'}`)
       .join('\n')
 
     const recentNames = history.length > 0
       ? history.map((h: any) => h.outfitName).filter(Boolean).slice(0, 3).join(', ')
-      : 'nothing yet'
+      : ''
 
-    console.log('[Curation] ── Wardrobe:', wardrobeShuffled.length, 'items (shuffled)')
+    console.log(`[ALTFIT] Items filtered: ${Date.now() - t0}ms — ${wardrobeShuffled.length} items sent to Claude`)
 
     // ── 4. Call Claude ──────────────────────────────────────────────────────
-    console.log('[Curation] ── Calling Claude...')
+    console.log('[ALTFIT] Calling Claude...')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    const systemPrompt = `You are ALT FIT — a world class personal stylist
-with 20 years of editorial fashion experience.
-You have dressed celebrities, shot for Vogue, and built
-wardrobes for real women with real lives.
+    // Compact system prompt — Haiku performs best with tight, unambiguous instructions
+    const systemPrompt = `You are ALT FIT, an expert personal stylist. Build cohesive, wearable outfits from the wardrobe provided.
 
-You know these rules like breathing:
+HARD RULES (never break):
+- Max 4 items per look, min 2
+- Exactly 1 TOP or 1 DRESS (never both, never DRESS + BOTTOM)
+- Max 1 FOOTWEAR, 1 BAG, 1 OUTERWEAR per look
+- Formality consistent across all items (±2 points)
+- Colors must work together: tonal, neutral base + accent, or monochrome
+- Every item must suit the same occasion
+- Return raw JSON only — no markdown, no prose`
 
-ABSOLUTE RULES YOU NEVER BREAK:
-1. ONE pair of shoes per outfit. One pair of feet.
-2. ONE bag per outfit. One set of hands.
-3. ONE outer layer (jacket/blazer/coat) per outfit.
-4. DRESS replaces TOP + BOTTOM. Never combine dress + skirt or trousers.
-5. Every outfit needs a clothing foundation:
-   TOP + BOTTOM → valid. DRESS alone → valid. BAG alone → not an outfit. Never.
-6. Formality consistent across all items (±2 points max).
-   Never mix a ballgown with trainers.
-7. Maximum 4 items per look. Minimum 2.
-8. Never mix seasons (no fur coat + linen shorts).
-9. Color must work together: tonal, neutral base, or one statement piece.
-10. Occasion must be consistent across every single item in the look.
+    const userPrompt = `Build 3 outfit suggestions from this wardrobe.
 
-STYLING INTELLIGENCE:
-- Think in color stories: monochrome, tonal, one statement piece
-- Think in silhouette: fitted top = relaxed bottom and vice versa
-- Think in occasion: every item must serve the same occasion
-- Think in weather: Mumbai is hot and humid — prioritize breathable
-- Think in the person: what would actually look good together
-
-You are building complete, wearable, cohesive outfits.
-Not random item combinations.`
-
-    const userPrompt = `Build 3 complete outfit suggestions for today.
-
-WARDROBE (use EXACT IDs):
+WARDROBE (copy IDs exactly):
 ${wardrobeContext}
+${recentNames ? `\nAvoid repeating: ${recentNames}` : ''}
+Context: Mumbai, 31°C humid, ${new Date().toLocaleDateString('en-IN', { weekday: 'long' })}, seed:${Date.now()}
 
-${recentNames && recentNames !== 'nothing yet' ? `Recently worn — DO NOT repeat: ${recentNames}` : ''}
-Weather: Mumbai, 31°C humid, ${new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
-Variety seed: ${Date.now()}
+Build: MORNING (casual/relaxed) · DAYTIME (smart/practical) · EVENING (elevated/polished)
 
-BUILD EXACTLY:
-MORNING → relaxed, effortless, casual
-DAYTIME → smart, put-together, practical
-EVENING → elevated, intentional, polished
-
-FOR EACH LOOK YOU MUST:
-✓ Choose 1 TOP or 1 DRESS (not both)
-✓ If TOP chosen: choose 1 BOTTOM
-✓ Optionally add 1 FOOTWEAR (max one pair)
-✓ Optionally add 1 BAG (max one bag)
-✓ Total: 2-4 items maximum
-
-YOU MUST NEVER:
-✗ Include 2 pairs of shoes
-✗ Include 2 bags
-✗ Include DRESS + BOTTOM together
-✗ Mix items more than 2 formality points apart
-✗ Repeat exact combinations from recently worn list
-✗ Include more than 4 items in one look
-
-Return ONLY valid JSON:
-{"looks":[
-  {"lookType":"MORNING","outfitName":"2-4 word editorial name","mood":"one word","formality":"RELAXED|SMART|ELEVATED","items":[{"id":"exact-uuid","reason":"specific why in 8 words"}],"stylingNote":"2 sentences explaining color + silhouette logic","occasionTags":["tag1","tag2"],"tip":"one specific actionable tip"},
-  {"lookType":"DAYTIME","outfitName":"...","mood":"...","formality":"...","items":[...],"stylingNote":"...","occasionTags":[...],"tip":"..."},
-  {"lookType":"EVENING","outfitName":"...","mood":"...","formality":"...","items":[...],"stylingNote":"...","occasionTags":[...],"tip":"..."}
-]}
-
-CRITICAL: Copy UUIDs EXACTLY from the wardrobe list.
-Each look must pass: has clothing + no duplicates + cohesive.`
+Return ONLY this JSON:
+{"looks":[{"lookType":"MORNING","outfitName":"2-4 words","mood":"1 word","formality":"RELAXED","items":[{"id":"exact-id","reason":"8 words"}],"stylingNote":"2 sentences","occasionTags":["tag"],"tip":"1 sentence"},{"lookType":"DAYTIME",...},{"lookType":"EVENING",...}]}`
 
     const claudePromise = anthropic.messages.create({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 600,
+      model:      'claude-haiku-3-5',
+      max_tokens: 700,
       system:     systemPrompt,
       messages:   [{ role: 'user', content: userPrompt }],
     })
 
-    // Hard 20s timeout — never hang forever
+    // 5-second hard timeout — never leave user waiting indefinitely
     let response: any
     try {
       response = await Promise.race([
         claudePromise,
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('TIMEOUT')), 20000),
+          setTimeout(() => reject(new Error('TIMEOUT')), 5000),
         ),
       ])
     } catch (err: any) {
       if ((err as Error).message === 'TIMEOUT') {
-        console.error('[Curation] ❌ Claude timed out after 20s')
+        console.error(`[ALTFIT] ❌ Claude timed out after 5s (${Date.now() - t0}ms total)`)
+        // Fallback: return yesterday's cached outfit rather than an error
+        const fallback = await prisma.dailyCuration.findFirst({
+          where: { userId: userIdBigInt, NOT: { localDate } },
+          orderBy: { localDate: 'desc' },
+        })
+        if (fallback?.slot1) {
+          console.log('[ALTFIT] Returning fallback from previous day')
+          return NextResponse.json(
+            { outfit: fallback.slot1, cached: true, fallback: true },
+            { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+          )
+        }
         return NextResponse.json(
           { error: 'Taking too long. Please tap Retry.' },
           { status: 504 },
@@ -243,7 +202,7 @@ Each look must pass: has clothing + no duplicates + cohesive.`
       throw err
     }
 
-    console.log('[Curation] ── Claude responded ✅')
+    console.log(`[ALTFIT] Claude responded: ${Date.now() - t0}ms`)
 
     // ── 5. Parse response ───────────────────────────────────────────────────
     const raw = response.content[0].type === 'text'
@@ -254,7 +213,18 @@ Each look must pass: has clothing + no duplicates + cohesive.`
     try {
       outfit = JSON.parse(raw.replace(/```json|```/g, '').trim())
     } catch {
-      console.error('[Curation] Parse failed:', raw.substring(0, 300))
+      console.error(`[ALTFIT] Parse failed (${Date.now() - t0}ms):`, raw.substring(0, 300))
+      // Fallback to yesterday's outfit rather than showing an error
+      const fallback = await prisma.dailyCuration.findFirst({
+        where: { userId: userIdBigInt, NOT: { localDate } },
+        orderBy: { localDate: 'desc' },
+      })
+      if (fallback?.slot1) {
+        return NextResponse.json(
+          { outfit: fallback.slot1, cached: true, fallback: true },
+          { headers: { 'Cache-Control': 'no-store' } },
+        )
+      }
       return NextResponse.json(
         { error: 'Could not generate your outfit. Please try again.' },
         { status: 500 },
@@ -262,7 +232,7 @@ Each look must pass: has clothing + no duplicates + cohesive.`
     }
 
     if (!Array.isArray(outfit?.looks) || outfit.looks.length === 0) {
-      console.error('[Curation] No valid looks in response:', JSON.stringify(outfit).substring(0, 200))
+      console.error(`[ALTFIT] No valid looks in response (${Date.now() - t0}ms):`, JSON.stringify(outfit).substring(0, 200))
       return NextResponse.json(
         { error: 'Could not generate your outfit. Please try again.' },
         { status: 500 },
@@ -350,12 +320,10 @@ Each look must pass: has clothing + no duplicates + cohesive.`
     // ── 6. Enrich all looks with real wardrobe data ─────────────────────────
     outfit.looks = enrichLooks(outfit.looks, wardrobe)
 
-    console.log('[Curation] Looks enriched:')
+    console.log(`[ALTFIT] Enriched: ${Date.now() - t0}ms`)
     outfit.looks.forEach((look: any) => {
-      console.log(
-        `  ${look.lookType}: ${look.items.length} items,`,
-        `${look.items.filter((i: any) => i.imageUrl).length} with photos`,
-      )
+      const withPhotos = look.items.filter((i: any) => i.imageUrl).length
+      console.log(`  ${look.lookType}: ${look.items.length} items, ${withPhotos} with photos`)
     })
 
     // ── 7. Save to cache + history (non-blocking) ───────────────────────────
@@ -399,10 +367,10 @@ Each look must pass: has clothing + no duplicates + cohesive.`
         }),
       ),
     ]).then(() => {
-      console.log('[Curation] ── Saved to cache + history')
+      console.log(`[ALTFIT] Saved to cache + history`)
     })
 
-    console.log(`[Curation] ── DONE in ${Date.now() - t0}ms`)
+    console.log(`[ALTFIT] Total time: ${Date.now() - t0}ms`)
     return NextResponse.json(
       { outfit, cached: false },
       { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } },

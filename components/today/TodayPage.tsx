@@ -15,12 +15,10 @@ import OutfitGeneratingScreen from "@/components/today/OutfitGeneratingScreen";
 // ── Loading copy ────────────────────────────────────────────────────────────
 
 const LOADING_COPY = [
-  { text: "Scanning your wardrobe...", ms: 0     },
-  { text: "Matching your pieces...",   ms: 3000  },
-  { text: "Checking the vibe...",      ms: 6000  },
-  { text: "Cooking something good...", ms: 9000  },
-  { text: "Almost there...",           ms: 12000 },
-  { text: "Worth the wait, promise.",  ms: 16000 },
+  { text: "Scanning your wardrobe...", ms: 0    },
+  { text: "Matching your pieces...",   ms: 1200 },
+  { text: "Checking the vibe...",      ms: 2400 },
+  { text: "Almost there...",           ms: 3600 },
 ];
 
 // ── Item photo grid (used inside each look card) ────────────────────────────
@@ -191,7 +189,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     setIsLoading(true);
     setError(null);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       const token = getAuthToken();
       const res = await fetch("/api/curate-outfit", {
@@ -244,7 +242,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     if (refreshingLook) return;
     setRefreshingLook(lookType);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       const token = getAuthToken();
       const otherItemIds = looks
@@ -328,7 +326,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     setLooks([]);
     setSavedLooks(new Set());
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
       const token = getAuthToken();
       const authHeader: Record<string, string> = token

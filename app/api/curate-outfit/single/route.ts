@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   const claudePromise = anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-3-5',
     max_tokens: 300,
     system: `You are ALT FIT, a personal stylist.
 Build ONE complete outfit suggestion from the user's wardrobe.
@@ -98,7 +98,7 @@ JSON only, no markdown:
     claudeRes = await Promise.race([
       claudePromise,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 20000),
+        setTimeout(() => reject(new Error('TIMEOUT')), 5000),
       ),
     ])
   } catch (err: any) {
