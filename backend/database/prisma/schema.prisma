@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
 }
 
 datasource db {
@@ -50,6 +50,7 @@ model User {
   savedOutfits    SavedOutfit[]
   emailLogs       EmailLog[]
   whatsappLogs    WhatsAppLog[]
+  analysisQueue   AnalysisQueue[]
 
   // Email marketing preferences
   emailOptOut   Boolean  @default(false)    // true = never send marketing emails
@@ -138,10 +139,14 @@ model WardrobeItem {
   userRating Int?    // 1–5, optional item rating
   userNotes  String? // personal notes about this piece
 
+  // Background analysis
+  analysisStatus String @default("pending") // "pending" | "done"
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  outfitItems OutfitItem[]
+  outfitItems   OutfitItem[]
+  analysisQueue AnalysisQueue[]
 
   @@index([userId])
   @@index([category])
@@ -403,4 +408,29 @@ model WhatsAppLog {
 
   @@unique([userId, messageType, localDate])
   @@index([userId, sentAt])
+}
+
+// ── ANALYSIS QUEUE ────────────────────────────────────────────
+// Background Claude Vision jobs — item appears in wardrobe instantly,
+// Claude runs here without the user waiting.
+model AnalysisQueue {
+  id             BigInt        @id
+  wardrobeItemId BigInt
+  wardrobeItem   WardrobeItem  @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+  userId         BigInt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String        @default("pending") // pending | processing | done | failed
+  attempts       Int           @default(0)
+  createdAt      DateTime      @default(now())
+  processedAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ── SUPABASE AUTH SHADOW (read-only, @@ignore prevents Prisma from managing it)
+model AuthUsers {
+  id String @id @db.Uuid
+
+  @@ignore
+  @@map("users")
 }

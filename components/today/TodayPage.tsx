@@ -12,6 +12,16 @@ import SwipeToast from "@/components/today/SwipeToast";
 import SwipeHint from "@/components/today/SwipeHint";
 import OutfitGeneratingScreen from "@/components/today/OutfitGeneratingScreen";
 
+// Lazy-load confetti to avoid hydration issues
+const importConfetti = async () => {
+  try {
+    const confetti = await import("canvas-confetti");
+    return confetti.default;
+  } catch {
+    return null;
+  }
+};
+
 // ── Loading copy ────────────────────────────────────────────────────────────
 
 const LOADING_COPY = [
@@ -167,6 +177,38 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       setTopIndex(0);
     }
   }, [outfit]);
+
+  // Trigger confetti celebration on milestone achievement
+  useEffect(() => {
+    if (!streakMilestone) return;
+
+    const celebrateStreakMilestone = async () => {
+      const confetti = await importConfetti();
+      if (!confetti) return;
+
+      // Fire confetti burst
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        colors: ['#C9A96E', '#1C1410', '#F5F0E8'],
+        origin: { y: 0.5 },
+        decay: 0.94,
+        startVelocity: 45,
+      });
+
+      // Secondary burst a bit delayed
+      setTimeout(() => {
+        confetti({
+          particleCount: 60,
+          spread: 100,
+          colors: ['#C9A96E', '#F5F0E8'],
+          origin: { y: 0.4 },
+        });
+      }, 150);
+    };
+
+    celebrateStreakMilestone();
+  }, [streakMilestone]);
 
   // Cycle loading messages while loading or refreshing
   useEffect(() => {

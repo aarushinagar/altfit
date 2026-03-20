@@ -31,8 +31,10 @@
     "@supabase/supabase-js": "^2.99.1",
     "@use-gesture/react": "^10.3.1",
     "bcryptjs": "^3.0.3",
+    "canvas-confetti": "^1.9.4",
     "cookie": "^1.1.1",
     "dotenv": "^17.3.1",
+    "framer-motion": "^12.38.0",
     "google-auth-library": "^10.6.1",
     "idb-keyval": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
@@ -50,6 +52,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.37",
     "@types/react": "^19",

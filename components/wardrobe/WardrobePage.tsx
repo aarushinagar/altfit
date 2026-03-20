@@ -45,6 +45,18 @@ export default function WardrobePage({
     if (!dismissed) setBannerDismissed(false);
   }, []);
 
+  // Poll every 3s while any item is still being analyzed
+  useEffect(() => {
+    const hasPending = savedItems.some(i => i.analysisStatus === 'pending');
+    if (!hasPending) return;
+
+    const timer = setInterval(() => {
+      onRefresh?.();
+    }, 3000);
+
+    return () => clearInterval(timer);
+  }, [savedItems, onRefresh]);
+
   const handleImageBroken = useCallback(() => {
     // Still useful for showing the banner if a URL was set but the image 404s
     setBannerDismissed((prev) => {

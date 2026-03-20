@@ -141,18 +141,20 @@ export function useCuration(userId: string | null): UseCurationReturn {
 
         if (cancelled) return;
 
-        // 2. Geolocation (never throws — falls back to default location)
-        console.log("[Curation] requesting geolocation…");
-        const geoResult = await requestGeolocation();
+        // 2 & 3. Parallelize geolocation + token fetch (massive speedup!)
+        console.log("[Curation] requesting geolocation & token in parallel…");
+        const [geoResult, token] = await Promise.all([
+          requestGeolocation(),
+          ensureFreshToken(),
+        ]);
         const lat = geoResult.lat;
         const lon = geoResult.lon;
         console.log("[Curation] geo resolved:", { lat, lon, fallback: geoResult.usingFallback });
+        console.log("[Curation] token present:", !!token);
 
         if (cancelled) return;
 
-        // 3. API call — get a fresh token first to avoid 401 on expired sessions
-        const token = await ensureFreshToken();
-        console.log("[Curation] token present:", !!token);
+        // 4. Now make the API call
         const ac = new AbortController();
         const fetchTimeoutId = setTimeout(() => ac.abort(), 50_000);
         console.log("[Curation] fetching /api/curations/today…");

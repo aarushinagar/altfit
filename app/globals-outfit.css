@@ -1,0 +1,290 @@
+/* ── OUTFIT DISPLAY (Mobile-First) ────────────────────────────────────────── */
+
+.outfit-display {
+    padding: 0 16px 140px 16px;
+    max-width: 480px;
+    margin: 0 auto;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Vibe tag pill */
+.vibe-tag {
+    display: inline-block;
+    padding: 6px 16px;
+    border: 1px solid #c9a96e;
+    color: #c9a96e;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    margin-top: 16px;
+    font-weight: 500;
+}
+
+/* Outfit items container */
+.outfit-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Each outfit item card */
+.outfit-item-card {
+    display: flex;
+    gap: 14px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    animation: slideUp 0.4s ease both;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.item-image {
+    width: 90px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #e8e3da;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.item-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.item-role {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: #c9a96e;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.item-category {
+    font-size: 15px;
+    font-family: 'Playfair Display', serif;
+    font-weight: 400;
+    color: #1c1410;
+    line-height: 1.3;
+}
+
+.item-reason {
+    font-size: 12px;
+    color: #7a7060;
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+/* Stylist note */
+.stylist-note {
+    margin: 24px 0;
+    padding: 20px;
+    background: rgba(201, 169, 110, 0.08);
+    border-left: 2px solid #c9a96e;
+    border-radius: 0 10px 10px 0;
+}
+
+.note-label {
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: #c9a96e;
+    display: block;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.stylist-note p {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1c1410;
+    font-style: italic;
+    font-weight: 400;
+    margin: 0 0 8px 0;
+}
+
+.note-sig {
+    font-size: 10px;
+    color: #c9a96e;
+    font-weight: 500;
+}
+
+/* Color story */
+.color-story {
+    font-size: 13px;
+    color: #7a7060;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+/* Sticky action bar — bottom of screen on mobile */
+.outfit-actions {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    background: rgba(245, 240, 232, 0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    z-index: 100;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 12px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: white;
+    color: #1c1410;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.action-btn:active {
+    transform: scale(0.96);
+}
+
+.action-btn.active {
+    background: #1c1410;
+    color: white;
+    border-color: #1c1410;
+}
+
+.action-btn.regen {
+    border-color: #c9a96e;
+    color: #c9a96e;
+}
+
+.action-btn.regen:active {
+    background: rgba(201, 169, 110, 0.1);
+}
+
+/* ── OUTFIT LOADER (Skeleton + Stages) ────────────────────────────────────────── */
+
+.outfit-loader {
+    padding: 0 16px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.skeleton-items {
+    padding: 24px 0;
+}
+
+.skeleton-item-card {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.skeleton-image {
+    width: 90px;
+    height: 110px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.skeleton-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.loader-stage {
+    text-align: center;
+    padding: 60px 0 40px;
+}
+
+.stage-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: #1c1410;
+    margin: 0 0 8px 0;
+    animation: fadeIn 0.4s ease;
+}
+
+.stage-sub {
+    font-size: 13px;
+    color: #7a7060;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.shimmer {
+    background: linear-gradient(90deg, #ede8df 25%, #e3ddd3 50%, #ede8df 75%);
+    background-size: 200% 100%;
+    animation: shimmerPulse 1.4s infinite;
+    border-radius: 6px;
+}
+
+@keyframes shimmerPulse {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Empty state for insufficient wardrobe */
+.empty-state {
+    padding: 60px 24px 40px;
+    text-align: center;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-state p {
+    margin: 0;
+    line-height: 1.6;
+}

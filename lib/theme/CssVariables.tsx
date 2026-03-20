@@ -68,6 +68,11 @@ export default function CssVariables() {
           from: { opacity: 0, transform: "translateY(8px)" },
           to:   { opacity: 1, transform: "translateY(0)" },
         },
+        // Wardrobe item shimmer — used for analysisStatus: "pending" cards
+        "@keyframes shimmerMove": {
+          "0%":   { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
 
         // ── Utility classes ─────────────────────────────────────────────────
         ".fade-up": { animation: "fadeUp 0.5s ease forwards" },

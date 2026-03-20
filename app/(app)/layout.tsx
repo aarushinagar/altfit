@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { AppProvider, useAppContext } from "@/lib/contexts/AppContext";
 import { getAuthToken, getStoredUser } from "@/lib/utils/authUtils";
 import AppNav from "@/components/layout/AppNav";
@@ -95,7 +96,18 @@ function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setNavOpen(false)}
       />
 
-      {children}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          style={{ display: 'contents' }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
 
       <MobileTabBar
         page={currentPage}

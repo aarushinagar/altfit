@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./globals-outfit.css";
 import ThemeRegistry from "@/lib/theme/ThemeRegistry";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { GOOGLE_FONTS_URL } from "@/lib/theme/tokens";
