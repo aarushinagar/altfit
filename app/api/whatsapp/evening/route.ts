@@ -14,7 +14,7 @@ import { generatePrismaId } from "@/backend/database/prisma-id";
 import { personalizeEveningWhatsApp } from "@/lib/whatsapp/personalizer";
 import { eveningWhatsAppMessage } from "@/lib/whatsapp/templates";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/sender";
-import type { UserContext } from "@/backend/langgraph/shared/types";
+import type { UserContext } from "@/lib/whatsapp/personalizer";
 
 interface WhatsAppResult {
   userId: string;

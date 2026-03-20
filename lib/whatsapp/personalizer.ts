@@ -6,7 +6,6 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { UserContext } from "@/backend/langgraph/shared/types";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -15,6 +14,17 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 export interface WhatsAppPersonalizedCopy {
   headline: string; // Single greeting line (20-30 chars)
   bodyText: string; // Message body (1-3 sentences, personal tone)
+}
+
+export interface UserContext {
+  name?: string;
+  userId?: string;
+  styleProfiles?: string[];
+  wardrobeItemCount?: number;
+  dayOfWeek?: string;
+  daysInactive?: number;
+  savedOutfitCount?: number;
+  streakDays?: number;
 }
 
 // ── Good Morning WhatsApp ────────────────────────────────────────────────────
