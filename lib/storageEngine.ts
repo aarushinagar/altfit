@@ -67,8 +67,8 @@ export async function uploadItemImage(
     throw new Error(`Invalid public URL: ${data.publicUrl}`)
   }
 
-  // Add cache-busting timestamp to force fresh load
-  return `${data.publicUrl}?t=${Date.now()}`
+  // Return clean, permanent CDN URL — no cache-busters in the DB
+  return data.publicUrl
 }
 
 /**

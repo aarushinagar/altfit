@@ -94,8 +94,8 @@ export function useWardrobe(): UseWardrobeReturn {
         const response = await createWardrobeItem(payload);
 
         if (response.success && response.data) {
-          setItems([response.data, ...items]);
-          setTotal(total + 1);
+          setItems((prev) => [response.data!, ...prev]);
+          setTotal((prev) => prev + 1);
           console.log("[Wardrobe Hook] Item created:", response.data.id);
           return response.data;
         } else {
@@ -113,7 +113,7 @@ export function useWardrobe(): UseWardrobeReturn {
         setIsLoading(false);
       }
     },
-    [items, total],
+    []
   );
 
   const updateItem = useCallback(
@@ -129,8 +129,8 @@ export function useWardrobe(): UseWardrobeReturn {
         const response = await updateWardrobeItem(id, updates);
 
         if (response.success && response.data) {
-          setItems(
-            items.map((item) => (item.id === id ? response.data! : item)),
+          setItems((prev) =>
+            prev.map((item) => (item.id === id ? response.data! : item)),
           );
           console.log("[Wardrobe Hook] Item updated:", id);
           return response.data;
@@ -149,7 +149,7 @@ export function useWardrobe(): UseWardrobeReturn {
         setIsLoading(false);
       }
     },
-    [items],
+    []
   );
 
   const deleteItem = useCallback(
@@ -162,8 +162,8 @@ export function useWardrobe(): UseWardrobeReturn {
         const response = await deleteWardrobeItem(id);
 
         if (response.success) {
-          setItems(items.filter((item) => item.id !== id));
-          setTotal(total - 1);
+          setItems((prev) => prev.filter((item) => item.id !== id));
+          setTotal((prev) => prev - 1);
           console.log("[Wardrobe Hook] Item deleted:", id);
           return true;
         } else {
@@ -181,7 +181,7 @@ export function useWardrobe(): UseWardrobeReturn {
         setIsLoading(false);
       }
     },
-    [items, total],
+    []
   );
 
   const getItem = useCallback(

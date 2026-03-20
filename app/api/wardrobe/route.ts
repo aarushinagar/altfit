@@ -65,16 +65,23 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = parseInt(url.searchParams.get('offset') || '0')
+    const category = url.searchParams.get('category') || undefined
+
+    const whereClause = {
+      userId: BigInt(userId),
+      isActive: true,
+      ...(category ? { category: { equals: category, mode: 'insensitive' as const } } : {}),
+    }
 
     const [items, total] = await Promise.all([
       prisma.wardrobeItem.findMany({
-        where: { userId: BigInt(userId), isActive: true },
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
       }),
       prisma.wardrobeItem.count({
-        where: { userId: BigInt(userId), isActive: true },
+        where: whereClause,
       }),
     ])
 
@@ -169,11 +176,10 @@ export async function POST(req: NextRequest) {
 
       // ── PASS 1: Detect person + clothing in a single Claude call ──────────
       try {
-        const combinedResponse = await anthropic.messages.create({
-          model: 'claude-sonnet-4-6',
+        const p1Promise = anthropic.messages.create({
+          model: 'claude-haiku-3-5',
           max_tokens: 1200,
-          system: `You are a computer vision specialist for a fashion app. Detect clothing items in photos with high precision — whether the photo shows a person wearing clothes OR a flat-lay / product shot with no person.
-Always return raw JSON only — never markdown, never prose.`,
+          system: `Vision AI for fashion app. Detect clothing in photos (person wearing OR flat-lay/product). Raw JSON only — never markdown.`,
           messages: [{
             role: 'user',
             content: [
@@ -214,6 +220,14 @@ No markdown. Raw JSON only.`,
             ],
           }],
         })
+
+        // 15-second timeout on Pass 1
+        const combinedResponse = await Promise.race([
+          p1Promise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('ANALYSIS_TIMEOUT')), 15000),
+          ),
+        ])
 
         const combinedText = combinedResponse.content[0].type === 'text' ? combinedResponse.content[0].text.trim() : '{}'
         // Strip markdown fences in any form (```json, ```, etc.)
@@ -285,10 +299,9 @@ No markdown. Raw JSON only.`,
           const personBase64 = personJpeg.toString('base64')
 
           const bboxResponse = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
+            model: 'claude-haiku-3-5',
             max_tokens: 800,
-            system: `You are a CV specialist drawing precise bounding boxes around clothing items on a person.
-Return raw JSON array only — never markdown, never prose.`,
+            system: `CV specialist: draw precise bounding boxes around clothing items. Raw JSON array only.`,
             messages: [{
               role: 'user',
               content: [
@@ -343,21 +356,18 @@ Coordinates as % of THIS image dimensions. No markdown.`,
         }
       }
     } catch (claudeErr: unknown) {
-      const msg =
-        claudeErr instanceof Error ? claudeErr.message : String(claudeErr)
+      const msg = claudeErr instanceof Error ? claudeErr.message : String(claudeErr)
       console.error('[Wardrobe] ── Claude failed:', msg)
-      // Even if Claude fails, create a generic item
-      pieces = [
-        {
-          name: 'Clothing item',
-          category: 'TOP',
-          color: 'unknown',
-          fit: 'regular',
-          season: 'allseason',
-          formality: 5,
-          boundingBox: null,
-        },
-      ]
+      if (msg === 'ANALYSIS_TIMEOUT') {
+        return NextResponse.json(
+          { error: 'Analysis took too long. Please try again with a clearer, well-lit photo.' },
+          { status: 504 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Could not identify clothing in this photo. Try a well-lit photo with clear clothing visible.' },
+        { status: 400 }
+      )
     }
 
     console.log(`[Wardrobe] ── Claude analysis complete: ${pieces.length} pieces`)

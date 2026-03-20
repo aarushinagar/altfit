@@ -130,49 +130,34 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
           throw new Error(result.error || "Server failed to process item");
         }
 
-        // API returned multiple items from single upload (multi-piece detection)
-        const items = result.data.items;
-        const firstItem = items[0];
+        // API returned one or more items from this upload (multi-piece detection)
+        const detectedItems = result.data.items;
+        const firstItem = detectedItems[0];
 
-        // ── Cropping phase ────────────────────────────────────────────────
-        // Transition: analyzing → cropping (shows shimmer piece cards)
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === id
-              ? {
-                ...it,
-                status: "cropping",
-                cropCount: Math.max(items.length, 1),
-                cropDone: 0,
-              }
-              : it,
-          ),
-        );
-
-        const primaryImageUrl = firstItem.imageUrl;
-
-        // For now, process first item only. Multi-item detection happens server-side.
-        // In future: crop each item if detectedPieces are returned
-
-        // ── Done ───────────────────────────────────────────────────────────
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === id
-              ? {
-                ...it,
-                status: "ready",
-                progress: 100,
-                intent: "full_outfit",
-                wardrobeItemId: firstItem.id,
-                uploadedUrl: primaryImageUrl,
-              }
-              : it,
-          ),
-        );
-        onSaveItem({
-          name: firstItem.name,
-          imageUrl: primaryImageUrl ?? previewUrl,
+        // ── Done — replace placeholder card with one card per detected piece ──
+        setItems((prev) => {
+          const without = prev.filter((it) => it.id !== id);
+          const pieceCards: UploadItem[] = detectedItems.map((piece, idx) => ({
+            id: id + idx, // stable id: original + offset
+            fileName: piece.name,       // display the AI-detected piece name
+            status: "ready" as const,
+            previewUrl: piece.imageUrl, // show the cropped piece image
+            uploadedUrl: piece.imageUrl,
+            wardrobeItemId: piece.id,
+            progress: 100,
+            intent: "full_outfit" as const,
+            pieces: null,
+            savedPieceIds: [],
+          }));
+          return [...without, ...pieceCards];
         });
+        // Notify parent once per piece (paywall + wardrobe refresh)
+        for (const piece of detectedItems) {
+          onSaveItem({
+            name: piece.name,
+            imageUrl: piece.imageUrl ?? previewUrl,
+          });
+        }
       } catch (err) {
         clearInterval(timer);
         clearTimeout(hintTimeout);

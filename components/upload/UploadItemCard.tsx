@@ -184,13 +184,15 @@ export default function UploadItemCard({
   if (item.status === "error") {
     const errorMsg = item.error?.includes("Rate limit")
       ? "Too many requests — wait a moment and try again."
-      : item.error?.includes("No clothing items")
-        ? "No clothing detected. Try a clearer photo facing the camera."
-        : item.error?.includes("No valid JSON") || item.error?.includes("parse")
-          ? "Couldn't read the image. Try a well-lit photo with clear contrast."
-          : item.error?.includes("Invalid image")
-            ? "Format not supported. Use JPG, PNG, HEIC, or WebP."
-            : "Something went wrong. Please try again.";
+      : item.error?.includes("took too long") || item.error?.includes("timed out") || item.error?.includes("504")
+        ? "Analysis timed out. Try again with a clearer, well-lit photo."
+        : item.error?.includes("No clothing items") || item.error?.includes("Could not identify")
+          ? "No clothing detected. Try a clearer photo facing the camera."
+          : item.error?.includes("No valid JSON") || item.error?.includes("parse")
+            ? "Couldn't read the image. Try a well-lit photo with clear contrast."
+            : item.error?.includes("Invalid image")
+              ? "Format not supported. Use JPG, PNG, HEIC, or WebP."
+              : "Something went wrong. Please try again.";
 
     return (
       <div className="upload-item-card upload-item-error" style={{ animation: "uploadFadeIn 0.35s ease forwards" }}>
@@ -206,14 +208,21 @@ export default function UploadItemCard({
     );
   }
 
-  if (item.status !== "ready") return null;
-
   // Success state — clean confirmation with fade-in
+  // For detected pieces, uploadedUrl is the cropped piece image; fallback to previewUrl
+  const displayImage = item.uploadedUrl || item.previewUrl;
+  // Clean name: if it looks like a raw filename (has extension), strip it; otherwise show as-is
+  const displayName = item.fileName
+    ? /\.[a-z]{2,5}$/i.test(item.fileName)
+      ? item.fileName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")
+      : item.fileName
+    : "Clothing item";
+
   return (
     <div className="upload-item-card upload-item-success" style={{ animation: "uploadFadeIn 0.4s ease forwards" }}>
       <div className="upload-item-thumb">
-        {item.previewUrl
-          ? <img src={item.previewUrl} alt="" className="upload-item-thumb-img" />
+        {displayImage
+          ? <img src={displayImage} alt={displayName} className="upload-item-thumb-img" />
           : <div className="upload-item-thumb-skeleton" style={{ background: "var(--linen)" }} />
         }
         {/* Success checkmark overlay */}
@@ -229,7 +238,7 @@ export default function UploadItemCard({
           className="upload-item-name"
           style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 18, fontWeight: 300, lineHeight: 1.3 }}
         >
-          {item.fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") || "Clothing item"}
+          {displayName}
         </span>
         <span style={{ fontSize: 11, color: "var(--taupe)", marginTop: 4, display: "block" }}>
           AI-analysed and saved
