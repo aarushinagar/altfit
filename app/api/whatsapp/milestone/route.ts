@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           firstName: user.name || "there",
           headline: copy.headline,
           bodyText: copy.bodyText,
-          milestone,
+          milestone: `${milestone} days straight`,
         });
 
         // Send WhatsApp message
