@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       where: {
         phone: { not: null },
         emailOptOut: false,
-        createdAt: { not: null },
+        createdAt: { not: undefined },
       },
       select: {
         id: true,
