@@ -14,7 +14,6 @@ import { generatePrismaId } from "@/backend/database/prisma-id";
 import { personalizeWelcomeWhatsApp } from "@/lib/whatsapp/personalizer";
 import { welcomeWhatsApp } from "@/lib/whatsapp/templates";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/sender";
-import type { UserContext } from "@/backend/langgraph/shared/types";
 
 interface SendWelcomeRequest {
   userId: string;
@@ -52,11 +51,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Build user context for personalization
-    const ctx: UserContext = {
+    const ctx = {
       name,
-      userId,
       styleProfiles: styleProfiles || [],
-      wardrobeItemCount: user.wardrobeItemCount,
     };
 
     // Personalize message using Claude

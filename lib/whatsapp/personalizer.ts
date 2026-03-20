@@ -347,3 +347,54 @@ Output ONLY these two lines.`;
     };
   }
 }
+
+// ── Welcome WhatsApp ─────────────────────────────────────────────────────
+
+export async function personalizeWelcomeWhatsApp(
+  ctx: { name: string; styleProfiles?: string[] },
+): Promise<WhatsAppPersonalizedCopy> {
+  try {
+    const prompt = `Generate a WARM, WELCOMING WhatsApp message for a brand new user who just signed up for an AI fashion styling app.
+
+User: ${ctx.name}, style preferences= ${ctx.styleProfiles?.join(", ") || "their style profile"}
+
+Make it feel like a warm friend welcoming them to a new community. Emphasize the personalization & fun of the app. 2-3 sentences MAX. Add 1-2 emojis.
+
+Format:
+HEADLINE: [One greeting line, e.g. "Welcome to ALT FIT! 👗"]
+BODY: [2-3 sentences about what they'll experience]
+
+Output ONLY these two lines.`;
+
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-3-5",
+      max_tokens: 150,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
+    const lines = text.split("\n").filter((l) => l.trim());
+
+    const headline =
+      lines
+        .find((l) => l.includes("HEADLINE:"))
+        ?.replace("HEADLINE:", "")
+        .trim() || "Welcome to ALT FIT! 👗";
+
+    const bodyText =
+      lines
+        .find((l) => l.includes("BODY:"))
+        ?.replace("BODY:", "")
+        .trim() ||
+      `We're excited to help you discover your style. Start by uploading pieces from your wardrobe—our AI will curate personalized looks tailored to you!`;
+
+    return { headline, bodyText };
+  } catch (err) {
+    console.error("[WhatsApp] Welcome personalization failed:", err);
+    return {
+      headline: "Welcome to ALT FIT! 👗",
+      bodyText: `We're excited to help you discover your style. Start by uploading pieces from your wardrobe—our AI will curate personalized looks tailored to you!`,
+    };
+  }
+}
