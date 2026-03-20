@@ -85,15 +85,20 @@ export async function GET(req: NextRequest) {
 
     if (dailyCuration?.slot1) {
       const outfit = dailyCuration.slot1 as any
-      if (Array.isArray(outfit?.looks) && outfit.looks.length > 0) {
-        // Cache hit — outfit is already fully enriched (name, imageUrl, etc.).
-        // No wardrobe re-fetch needed — return instantly.
+      // Validate cache: must have looks with at least 1 item each
+      const hasValidLooks = Array.isArray(outfit?.looks) &&
+        outfit.looks.length > 0 &&
+        outfit.looks.every((l: any) => Array.isArray(l.items) && l.items.length > 0)
+      if (hasValidLooks) {
         console.log(`[ALTFIT] Cache HIT — returning in ${Date.now() - t0}ms`)
         return NextResponse.json(
           { outfit, cached: true },
           { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } },
         )
       }
+      // Stale/broken cache — delete it and regenerate fresh
+      console.warn('[ALTFIT] Cache entry invalid (empty items) — deleting and regenerating')
+      await prisma.dailyCuration.delete({ where: { id: dailyCuration.id } }).catch(() => {})
     }
     console.log('[ALTFIT] Cache MISS — generating fresh outfit')
 
@@ -123,10 +128,19 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 3. Build prompt context ─────────────────────────────────────────────
-    // 20 items max, shuffled — fewer tokens = faster Haiku response
+    // Use short stable indices W1-W20 instead of raw 19-digit Snowflake IDs.
+    // Snowflake IDs exceed JS float precision (2^53) so Claude may round them,
+    // which breaks ID matching after JSON.parse. Short indices are safe.
     const wardrobeShuffled = shuffle(wardrobe).slice(0, 20)
-    const wardrobeContext  = wardrobeShuffled
-      .map((w: any) => `${w.id}|${w.name}|${w.category}|${w.colorNames?.[0] ?? 'unknown'}`)
+
+    // Build index → real ID map for reverse lookup after Claude responds
+    const idxToRealId = new Map<string, string>()
+    wardrobeShuffled.forEach((w: any, i: number) => {
+      idxToRealId.set(`W${i + 1}`, String(w.id))
+    })
+
+    const wardrobeContext = wardrobeShuffled
+      .map((w: any, i: number) => `W${i + 1}|${w.name}|${w.category}|${w.colorNames?.[0] ?? 'unknown'}`)
       .join('\n')
 
     const recentNames = history.length > 0
@@ -139,7 +153,6 @@ export async function GET(req: NextRequest) {
     console.log('[ALTFIT] Calling Claude...')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    // Compact system prompt — Haiku performs best with tight, unambiguous instructions
     const systemPrompt = `You are ALT FIT, an expert personal stylist. Build cohesive, wearable outfits from the wardrobe provided.
 
 HARD RULES (never break):
@@ -153,7 +166,7 @@ HARD RULES (never break):
 
     const userPrompt = `Build 3 outfit suggestions from this wardrobe.
 
-WARDROBE (copy IDs exactly):
+WARDROBE (use the W-codes as IDs exactly — do NOT change them):
 ${wardrobeContext}
 ${recentNames ? `\nAvoid repeating: ${recentNames}` : ''}
 Context: Mumbai, 31°C humid, ${new Date().toLocaleDateString('en-IN', { weekday: 'long' })}, seed:${Date.now()}
@@ -161,7 +174,7 @@ Context: Mumbai, 31°C humid, ${new Date().toLocaleDateString('en-IN', { weekday
 Build: MORNING (casual/relaxed) · DAYTIME (smart/practical) · EVENING (elevated/polished)
 
 Return ONLY this JSON:
-{"looks":[{"lookType":"MORNING","outfitName":"2-4 words","mood":"1 word","formality":"RELAXED","items":[{"id":"exact-id","reason":"8 words"}],"stylingNote":"2 sentences","occasionTags":["tag"],"tip":"1 sentence"},{"lookType":"DAYTIME",...},{"lookType":"EVENING",...}]}`
+{"looks":[{"lookType":"MORNING","outfitName":"2-4 words","mood":"1 word","formality":"RELAXED","items":[{"id":"W1","reason":"8 words"}],"stylingNote":"2 sentences","occasionTags":["tag"],"tip":"1 sentence"},{"lookType":"DAYTIME",...},{"lookType":"EVENING",...}]}`
 
     // Helper to call Claude with a per-attempt timeout
     const callClaude = () => anthropic.messages.create({
@@ -250,10 +263,22 @@ Return ONLY this JSON:
       )
     }
 
-    console.log(
-      '[Curation] ── Raw looks:', outfit.looks.length,
-      '| items per look:', outfit.looks.map((l: any) => l.items?.length ?? 0).join(', '),
-    )
+    // ── 5b. Translate W-indices → real Snowflake IDs ─────────────────────────
+    // Claude returns W1, W2, ... — map back to real DB IDs before enriching.
+    let unmatchedCount = 0
+    outfit.looks = outfit.looks.map((look: any) => ({
+      ...look,
+      items: (look.items ?? []).map((item: any) => {
+        const realId = idxToRealId.get(item.id)
+        if (!realId) {
+          console.warn(`[ALTFIT] ⚠️ No mapping for Claude ID: "${item.id}"`)
+          unmatchedCount++
+          return null
+        }
+        return { ...item, id: realId }
+      }).filter(Boolean),
+    }))
+    console.log(`[ALTFIT] ID translation complete: ${unmatchedCount} unmatched items`)
 
     // ── 6. Enrich all looks with real wardrobe data ─────────────────────────
     // NOTE: Enrich BEFORE styling rules — Claude only returns {id, reason},
