@@ -163,43 +163,54 @@ Build: MORNING (casual/relaxed) · DAYTIME (smart/practical) · EVENING (elevate
 Return ONLY this JSON:
 {"looks":[{"lookType":"MORNING","outfitName":"2-4 words","mood":"1 word","formality":"RELAXED","items":[{"id":"exact-id","reason":"8 words"}],"stylingNote":"2 sentences","occasionTags":["tag"],"tip":"1 sentence"},{"lookType":"DAYTIME",...},{"lookType":"EVENING",...}]}`
 
-    const claudePromise = anthropic.messages.create({
+    // Helper to call Claude with a per-attempt timeout
+    const callClaude = () => anthropic.messages.create({
       model:      'claude-haiku-3-5',
       max_tokens: 700,
       system:     systemPrompt,
       messages:   [{ role: 'user', content: userPrompt }],
     })
 
-    // 5-second hard timeout — never leave user waiting indefinitely
-    let response: any
-    try {
-      response = await Promise.race([
-        claudePromise,
+    // 15-second hard timeout — allow for Render cold-start + network latency
+    async function callClaudeWithTimeout(ms: number) {
+      return Promise.race([
+        callClaude(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('TIMEOUT')), 5000),
+          setTimeout(() => reject(new Error('TIMEOUT')), ms),
         ),
       ])
-    } catch (err: any) {
-      if ((err as Error).message === 'TIMEOUT') {
-        console.error(`[ALTFIT] ❌ Claude timed out after 5s (${Date.now() - t0}ms total)`)
-        // Fallback: return yesterday's cached outfit rather than an error
-        const fallback = await prisma.dailyCuration.findFirst({
-          where: { userId: userIdBigInt, NOT: { localDate } },
-          orderBy: { localDate: 'desc' },
-        })
-        if (fallback?.slot1) {
-          console.log('[ALTFIT] Returning fallback from previous day')
+    }
+
+    let response: any
+    try {
+      response = await callClaudeWithTimeout(15000)
+    } catch (firstErr: any) {
+      if ((firstErr as Error).message === 'TIMEOUT') {
+        console.warn(`[ALTFIT] ⚠️ Claude attempt 1 timed out at 15s — retrying once...`)
+        try {
+          response = await callClaudeWithTimeout(15000)
+          console.log(`[ALTFIT] ✅ Claude succeeded on retry at ${Date.now() - t0}ms`)
+        } catch {
+          console.error(`[ALTFIT] ❌ Claude timed out on both attempts (${Date.now() - t0}ms total)`)
+          const fallback = await prisma.dailyCuration.findFirst({
+            where: { userId: userIdBigInt, NOT: { localDate } },
+            orderBy: { localDate: 'desc' },
+          })
+          if (fallback?.slot1) {
+            console.log('[ALTFIT] Returning fallback from previous day')
+            return NextResponse.json(
+              { outfit: fallback.slot1, cached: true, fallback: true },
+              { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+            )
+          }
           return NextResponse.json(
-            { outfit: fallback.slot1, cached: true, fallback: true },
-            { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+            { error: 'Taking too long. Please tap Retry.' },
+            { status: 504 },
           )
         }
-        return NextResponse.json(
-          { error: 'Taking too long. Please tap Retry.' },
-          { status: 504 },
-        )
+      } else {
+        throw firstErr
       }
-      throw err
     }
 
     console.log(`[ALTFIT] Claude responded: ${Date.now() - t0}ms`)
@@ -307,10 +318,17 @@ Return ONLY this JSON:
       })
     }
 
+    const beforeCount = outfit.looks.length
     outfit.looks = enforceStylingRules(outfit.looks)
 
     if (outfit.looks.length === 0) {
-      console.error('[Curation] All looks rejected after deduplication')
+      console.warn(`[Curation] All ${beforeCount} looks rejected after styling rules — using raw Claude output as fallback`)
+      // Don't hard-fail — use the raw looks with basic deduplication so the user sees *something*
+      outfit.looks = (JSON.parse(raw.replace(/```json|```/g, '').trim())).looks ?? []
+    }
+
+    if (!Array.isArray(outfit.looks) || outfit.looks.length === 0) {
+      console.error('[Curation] No looks available even after fallback')
       return NextResponse.json(
         { error: 'Could not generate a valid outfit. Please try again.' },
         { status: 500 },

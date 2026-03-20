@@ -227,11 +227,12 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     if (isLoading || isRefreshing) setCinematicVisible(true);
   }, [isLoading, isRefreshing]);
 
-  const fetchOutfit = useCallback(async () => {
+  const fetchOutfit = useCallback(async (isAutoRetry = false) => {
     setIsLoading(true);
     setError(null);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    // 35s timeout matches API's ~30s max (15s×2 retry)
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
     try {
       const token = getAuthToken();
       const res = await fetch("/api/curate-outfit", {
@@ -241,11 +242,23 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       });
       clearTimeout(timeoutId);
       if (res.status === 504) {
+        if (!isAutoRetry) {
+          // Silent auto-retry once on timeout
+          setIsLoading(false);
+          fetchOutfit(true);
+          return;
+        }
         setError("Taking longer than usual. Tap to try again.");
         return;
       }
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
+        if (!isAutoRetry) {
+          // Silent auto-retry once on any server error
+          setIsLoading(false);
+          setTimeout(() => fetchOutfit(true), 1500);
+          return;
+        }
         throw new Error(d.error || `Error ${res.status}`);
       }
       const data = await res.json();
@@ -571,7 +584,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
               <Stack direction="row" gap={1.5} justifyContent="center">
                 <button
                   className="btn-secondary"
-                  onClick={fetchOutfit}
+                  onClick={() => fetchOutfit()}
                   style={{ padding: "12px 28px", fontSize: 11, letterSpacing: "0.12em" }}
                 >
                   RETRY
