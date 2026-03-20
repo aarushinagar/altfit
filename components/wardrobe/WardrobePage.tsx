@@ -153,7 +153,8 @@ export default function WardrobePage({
 
   const handleFilterChange = (cat: string) => {
     setActiveFilter(cat);
-    onFilterChange?.(cat === "All" ? undefined : cat.toLowerCase());
+    // Client-side filtering only — all items are already in memory.
+    // Never fire a server call here: it forces isLoading=true → skeleton flash.
   };
 
   return (

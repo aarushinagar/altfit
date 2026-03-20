@@ -26,6 +26,8 @@ export default function WardrobeImage({
       src={src}
       alt={item.name || ""}
       onError={onBroken}
+      loading="lazy"
+      decoding="async"
       style={{
         width: "100%",
         height: "100%",

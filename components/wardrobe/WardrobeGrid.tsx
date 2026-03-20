@@ -14,6 +14,8 @@ interface WardrobeGridProps {
   onImageBroken?: () => void;
   /** ID of the item currently being reuploaded (shows spinner on that card) */
   reuploadingId?: string | number | null;
+  /** Hint for skeleton count on initial load */
+  skeletonCount?: number;
 }
 
 export default function WardrobeGrid({
@@ -23,11 +25,12 @@ export default function WardrobeGrid({
   onReupload,
   onImageBroken,
   reuploadingId,
+  skeletonCount = 10,
 }: WardrobeGridProps) {
   if (isLoading) {
     return (
       <Box className="wardrobe-grid">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: skeletonCount }).map((_, i) => (
           <Box
             key={i}
             className="wardrobe-item"
@@ -95,7 +98,7 @@ export default function WardrobeGrid({
         <WardrobeItemCard
           key={item.id}
           item={item}
-          animDelay={i * 0.04}
+          animDelay={Math.min(i * 0.04, 0.2)}
           onClick={onItemClick}
           onReupload={onReupload}
           onImageBroken={onImageBroken}
