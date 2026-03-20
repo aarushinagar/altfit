@@ -243,9 +243,9 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       clearTimeout(timeoutId);
       if (res.status === 504) {
         if (!isAutoRetry) {
-          // Silent auto-retry once on timeout
-          setIsLoading(false);
-          fetchOutfit(true);
+          // Silent auto-retry once on timeout — use setTimeout so finally()
+          // doesn't race and override setIsLoading(true) from the retry call
+          setTimeout(() => fetchOutfit(true), 0);
           return;
         }
         setError("Taking longer than usual. Tap to try again.");
@@ -255,7 +255,6 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         const d = await res.json().catch(() => ({}));
         if (!isAutoRetry) {
           // Silent auto-retry once on any server error
-          setIsLoading(false);
           setTimeout(() => fetchOutfit(true), 1500);
           return;
         }
@@ -297,7 +296,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     if (refreshingLook) return;
     setRefreshingLook(lookType);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
     try {
       const token = getAuthToken();
       const otherItemIds = looks
@@ -381,7 +380,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
     setLooks([]);
     setSavedLooks(new Set());
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
       const token = getAuthToken();
       const authHeader: Record<string, string> = token

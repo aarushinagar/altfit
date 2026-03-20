@@ -178,7 +178,7 @@ Return ONLY this JSON:
 
     // Helper to call Claude with a per-attempt timeout
     const callClaude = () => anthropic.messages.create({
-      model:      'claude-haiku-3-5',
+      model:      'claude-haiku-4-5',
       max_tokens: 700,
       system:     systemPrompt,
       messages:   [{ role: 'user', content: userPrompt }],

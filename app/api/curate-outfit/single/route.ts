@@ -58,8 +58,15 @@ export async function POST(req: NextRequest) {
   }
 
   const shuffled = shuffle(wardrobe).slice(0, 15)
+
+  // Use short W-index codes instead of raw 19-digit Snowflake IDs.
+  // Raw BigInt IDs can be rounded by JSON.parse (>2^53), causing enrichment failures.
+  const singleIdxToRealId = new Map<string, string>()
+  shuffled.forEach((w: any, i: number) => {
+    singleIdxToRealId.set(`W${i + 1}`, String(w.id))
+  })
   const wardrobeContext = shuffled
-    .map((w: any) => `${w.id}|${w.name}|${w.category}|${w.colorNames?.[0] ?? 'unknown'}`)
+    .map((w: any, i: number) => `W${i + 1}|${w.name}|${w.category}|${w.colorNames?.[0] ?? 'unknown'}`)
     .join('\n')
 
   // Names already used in the other two looks — ask Claude to avoid them
@@ -73,14 +80,14 @@ export async function POST(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   const claudePromise = anthropic.messages.create({
-    model: 'claude-haiku-3-5',
+    model: 'claude-haiku-4-5',
     max_tokens: 300,
     system: `You are ALT FIT, a personal stylist.
 Build ONE complete outfit suggestion from the user's wardrobe.
 Be specific. Be cohesive. Be fast.`,
     messages: [{
       role: 'user',
-      content: `Wardrobe (use exact IDs):
+      content: `Wardrobe (use the W-codes as IDs exactly — do NOT change them):
 ${wardrobeContext}
 
 Build a ${lookType} look.
@@ -89,7 +96,7 @@ Seed: ${Date.now()}
 City: Mumbai, 31°C humid.
 
 JSON only, no markdown:
-{"lookType":"${lookType}","outfitName":"2-3 words","mood":"word","formality":"RELAXED|SMART|ELEVATED","items":[{"id":"exact-id","reason":"10 words max"}],"stylingNote":"2 sentences","occasionTags":["tag1","tag2"],"tip":"1 sentence"}`,
+{"lookType":"${lookType}","outfitName":"2-3 words","mood":"word","formality":"RELAXED|SMART|ELEVATED","items":[{"id":"W1","reason":"10 words max"}],"stylingNote":"2 sentences","occasionTags":["tag1","tag2"],"tip":"1 sentence"}`,
     }],
   })
 
@@ -98,7 +105,7 @@ JSON only, no markdown:
     claudeRes = await Promise.race([
       claudePromise,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 5000),
+        setTimeout(() => reject(new Error('TIMEOUT')), 15000),
       ),
     ])
   } catch (err: any) {
@@ -123,8 +130,17 @@ JSON only, no markdown:
     return NextResponse.json({ error: 'Could not generate look.' }, { status: 500 })
   }
 
+  // ── 3b. Translate W-indices back to real Snowflake IDs ──────────────────────
+  look.items = (look.items ?? []).map((item: any) => {
+    const realId = singleIdxToRealId.get(item.id)
+    if (!realId) {
+      console.warn(`[Single] ⚠️ No mapping for Claude ID: "${item.id}"`)
+      return null
+    }
+    return { ...item, id: realId }
+  }).filter(Boolean)
+
   // ── 4. Enrich with real wardrobe data ──────────────────────────────────────
-  // String(w.id) is CRITICAL — Prisma BigInt vs Claude's string JSON output
   const map = new Map(wardrobe.map((w: any) => [String(w.id), w]))
   look.items = (look.items ?? [])
     .map((item: any) => {
