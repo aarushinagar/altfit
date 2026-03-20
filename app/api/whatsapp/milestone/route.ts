@@ -123,11 +123,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Build user context for personalization
-        const ctx: UserContext = {
+        const ctx: UserContext & { streakDays: number } = {
           name: user.name || "there",
           userId: user.id.toString(),
           styleProfiles: user.styleProfiles || [],
           wardrobeItemCount: user.wardrobeItemCount,
+          streakDays,
         };
 
         // Personalize message using Claude
