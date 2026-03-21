@@ -918,19 +918,20 @@ export default function CssVariables() {
         ".wardrobe-grid": {
           display: "grid",
           gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "16px",
+          columnGap: "12px",
+          rowGap: "20px",
           background: COLORS.cream,
-          padding: "16px",
+          padding: "0 16px 24px",
         },
         ".wardrobe-item": {
           position: "relative",
           cursor: "pointer",
           background: COLORS.cream,
           overflow: "hidden",
+          borderRadius: 4,
           animation: "fadeUp 0.4s ease forwards",
           opacity: 0,
         },
-        ".wardrobe-item:hover .item-overlay": { opacity: 1 },
         ".item-image": {
           aspectRatio: "4/5",
           display: "flex",
@@ -941,60 +942,48 @@ export default function CssVariables() {
           background: COLORS.paper,
         },
         ".item-info": {
-          padding: "6px 8px 8px",
+          padding: "5px 0 0",
           background: COLORS.cream,
         },
         ".item-type": {
           fontFamily: FONTS.sans,
-          fontSize: 8,
-          letterSpacing: "0.14em",
+          fontSize: 9,
+          letterSpacing: "0.10em",
           textTransform: "uppercase",
           color: COLORS.taupe,
-          marginBottom: 2,
+          marginBottom: 1,
+          lineHeight: 1.3,
         },
         ".item-name": {
           fontFamily: FONTS.sans,
-          fontSize: 12,
-          fontWeight: 400,
+          fontSize: 11,
+          fontVariant: "small-caps",
+          fontWeight: 500,
+          letterSpacing: "0.08em",
           color: COLORS.ink,
-          lineHeight: 1.2,
+          lineHeight: 1.25,
         },
         ".item-meta": {
           display: "flex",
-          gap: 4,
+          gap: 6,
           flexWrap: "wrap",
-          marginTop: 3,
+          marginTop: 2,
         },
         ".wear-count": {
           fontFamily: FONTS.sans,
-          fontSize: 9,
+          fontSize: 10,
           color: COLORS.warmGray,
-          letterSpacing: "0.05em",
+          letterSpacing: "0.04em",
         },
         ".item-tag": {
           fontFamily: FONTS.sans,
-          fontSize: 9,
-          letterSpacing: "0.08em",
+          fontSize: 10,
+          letterSpacing: "0.04em",
           textTransform: "uppercase",
           color: COLORS.warmGray,
         },
-        ".item-overlay": {
-          position: "absolute",
-          inset: 0,
-          background: "rgba(46,33,24,0.52)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: 0,
-          transition: "opacity 0.22s ease",
-        },
-        ".item-overlay-text": {
-          fontFamily: FONTS.sans,
-          fontSize: 10,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: COLORS.cream,
-        },
+        ".item-overlay": { display: "none" },
+        ".item-overlay-text": { display: "none" },
 
         // ── Wardrobe item modal ─────────────────────────────────────────────
         ".modal-backdrop": {
@@ -1337,7 +1326,9 @@ export default function CssVariables() {
           ".filter-bar": { padding: "12px 48px 16px" },
           ".wardrobe-grid": {
             gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "16px",
+            columnGap: "12px",
+            rowGap: "20px",
+            padding: "0 48px 32px",
           },
           ".modal-backdrop": {
             alignItems: "center",
@@ -1370,16 +1361,11 @@ export default function CssVariables() {
 
         "@media (min-width: 1200px)": {
           ".today-hero": { gridTemplateColumns: "1fr 320px" },
-          ".wardrobe-grid": {
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "16px",
-          },
         },
 
         "@media (min-width: 1440px)": {
           ".wardrobe-grid": {
             gridTemplateColumns: "repeat(5, 1fr)",
-            gap: "16px",
           },
         },
       }}
