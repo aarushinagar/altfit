@@ -511,23 +511,26 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         visible={toast.visible}
       />
 
-      {/* Compact header: greeting + date + streak */}
-      <div className="today-compact-header">
-        <div className="today-greeting-line">
-          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}. Your Curated Look for Today.
-        </div>
-        <div className="today-header-sub">
-          <span className="today-date-small">{dateStr.toUpperCase()}</span>
-          {streak > 0 && (
-            <span className="streak-inline">
-              🔥 {streakMilestone
-                ? `${streak} day streak — you're on fire!`
-                : streak === 1
-                ? "Day 1 — come back tomorrow"
-                : `${streak} day streak`}
-            </span>
-          )}
-        </div>
+      {/* Hero greeting header */}
+      <div className="today-greeting-header">
+        <p className="greeting-eyebrow">{dateStr.toUpperCase()}</p>
+        <h1 className="greeting-title">
+          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}. Your Curated Look{" "}
+          <em>for today.</em>
+        </h1>
+        <p className="greeting-sub">
+          AI-designed from your wardrobe. Intelligent, intentional, yours.
+        </p>
+        {streak > 0 && (
+          <span className="streak-badge">
+            🔥{" "}
+            {streakMilestone
+              ? `${streak} day streak — you're on fire!`
+              : streak === 1
+              ? "Day 1 — come back tomorrow"
+              : `${streak} day streak`}
+          </span>
+        )}
       </div>
 
       <Box className="today-hero">

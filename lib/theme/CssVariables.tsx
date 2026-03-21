@@ -644,31 +644,27 @@ export default function CssVariables() {
           marginBottom: 28,
         },
 
-        // ── Today compact header ─────────────────────────────────────────────
-        ".today-compact-header": {
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-          padding: "20px 20px 14px 20px",
+        // ── Today greeting header ────────────────────────────────────────────
+        ".today-greeting-header": {
+          padding: "28px 20px 32px",
+          borderBottom: `1px solid ${COLORS.linen}`,
         },
-        ".today-greeting-line": {
-          fontFamily: FONTS.serif,
-          fontSize: 28,
-          fontWeight: 400,
-          color: COLORS.ink,
-          lineHeight: 1.2,
-          letterSpacing: "-0.01em",
-        },
-        ".today-header-sub": {
-          display: "flex",
+        ".streak-badge": {
+          display: "inline-flex",
           alignItems: "center",
-          gap: "12px",
-        },
-        ".today-date-small": {
+          gap: "8px",
+          padding: "10px 22px",
+          background: COLORS.ink,
+          color: COLORS.cream,
           fontFamily: FONTS.sans,
           fontSize: 11,
+          fontWeight: 600,
           letterSpacing: "0.12em",
-          color: "#9a8f80",
+          textTransform: "uppercase",
+          borderRadius: "100px",
+          border: "none",
+          cursor: "default",
+          marginTop: "8px",
         },
         ".streak-inline": {
           fontFamily: FONTS.sans,
