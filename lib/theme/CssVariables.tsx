@@ -944,7 +944,6 @@ export default function CssVariables() {
           padding: "6px 8px 8px",
           background: COLORS.cream,
         },
-        },
         ".item-type": {
           fontFamily: FONTS.sans,
           fontSize: 8,
