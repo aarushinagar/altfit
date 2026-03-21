@@ -202,14 +202,14 @@ export default function UploadPage({ onSaveItem, wardrobeTotal = 0, recentItems 
             border: "1px solid rgba(201,169,110,0.2)",
             borderRadius: "12px",
           }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1 }}>
               <Box sx={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "var(--ink)", lineHeight: 1 }}>{wardrobeTotal}</Box>
               <Box sx={{ fontSize: 11, color: "#9a8f80", letterSpacing: "0.05em" }}>pieces in wardrobe</Box>
             </Box>
             <Box sx={{ width: 1, height: 40, background: "rgba(201,169,110,0.3)", flexShrink: 0 }} />
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <Box sx={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "var(--ink)", lineHeight: 1 }}>{Math.max(0, 10 - wardrobeTotal)}</Box>
-              <Box sx={{ fontSize: 11, color: "#9a8f80", letterSpacing: "0.05em" }}>until unlimited outfits</Box>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1 }}>
+              <Box sx={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "var(--ink)", lineHeight: 1 }}>Daily</Box>
+              <Box sx={{ fontSize: 11, color: "#9a8f80", letterSpacing: "0.05em" }}>AI outfit curation</Box>
             </Box>
           </Box>
         )}

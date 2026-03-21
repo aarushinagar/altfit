@@ -151,3 +151,37 @@ button:disabled {
     cursor: not-allowed;
     transform: none !important;
 }
+
+/* ── Uniform image aspect ratios across the app ─────────────────────────── */
+/* Today page outfit item images */
+[class*="outfit-item"] img,
+[class*="slot"] img,
+[class*="curation"] img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 10px;
+    display: block;
+}
+
+/* Saved outfits page images */
+[class*="saved-outfit"] img,
+[class*="outfit-card"] img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 8px;
+}
+
+/* Wardrobe grid images */
+[class*="wardrobe-card"] img,
+[class*="piece-card"] img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    object-position: top center;
+    border-radius: 10px;
+    display: block;
+}

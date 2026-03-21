@@ -454,62 +454,22 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         visible={toast.visible}
       />
 
+      {/* Compact header: date + streak on one line */}
+      <div className="today-compact-header">
+        <span className="today-date-small">{dateStr.toUpperCase()}</span>
+        {streak > 0 && (
+          <span className="streak-inline">
+            🔥 {streakMilestone
+              ? `${streak} day streak — you're on fire!`
+              : streak === 1
+              ? "Day 1 — come back tomorrow"
+              : `${streak} day streak`}
+          </span>
+        )}
+      </div>
+
       <Box className="today-hero">
         <Box className="today-greeting fade-up">
-          <div className="greeting-eyebrow">{dateStr}</div>
-          <h1 className="greeting-title" style={{
-            fontFamily: 'Cormorant Garamond, serif',
-            fontSize: 'clamp(28px, 6vw, 52px)',
-            fontWeight: 300,
-            letterSpacing: '-0.015em',
-            lineHeight: 1.1,
-            color: '#1c1917',
-            marginBottom: '12px'
-          }}>
-            {greeting ? `${greeting}.` : ""} Your Curated Look<br />
-            <em style={{ fontStyle: 'italic', fontWeight: 300, fontSize: '0.9em', opacity: 0.8 }}>for today</em>
-          </h1>
-          <p className="greeting-sub" style={{
-            fontSize: '14px',
-            fontWeight: 300,
-            color: '#a8a29e',
-            letterSpacing: '0.03em',
-            marginTop: '16px'
-          }}>
-            AI-designed from your wardrobe. Intelligent, intentional, yours.
-          </p>
-
-          {/* Streak badge */}
-          {streak > 0 && (
-            <div style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 16,
-              padding: "10px 20px",
-              borderRadius: "100px",
-              background: "linear-gradient(135deg, #1C1410, #2d1f14)",
-              boxShadow: "0 4px 20px rgba(28,20,16,0.2)",
-              marginBottom: 8,
-            }}>
-              <span style={{ fontSize: 14 }}>🔥</span>
-              <span style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontSize: 12,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                color: "#C9A96E",
-              }}>
-                {streakMilestone
-                  ? `${streak} day streak — you're on fire!`
-                  : streak === 1
-                  ? "Day 1  — come back tomorrow"
-                  : `${streak} day streak`}
-              </span>
-            </div>
-          )}
-
           {/* Empty wardrobe — only show if wardrobe has loaded, confirmed empty, and no outfit */}
           {!hasWardrobe && !wardrobeLoading && !showLoader && !outfit && (
             <Box className="outfit-card" sx={{ p: 5, textAlign: "center" }}>

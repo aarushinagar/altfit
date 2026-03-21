@@ -335,8 +335,8 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 24px",
+          justifyContent: { xs: "flex-start", md: "center" },
+          padding: { xs: 0, md: "40px 24px" },
           background: "var(--cream)",
           minHeight: "100vh",
         }}
@@ -344,150 +344,147 @@ export default function Auth({ onAuth, defaultMode = "choose" }: AuthProps) {
         <Box
           sx={{
             width: "100%",
-            maxWidth: 360,
+            maxWidth: { xs: "100%", md: 360 },
             animation: "fadeUp 0.5s ease forwards",
           }}
         >
           {mode === "choose" && (
             <>
-              <h3
-                style={{
-                  fontFamily: "Cormorant Garamond, serif",
-                  fontSize: 34,
-                  fontWeight: 300,
-                  color: "var(--ink)",
-                  marginBottom: 8,
-                }}
-              >
-                Welcome.
-              </h3>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "var(--warm-gray)",
-                  fontWeight: 300,
-                  marginBottom: 40,
-                  lineHeight: 1.5,
-                }}
-              >
-                Sign in or create your account to start.
-              </p>
+              {/* Mobile hero — hidden on desktop where left panel provides context */}
+              <Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column" }} className="landing-hero">
+                <div className="landing-brand">
+                  <span className="brand-wordmark">ALT FIT</span>
+                </div>
+                <h1 className="landing-headline">
+                  Your AI stylist.<br />
+                  Your wardrobe.<br />
+                  Every day.
+                </h1>
+                <p className="landing-subtext">
+                  Upload your clothes. Get a curated outfit every morning.
+                  No more standing in front of your wardrobe for 20 minutes.
+                </p>
+                <div className="landing-proof">
+                  <div className="proof-item">
+                    <span className="proof-number">78</span>
+                    <span className="proof-label">pieces analysed</span>
+                  </div>
+                  <div className="proof-divider" />
+                  <div className="proof-item">
+                    <span className="proof-number">20+</span>
+                    <span className="proof-label">looks saved</span>
+                  </div>
+                  <div className="proof-divider" />
+                  <div className="proof-item">
+                    <span className="proof-number">Daily</span>
+                    <span className="proof-label">AI curation</span>
+                  </div>
+                </div>
+              </Box>
 
-              {/* Google button: our styled visual + invisible GIS button overlaid on top */}
-              <div
-                style={{ position: "relative", width: "100%", marginBottom: 12, cursor: googleLoading ? "default" : "pointer" }}
-                onMouseEnter={() => !googleLoading && setHoverGoogle(true)}
-                onMouseLeave={() => setHoverGoogle(false)}
-              >
-                {/* Visual button — pointer-events off, purely decorative */}
-                <div
+              {/* Desktop fallback heading — hidden on mobile */}
+              <Box sx={{ display: { xs: "none", md: "block" } }}>
+                <h3
                   style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 12,
-                    background: googleLoading ? "var(--linen)" : "var(--paper)",
-                    border: `1px solid ${hoverGoogle && !googleLoading ? "var(--taupe)" : "var(--linen)"}`,
-                    padding: "14px 20px",
-                    height: 52,
-                    boxSizing: "border-box" as const,
-                    fontSize: 13,
-                    color: googleLoading ? "var(--taupe)" : "var(--charcoal)",
-                    fontFamily: "DM Sans, sans-serif",
-                    fontWeight: 400,
-                    userSelect: "none" as const,
-                    pointerEvents: "none" as const,
-                    transition: "border-color 0.18s, background 0.18s, color 0.18s",
+                    fontFamily: "Cormorant Garamond, serif",
+                    fontSize: 34,
+                    fontWeight: 300,
+                    color: "var(--ink)",
+                    marginBottom: 8,
                   }}
                 >
-                  {googleLoading ? (
-                    <span style={{ animation: "spin 1s linear infinite", display: "inline-block", fontSize: 15, opacity: 0.7 }}>◌</span>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
-                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                    </svg>
-                  )}
-                  <span>{googleLoading ? "Signing you in…" : "Continue with Google"}</span>
+                  Welcome.
+                </h3>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "var(--warm-gray)",
+                    fontWeight: 300,
+                    marginBottom: 40,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Sign in or create your account to start.
+                </p>
+              </Box>
+
+              {/* Auth section — buttons */}
+              <div className="auth-section">
+                <p className="auth-label">GET STARTED FREE</p>
+
+                {/* Google button: our styled visual + invisible GIS button overlaid on top */}
+                <div
+                  style={{ position: "relative", width: "100%", cursor: googleLoading ? "default" : "pointer" }}
+                  onMouseEnter={() => !googleLoading && setHoverGoogle(true)}
+                  onMouseLeave={() => setHoverGoogle(false)}
+                >
+                  {/* Visual button — pointer-events off, purely decorative */}
+                  <div
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 12,
+                      background: googleLoading ? "var(--linen)" : "white",
+                      border: `1px solid ${hoverGoogle && !googleLoading ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.1)"}`,
+                      padding: "16px 20px",
+                      borderRadius: "12px",
+                      height: 52,
+                      boxSizing: "border-box" as const,
+                      fontSize: 15,
+                      color: googleLoading ? "var(--taupe)" : "#1C1410",
+                      fontFamily: "DM Sans, sans-serif",
+                      fontWeight: 500,
+                      userSelect: "none" as const,
+                      pointerEvents: "none" as const,
+                      transition: "border-color 0.18s, background 0.18s, color 0.18s",
+                    }}
+                  >
+                    {googleLoading ? (
+                      <span style={{ animation: "spin 1s linear infinite", display: "inline-block", fontSize: 15, opacity: 0.7 }}>◌</span>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                      </svg>
+                    )}
+                    <span>{googleLoading ? "Signing you in…" : "Continue with Google"}</span>
+                  </div>
+
+                  {/* Real GIS button — invisible overlay, captures the actual click */}
+                  <div
+                    ref={googleBtnRef}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      overflow: "hidden",
+                      opacity: googleLoading ? 0 : 0.001,
+                      pointerEvents: googleLoading ? "none" : "auto",
+                    }}
+                  />
                 </div>
 
-                {/* Real GIS button — invisible overlay, captures the actual click */}
-                <div
-                  ref={googleBtnRef}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    overflow: "hidden",
-                    opacity: googleLoading ? 0 : 0.001,
-                    pointerEvents: googleLoading ? "none" : "auto",
-                  }}
-                />
-              </div>
+                <div className="auth-divider"><span>or</span></div>
 
-              <Stack
-                direction="row"
-                alignItems="center"
-                gap={1.5}
-                sx={{ my: 2.5 }}
-              >
-                <Box
-                  sx={{ flex: 1, height: "1px", background: "var(--linen)" }}
-                />
-                <Box
-                  component="span"
-                  sx={{
-                    fontSize: 11,
-                    color: "var(--taupe)",
-                    letterSpacing: "0.06em",
-                  }}
+                <button
+                  className="btn-create"
+                  onClick={() => setMode("email-signup")}
                 >
-                  or
-                </Box>
-                <Box
-                  sx={{ flex: 1, height: "1px", background: "var(--linen)" }}
-                />
-              </Stack>
-
-              <button
-                onClick={() => setMode("email-signup")}
-                style={{
-                  width: "100%",
-                  background: "var(--ink)",
-                  color: "var(--cream)",
-                  border: "none",
-                  padding: "14px 20px",
-                  fontSize: 12,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: "pointer",
-                  marginBottom: 12,
-                  fontWeight: 500,
-                }}
-              >
-                Create Account
-              </button>
-              <button
-                onClick={() => setMode("email-login")}
-                style={{
-                  width: "100%",
-                  background: "none",
-                  color: "var(--charcoal)",
-                  border: "1px solid var(--linen)",
-                  padding: "13px 20px",
-                  fontSize: 12,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  fontFamily: "DM Sans, sans-serif",
-                  cursor: "pointer",
-                  fontWeight: 400,
-                }}
-              >
-                Sign In with Email
-              </button>
+                  CREATE ACCOUNT
+                </button>
+                <button
+                  className="btn-signin"
+                  onClick={() => setMode("email-login")}
+                >
+                  SIGN IN WITH EMAIL
+                </button>
+                <p className="auth-terms">
+                  By continuing, you agree to ALT FIT&apos;s Terms of Service and Privacy Policy.
+                </p>
+              </div>
             </>
           )}
 
