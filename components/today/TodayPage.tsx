@@ -515,8 +515,8 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       <div className="today-greeting-header">
         <p className="greeting-eyebrow">{dateStr.toUpperCase()}</p>
         <h1 className="greeting-title">
-          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}. Your Curated Look{" "}
-          <em>for today.</em>
+          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.<br />
+          Your Curated Look <em>for today.</em>
         </h1>
         <p className="greeting-sub">
           AI-designed from your wardrobe. Intelligent, intentional, yours.
