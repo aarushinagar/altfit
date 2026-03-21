@@ -1338,7 +1338,8 @@ export default function CssVariables() {
           ".wardrobe-grid": {
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: "2px",
-          }, {
+          },
+          ".modal-backdrop": {
             alignItems: "center",
             padding: 20,
           },
