@@ -22,6 +22,17 @@ const FONTS = {
   sans:  "'DM Sans', Arial, Helvetica, sans-serif",
 };
 
+/**
+ * Sanitise an image URL before embedding in email.
+ * Returns null if the URL is missing or not a valid HTTPS URL
+ * (email clients block HTTP images and blob/data URLs silently).
+ */
+function safeImageUrl(url: string | undefined | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("https://")) return url;
+  return null; // http, blob, data, relative — all unsafe for email
+}
+
 function baseWrapper(innerHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -29,12 +40,26 @@ function baseWrapper(innerHtml: string): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ALT FIT</title>
+  <style>
+    @media only screen and (max-width: 480px) {
+      .wrapper { width: 100% !important; }
+      .content { padding: 24px 20px !important; }
+      .outfit-item {
+        width: 31% !important;
+        display: inline-block !important;
+        vertical-align: top;
+      }
+      .outfit-item img { width: 100% !important; height: auto !important; }
+      .cta-button { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+      .headline { font-size: 24px !important; line-height: 1.2 !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:${COLORS.cream};font-family:${FONTS.sans};">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.cream};padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" style="background:${COLORS.paper};border:1px solid ${COLORS.linen};max-width:560px;width:100%;">
+        <table class="wrapper" width="560" cellpadding="0" cellspacing="0" style="background:${COLORS.paper};border:1px solid ${COLORS.linen};max-width:560px;width:100%;">
 
           <!-- Header -->
           <tr>
@@ -71,6 +96,25 @@ function baseWrapper(innerHtml: string): string {
 </html>`;
 }
 
+/** Pro upsell block — placed just above the main CTA */
+function proUpsellBlock(ctaUrl: string): string {
+  return `
+  <tr>
+    <td style="padding:0 44px 28px;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:${COLORS.ink};border-radius:2px;">
+        <tr>
+          <td style="padding:24px 28px;">
+            <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:${COLORS.gold};margin:0 0 8px;">ALT FIT PRO</p>
+            <p style="font-family:${FONTS.serif};font-size:18px;font-weight:300;color:${COLORS.cream};margin:0 0 16px;line-height:1.4;">Unlimited AI outfit curation, every single day.</p>
+            <a href="${ctaUrl}" class="cta-button" style="display:inline-block;background:${COLORS.gold};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;">UPGRADE TO PRO →</a>
+            <p style="font-family:${FONTS.sans};font-size:10px;color:${COLORS.taupe};margin:10px 0 0;letter-spacing:0.04em;">Cancel anytime. No questions asked.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+}
+
 export interface OutfitPiece {
   name:      string;
   category:  string;
@@ -86,12 +130,14 @@ export interface DailyEmailData {
   bodyText:     string;
   streak?:      number;
   outfitPieces?: OutfitPiece[];   // up to 4 actual wardrobe items with photos
+  showProUpsell?: boolean;        // show upgrade block when user is on free tier
 }
 
 /** Render a single wardrobe card cell for the piece strip */
 function pieceCard(piece: OutfitPiece): string {
-  const photo = piece.imageUrl
-    ? `<img src="${piece.imageUrl}" alt="${piece.name}" width="114" style="display:block;width:114px;height:148px;object-fit:cover;border:0;" />`
+  const imgUrl = safeImageUrl(piece.imageUrl);
+  const photo = imgUrl
+    ? `<img src="${imgUrl}" alt="${piece.name}" width="114" height="148" style="display:block;width:114px;height:148px;object-fit:cover;border:0;" />`
     : `<div style="width:114px;height:148px;background:${COLORS.linen};display:flex;align-items:center;justify-content:center;">
         <span style="font-size:22px;opacity:0.25;">✦</span>
        </div>`;
@@ -176,16 +222,17 @@ export function dailyEngagementEmail(data: DailyEmailData): string {
   const inner = `
   <tr>
     <td style="padding:36px 44px 20px;">
-      <h1 style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
+      <h1 class="headline" style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
       <p style="font-family:${FONTS.sans};font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:${COLORS.warmGray};margin:0 0 24px;">${data.subheadline}</p>
       <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0 0 32px;font-weight:300;">${data.bodyText}</p>
-      ${pieces.length === 0 ? `<a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Look</a>` : ""}
+      ${pieces.length === 0 ? `<a href="${data.ctaUrl}" class="cta-button" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Look</a>` : ""}
     </td>
   </tr>
   ${streakBadge}
   ${pieceStrip}
   ${swipeCallout}
-  <tr><td style="padding:28px 44px 4px;"><a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Full Look</a></td></tr>`;
+  ${data.showProUpsell ? proUpsellBlock(data.ctaUrl) : ""}
+  <tr><td style="padding:28px 44px 4px;"><a href="${data.ctaUrl}" class="cta-button" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">See Today's Full Look</a></td></tr>`;
 
   return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", data.ctaUrl.replace(/\/today.*/, "/unsubscribe?token={{TOKEN}}"));
 }
@@ -197,6 +244,7 @@ export interface ReEngagementEmailData {
   headline:    string;   // AI-generated
   bodyText:    string;   // AI-generated
   wardrobeCount: number;
+  showProUpsell?: boolean;
 }
 
 export function reEngagementEmail(data: ReEngagementEmailData): string {
@@ -204,7 +252,7 @@ export function reEngagementEmail(data: ReEngagementEmailData): string {
   <tr>
     <td style="padding:36px 44px 28px;">
       <p style="font-family:${FONTS.sans};font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 16px;">We miss you</p>
-      <h1 style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
+      <h1 class="headline" style="font-family:${FONTS.serif};font-size:34px;font-weight:300;color:${COLORS.ink};margin:0 0 10px;line-height:1.2;letter-spacing:-0.01em;">${data.headline}</h1>
       <p style="font-family:${FONTS.serif};font-size:16px;color:${COLORS.charcoal};line-height:1.7;margin:0 0 24px;font-weight:300;">${data.bodyText}</p>
       <table cellpadding="0" cellspacing="0" style="border-left:2px solid ${COLORS.gold};padding-left:16px;margin-bottom:32px;">
         <tr>
@@ -216,11 +264,12 @@ export function reEngagementEmail(data: ReEngagementEmailData): string {
           </td>
         </tr>
       </table>
-      <a href="${data.ctaUrl}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">
+      <a href="${data.ctaUrl}" class="cta-button" style="display:inline-block;background:${COLORS.ink};color:${COLORS.cream};text-decoration:none;padding:14px 28px;font-family:${FONTS.sans};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;">
         Get Today's Outfit
       </a>
     </td>
-  </tr>`;
+  </tr>
+  ${data.showProUpsell ? proUpsellBlock(data.ctaUrl) : ""}`;
 
   return baseWrapper(inner).replace("{{UNSUBSCRIBE_URL}}", `${data.ctaUrl.replace(/\/today.*/, "")}/unsubscribe?token={{TOKEN}}`);
 }
@@ -449,11 +498,13 @@ export function goodMorningEmail(data: GoodMorningEmailData): string {
           <p style="font-family:${FONTS.sans};font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:${COLORS.taupe};margin:0 0 14px;">Your ${data.dayOfWeek} outfit</p>
           <table cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:1px;width:100%;">
             <tr>
-              ${pieces.map(p => `
+              ${pieces.map(p => {
+                const imgUrl = safeImageUrl(p.imageUrl);
+                return `
                 <td style="width:77px;vertical-align:top;padding:0;">
                   <div style="background:${COLORS.cream};border:1px solid ${COLORS.linen};overflow:hidden;">
-                    ${p.imageUrl 
-                      ? `<img src="${p.imageUrl}" alt="${p.name}" width="77" style="display:block;width:77px;height:100px;object-fit:cover;border:0;" />`
+                    ${imgUrl
+                      ? `<img src="${imgUrl}" alt="${p.name}" width="77" height="100" style="display:block;width:77px;height:100px;object-fit:cover;border:0;" />`
                       : `<div style="width:77px;height:100px;background:${COLORS.linen};display:flex;align-items:center;justify-content:center;"><span style="font-size:18px;opacity:0.25;">✦</span></div>`
                     }
                     <div style="padding:6px 4px;text-align:center;">
@@ -462,7 +513,7 @@ export function goodMorningEmail(data: GoodMorningEmailData): string {
                     </div>
                   </div>
                 </td>
-              `).join("")}
+              `}).join("")}
             </tr>
           </table>
         </td>
