@@ -454,18 +454,23 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
         visible={toast.visible}
       />
 
-      {/* Compact header: date + streak on one line */}
+      {/* Compact header: greeting + date + streak */}
       <div className="today-compact-header">
-        <span className="today-date-small">{dateStr.toUpperCase()}</span>
-        {streak > 0 && (
-          <span className="streak-inline">
-            🔥 {streakMilestone
-              ? `${streak} day streak — you're on fire!`
-              : streak === 1
-              ? "Day 1 — come back tomorrow"
-              : `${streak} day streak`}
-          </span>
-        )}
+        <div className="today-greeting-line">
+          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.
+        </div>
+        <div className="today-header-sub">
+          <span className="today-date-small">{dateStr.toUpperCase()}</span>
+          {streak > 0 && (
+            <span className="streak-inline">
+              🔥 {streakMilestone
+                ? `${streak} day streak — you're on fire!`
+                : streak === 1
+                ? "Day 1 — come back tomorrow"
+                : `${streak} day streak`}
+            </span>
+          )}
+        </div>
       </div>
 
       <Box className="today-hero">

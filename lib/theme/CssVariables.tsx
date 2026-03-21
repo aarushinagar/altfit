@@ -647,9 +647,22 @@ export default function CssVariables() {
         // ── Today compact header ─────────────────────────────────────────────
         ".today-compact-header": {
           display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          padding: "20px 20px 14px 20px",
+        },
+        ".today-greeting-line": {
+          fontFamily: FONTS.serif,
+          fontSize: 28,
+          fontWeight: 400,
+          color: COLORS.ink,
+          lineHeight: 1.2,
+          letterSpacing: "-0.01em",
+        },
+        ".today-header-sub": {
+          display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "16px 20px 12px 20px",
+          gap: "12px",
         },
         ".today-date-small": {
           fontFamily: FONTS.sans,
