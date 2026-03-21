@@ -918,7 +918,8 @@ export default function CssVariables() {
         ".wardrobe-grid": {
           display: "grid",
           gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "2px",
+          gap: "1px",
+          background: COLORS.linen,
           padding: 0,
         },
         ".wardrobe-item": {
@@ -940,8 +941,7 @@ export default function CssVariables() {
           background: COLORS.paper,
         },
         ".item-info": {
-          padding: "12px 14px 14px",
-          borderTop: `1px solid ${COLORS.linen}`,
+          padding: "8px 10px 10px",
           background: COLORS.cream,
         },
         ".item-type": {
@@ -1337,7 +1337,7 @@ export default function CssVariables() {
           ".filter-bar": { padding: "12px 48px 16px" },
           ".wardrobe-grid": {
             gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "2px",
+            gap: "1px",
           },
           ".modal-backdrop": {
             alignItems: "center",
@@ -1372,7 +1372,7 @@ export default function CssVariables() {
           ".today-hero": { gridTemplateColumns: "1fr 320px" },
           ".wardrobe-grid": {
             gridTemplateColumns: "repeat(5, 1fr)",
-            gap: "2px",
+            gap: "1px",
           },
         },
       }}
