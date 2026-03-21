@@ -23,6 +23,63 @@ const importConfetti = async () => {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
+const CURATION_MESSAGES = [
+  "Reading your wardrobe…",
+  "Matching colours and textures…",
+  "Curating your look for today…",
+  "Checking what goes with what…",
+  "Almost there — finding the perfect pieces…",
+  "Styling you based on your taste…",
+  "Putting the final look together…",
+];
+
+function CurationLoader() {
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setMsgIndex((i) => (i + 1) % CURATION_MESSAGES.length);
+        setFade(true);
+      }, 300);
+    }, 2200);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "72px 24px", gap: "20px",
+    }}>
+      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} style={{
+            display: "inline-block",
+            width: 7, height: 7,
+            borderRadius: "50%",
+            background: "#C9A96E",
+            animation: `altfitDot 1.2s ease-in-out ${i * 0.18}s infinite both`,
+          }} />
+        ))}
+      </div>
+      <p style={{
+        fontFamily: "DM Sans, sans-serif",
+        fontSize: 12,
+        letterSpacing: "0.08em",
+        color: "#a8a29e",
+        margin: 0,
+        transition: "opacity 0.3s ease",
+        opacity: fade ? 1 : 0,
+      }}>
+        {CURATION_MESSAGES[msgIndex]}
+      </p>
+    </div>
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const LookItemGrid = ({ items }: { items: any[] }) => {
   if (!items || items.length === 0) return null;
@@ -497,38 +554,8 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
             </Box>
           )}
 
-          {/* Inline loading dots */}
-          {showLoader && (
-            <div style={{
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              padding: "72px 24px", gap: "18px",
-            }}>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} style={{
-                    display: "inline-block",
-                    width: 7, height: 7,
-                    borderRadius: "50%",
-                    background: "#C9A96E",
-                    animation: `altfitDot 1.2s ease-in-out ${i * 0.18}s infinite both`,
-                  }} />
-                ))}
-              </div>
-              {loadingSlow && (
-                <p style={{
-                  fontFamily: "DM Sans, sans-serif",
-                  fontSize: 11,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "#a8a29e",
-                  margin: 0,
-                }}>
-                  Still curating your look…
-                </p>
-              )}
-            </div>
-          )}
+          {/* Inline loading dots + cycling messages */}
+          {showLoader && <CurationLoader />}
 
           {/* Error */}
           {!showLoader && error && (
