@@ -1327,7 +1327,7 @@ export default function CssVariables() {
           ".sidebar-section": { padding: "28px" },
           ".filter-bar": { padding: "18px 48px" },
           ".wardrobe-grid": {
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           },
           ".modal-backdrop": {
             alignItems: "center",
@@ -1361,7 +1361,7 @@ export default function CssVariables() {
         "@media (min-width: 1200px)": {
           ".today-hero": { gridTemplateColumns: "1fr 320px" },
           ".wardrobe-grid": {
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
           },
         },
       }}
