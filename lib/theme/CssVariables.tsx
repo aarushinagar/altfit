@@ -932,7 +932,7 @@ export default function CssVariables() {
         },
         ".wardrobe-item:hover .item-overlay": { opacity: 1 },
         ".item-image": {
-          aspectRatio: "2/3",
+          aspectRatio: "4/5",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
