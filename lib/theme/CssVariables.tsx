@@ -941,31 +941,29 @@ export default function CssVariables() {
           background: COLORS.paper,
         },
         ".item-info": {
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: "24px 8px 8px",
-          background: "linear-gradient(to bottom, transparent, rgba(28,20,14,0.72))",
-          zIndex: 2,
+          padding: "6px 8px 8px",
+          background: COLORS.cream,
         },
         ".item-type": {
           fontFamily: FONTS.sans,
           fontSize: 8,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: "rgba(255,255,255,0.65)",
-          marginBottom: 1,
+          color: COLORS.taupe,
+          marginBottom: 2,
         },
         ".item-name": {
           fontFamily: FONTS.sans,
-          fontSize: 11,
-          fontWeight: 500,
-          color: "#fff",
+          fontSize: 12,
+          fontWeight: 400,
+          color: COLORS.ink,
           lineHeight: 1.2,
         },
         ".item-meta": {
-          display: "none",
+          display: "flex",
+          gap: 4,
+          flexWrap: "wrap",
+          marginTop: 3,
         },
         ".wear-count": {
           fontFamily: FONTS.sans,
@@ -1338,7 +1336,7 @@ export default function CssVariables() {
           ".sidebar-section": { padding: "28px" },
           ".filter-bar": { padding: "12px 48px 16px" },
           ".wardrobe-grid": {
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(4, 1fr)",
             gap: "1px",
           },
           ".modal-backdrop": {
@@ -1373,7 +1371,7 @@ export default function CssVariables() {
         "@media (min-width: 1200px)": {
           ".today-hero": { gridTemplateColumns: "1fr 320px" },
           ".wardrobe-grid": {
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(5, 1fr)",
             gap: "1px",
           },
         },
