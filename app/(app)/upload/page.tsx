@@ -5,7 +5,7 @@ import { useAppContext } from "@/lib/contexts/AppContext";
 import UploadPage from "@/components/upload/UploadPage";
 
 export default function UploadRoute() {
-  const { savedItems, handleSaveItem } = useAppContext();
+  const { savedItems, wardrobeTotal, handleSaveItem } = useAppContext();
   const router = useRouter();
 
   return (
@@ -15,6 +15,8 @@ export default function UploadRoute() {
         if (saved) setTimeout(() => router.push("/wardrobe"), 1200);
       }}
       savedItems={savedItems as { id: string | number }[]}
+      wardrobeTotal={wardrobeTotal}
+      recentItems={savedItems.slice(0, 6)}
     />
   );
 }

@@ -49,7 +49,6 @@ export default function WardrobeItemCard({
   const [imageBroken, setImageBroken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasImage = !!(item.imageUrl || item.previewUrl);
-  const isAnalyzing = item.name === 'Analyzing…' || (!item.name?.trim() && item.analysisStatus === 'pending');
 
   const handleAddPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -82,27 +81,6 @@ export default function WardrobeItemCard({
               : `${item.colors?.[0] || item.color || item.colorHex || "#ccc"}18`,
         }}
       >
-        {/* Analyzing shimmer overlay */}
-        {isAnalyzing && (
-          <Box
-            sx={{
-              position: 'absolute', inset: 0, zIndex: 3,
-              background: 'linear-gradient(90deg, var(--linen) 25%, rgba(210,200,188,0.6) 50%, var(--linen) 75%)',
-              backgroundSize: '200% 100%',
-              animation: 'shimmerMove 1.5s ease-in-out infinite',
-              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-              paddingBottom: '8px',
-            }}
-          >
-            <Box sx={{
-              fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
-              color: 'var(--taupe)', fontWeight: 600, opacity: 0.85,
-            }}>
-              Identifying…
-            </Box>
-          </Box>
-        )}
-
         {hasImage && !imageBroken ? (
           <WardrobeImage
             item={item}
@@ -165,13 +143,15 @@ export default function WardrobeItemCard({
         )}
       </Box>
       <div className="item-info">
-        <div className="item-type">{isAnalyzing ? '—' : (item.category || item.type)}</div>
-        <div className="item-name" style={isAnalyzing ? { opacity: 0.4 } : undefined}>{item.name}</div>
+        <div className="item-type">{item.category || item.type}</div>
+        <div className="item-name">{item.name}</div>
         <div className="item-meta">
           <span className="item-tag">
             {item.colorNames?.[0] || item.colorName}
           </span>
-          <span className="item-tag">{item.formality}</span>
+          {(item.wearCount ?? 0) > 0 && (
+            <span className="item-tag wear-count">worn {item.wearCount}×</span>
+          )}
         </div>
       </div>
       <div className="item-overlay">

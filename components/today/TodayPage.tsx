@@ -59,6 +59,7 @@ const LookItemGrid = ({ items }: { items: any[] }) => {
                   top: 0, left: 0,
                   width: "100%", height: "100%",
                   objectFit: "cover",
+                  objectPosition: "top center",
                 }}
                 onError={(e) => {
                   const el = e.currentTarget as HTMLImageElement;
@@ -485,17 +486,20 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
               alignItems: "center",
               gap: 8,
               marginTop: 16,
-              padding: "6px 14px",
-              border: "1px solid rgba(160,98,44,0.28)",
-              background: "rgba(160,98,44,0.05)",
+              padding: "10px 20px",
+              borderRadius: "100px",
+              background: "linear-gradient(135deg, #1C1410, #2d1f14)",
+              boxShadow: "0 4px 20px rgba(28,20,16,0.2)",
+              marginBottom: 8,
             }}>
               <span style={{ fontSize: 14 }}>🔥</span>
               <span style={{
                 fontFamily: "DM Sans, sans-serif",
-                fontSize: 11,
+                fontSize: 12,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: "#A0622C",
+                fontWeight: 600,
+                color: "#C9A96E",
               }}>
                 {streakMilestone
                   ? `${streak} day streak — you're on fire!`
@@ -616,11 +620,10 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
                     onSwipeLeft={handleSwipeLeft}
                   >
             <div style={{
-              border: "1px solid rgba(0,0,0,0.06)",
+              border: "1px solid rgba(201,169,110,0.15)",
               marginTop: "24px",
-              backgroundColor: "#ffffff",
-              borderRadius: "4px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
+              backgroundColor: "rgba(245,240,232,0.5)",
+              borderRadius: "12px",
               overflow: "hidden",
             }}>
 

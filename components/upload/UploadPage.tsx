@@ -23,12 +23,14 @@ interface WardrobeSavePayload {
 interface UploadPageProps {
   onSaveItem: (item: WardrobeSavePayload) => void;
   savedItems: { id: string | number }[];
+  wardrobeTotal?: number;
+  recentItems?: { id: string | number; imageUrl?: string | null; category?: string }[];
 }
 
 // No-op callbacks — saves are handled server-side before status becomes "ready"
 const noop = () => { };
 
-export default function UploadPage({ onSaveItem }: UploadPageProps) {
+export default function UploadPage({ onSaveItem, wardrobeTotal = 0, recentItems = [] }: UploadPageProps) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragover, setDragover] = useState(false);
 
@@ -190,6 +192,27 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
         <p className="page-count">
           Drop a photo — AI analyses and saves it instantly
         </p>
+
+        {/* Upload stats */}
+        {wardrobeTotal > 0 && (
+          <Box sx={{
+            display: "flex", alignItems: "center", gap: 3,
+            mt: 2, mb: 3, px: "20px", py: "16px",
+            background: "rgba(201,169,110,0.08)",
+            border: "1px solid rgba(201,169,110,0.2)",
+            borderRadius: "12px",
+          }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <Box sx={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "var(--ink)", lineHeight: 1 }}>{wardrobeTotal}</Box>
+              <Box sx={{ fontSize: 11, color: "#9a8f80", letterSpacing: "0.05em" }}>pieces in wardrobe</Box>
+            </Box>
+            <Box sx={{ width: 1, height: 40, background: "rgba(201,169,110,0.3)", flexShrink: 0 }} />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <Box sx={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, color: "var(--ink)", lineHeight: 1 }}>{Math.max(0, 10 - wardrobeTotal)}</Box>
+              <Box sx={{ fontSize: 11, color: "#9a8f80", letterSpacing: "0.05em" }}>until unlimited outfits</Box>
+            </Box>
+          </Box>
+        )}
       </Box>
 
       <Box className="upload-body">
@@ -227,6 +250,35 @@ export default function UploadPage({ onSaveItem }: UploadPageProps) {
               />
             ))}
           </Stack>
+        )}
+
+        {/* Recently added pieces */}
+        {recentItems.length > 0 && items.length === 0 && (
+          <Box sx={{ mt: 4 }}>
+            <Box sx={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "#9a8f80", mb: 1.5 }}>
+              Recently Added
+            </Box>
+            <Box sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: 1,
+              "@media (min-width: 600px)": { gridTemplateColumns: "repeat(6, 1fr)" },
+            }}>
+              {recentItems.map((item) => (
+                <Box key={item.id} sx={{ aspectRatio: "1", borderRadius: "8px", overflow: "hidden", background: "var(--linen)" }}>
+                  {item.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt={item.category ?? ""}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </Box>
         )}
       </Box>
     </Box>

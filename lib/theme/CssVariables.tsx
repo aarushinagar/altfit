@@ -712,6 +712,12 @@ export default function CssVariables() {
           overflowX: "auto",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          background: "rgba(245,240,232,0.96)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         },
         ".filter-bar::-webkit-scrollbar": { display: "none" },
         ".filter-label": {
@@ -795,6 +801,12 @@ export default function CssVariables() {
           gap: 6,
           flexWrap: "wrap",
           marginTop: 6,
+        },
+        ".wear-count": {
+          fontFamily: FONTS.sans,
+          fontSize: 9,
+          color: COLORS.warmGray,
+          letterSpacing: "0.05em",
         },
         ".item-tag": {
           fontFamily: FONTS.sans,
@@ -910,7 +922,6 @@ export default function CssVariables() {
           textTransform: "uppercase",
           color: COLORS.charcoal,
         },
-        ".wear-count": { display: "flex", alignItems: "center", gap: 12 },
         ".wear-dots": { display: "flex", gap: 4 },
         ".wear-dot": {
           width: 6,

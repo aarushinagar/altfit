@@ -296,12 +296,14 @@ export default function SavedOutfitsPage() {
             {Array.isArray(outfit.items) && outfit.items.length > 0 && (
               <div
                 style={{
-                  display: "flex",
+              display: "flex",
                   flexDirection: "row",
                   gap: "8px",
                   padding: "16px 20px",
                   borderBottom: "1px solid rgba(0,0,0,0.05)",
                   overflowX: "auto",
+                  scrollbarWidth: "none" as const,
+                  msOverflowStyle: "none" as const,
                 }}
               >
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -323,7 +325,13 @@ export default function SavedOutfitsPage() {
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.parentElement) {
+                              e.currentTarget.parentElement.style.background = "#e8e3da";
+                            }
+                          }}
                         />
                       ) : (
                         <div
@@ -379,9 +387,12 @@ export default function SavedOutfitsPage() {
                 style={{
                   display: "flex",
                   gap: "8px",
-                  flexWrap: "wrap",
                   padding: "12px 20px",
                   borderBottom: "1px solid rgba(0,0,0,0.04)",
+                  overflowX: "auto",
+                  scrollbarWidth: "none" as const,
+                  msOverflowStyle: "none" as const,
+                  flexWrap: "nowrap" as const,
                 }}
               >
                 {outfit.occasionTags.map((tag: string) => (
