@@ -514,7 +514,7 @@ export default function TodayPage({ wardrobeTotal, wardrobeLoading = false, onGo
       {/* Compact header: greeting + date + streak */}
       <div className="today-compact-header">
         <div className="today-greeting-line">
-          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.
+          {greeting}{user?.name ? `, ${user.name.split(" ")[0]}` : ""}. Your Curated Look for Today.
         </div>
         <div className="today-header-sub">
           <span className="today-date-small">{dateStr.toUpperCase()}</span>
