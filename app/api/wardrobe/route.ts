@@ -25,6 +25,10 @@ import { validateEnv } from '@/lib/env'
 import { requireAuth } from '@/backend/database/auth-middleware'
 import prisma from '@/backend/database/prisma'
 import { generateSnowflakeId } from '@/backend/database/snowflake'
+import {
+  FREE_WARDROBE_LIMIT,
+  isWardrobeCapExceeded,
+} from '@/backend/langgraph/shared/regen'
 import { processAnalysisQueue } from '@/lib/analyzeItem'
 import type { Prisma } from '@prisma/client'
 
@@ -126,6 +130,26 @@ export async function POST(req: NextRequest) {
     if (!auth.ok) return auth.response
     const { userId } = auth
 
+    const [user, wardrobeCount] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: BigInt(userId) },
+        select: { plan: true },
+      }),
+      prisma.wardrobeItem.count({
+        where: { userId: BigInt(userId), isActive: true },
+      }),
+    ])
+
+    const accessPlan = user?.plan ?? 'free'
+    if (isWardrobeCapExceeded(accessPlan, wardrobeCount)) {
+      return NextResponse.json(
+        {
+          error: `Wardrobe limit reached (${FREE_WARDROBE_LIMIT} items on the free plan). Upgrade to Pro for unlimited items.`,
+        },
+        { status: 403 }
+      )
+    }
+
     // ── 4. CONVERT TO JPEG + auto-rotate EXIF ────────────────────────────────
     const rawBuffer = Buffer.from(await file.arrayBuffer())
     const imageBuffer = await sharp(rawBuffer).rotate().jpeg({ quality: 88 }).toBuffer()
@@ -187,4 +211,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-

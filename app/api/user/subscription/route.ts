@@ -16,20 +16,42 @@ export async function GET(request: NextRequest) {
     if (!auth.ok) return auth.response;
     const { userId } = auth;
 
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: BigInt(userId) },
-      select: {
-        id: true,
-        userId: true,
-        plan: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        // Deliberately omit razorpaySignature per security policy
-      },
-    });
+    const [user, subscription] = await prisma.$transaction([
+      prisma.user.findUnique({
+        where: { id: BigInt(userId) },
+        select: { plan: true },
+      }),
+      prisma.subscription.findUnique({
+        where: { userId: BigInt(userId) },
+        select: {
+          id: true,
+          userId: true,
+          plan: true,
+          status: true,
+          startedAt: true,
+          expiresAt: true,
+          cancelledAt: true,
+          createdAt: true,
+          updatedAt: true,
+          // Deliberately omit razorpaySignature per security policy
+        },
+      }),
+    ]);
 
-    return successResponse(subscription ?? null, "Subscription retrieved");
+    return successResponse(
+      {
+        accessPlan: user?.plan ?? "free",
+        billingPlan: subscription?.plan ?? null,
+        status: subscription?.status ?? null,
+        expiresAt: subscription?.expiresAt ?? null,
+        startedAt: subscription?.startedAt ?? null,
+        cancelledAt: subscription?.cancelledAt ?? null,
+        subscriptionId: subscription?.id ?? null,
+        createdAt: subscription?.createdAt ?? null,
+        updatedAt: subscription?.updatedAt ?? null,
+      },
+      "Subscription retrieved",
+    );
   } catch (error) {
     console.error("[user/subscription GET] Error:", error);
     return errorResponse(

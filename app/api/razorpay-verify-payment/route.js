@@ -100,40 +100,48 @@ export async function POST(request) {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     }
 
-    // Upsert subscription in database
-    const subscription = await prisma.subscription.upsert({
-      where: { userId: BigInt(userId) },
-      update: {
-        plan,
-        status: "active",
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature: razorpay_signature,
-        amount: PLAN_AMOUNTS[plan],
-        currency: "INR",
-        startedAt: now,
-        expiresAt,
-        cancelledAt: null,
-        updatedAt: now,
-      },
-      create: {
-        id: generateSnowflakeId(),
-        userId: BigInt(userId),
-        plan,
-        status: "active",
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature: razorpay_signature,
-        amount: PLAN_AMOUNTS[plan],
-        currency: "INR",
-        startedAt: now,
-        expiresAt,
-      },
-    });
+    const accessPlan = "pro";
+
+    // Persist both billing cadence and access tier together.
+    const [subscription] = await prisma.$transaction([
+      prisma.subscription.upsert({
+        where: { userId: BigInt(userId) },
+        update: {
+          plan,
+          status: "active",
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          amount: PLAN_AMOUNTS[plan],
+          currency: "INR",
+          startedAt: now,
+          expiresAt,
+          cancelledAt: null,
+        },
+        create: {
+          id: generateSnowflakeId(),
+          userId: BigInt(userId),
+          plan,
+          status: "active",
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          amount: PLAN_AMOUNTS[plan],
+          currency: "INR",
+          startedAt: now,
+          expiresAt,
+        },
+      }),
+      prisma.user.update({
+        where: { id: BigInt(userId) },
+        data: { plan: accessPlan },
+      }),
+    ]);
 
     logSuccess("POST /api/razorpay-verify-payment", "Payment verified + subscription saved", {
       userId,
       plan,
+      accessPlan,
       subscriptionId: subscription.id.toString(),
       expiresAt,
       processingTimeMs: Date.now() - startTime,
@@ -142,7 +150,8 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: true,
-        plan,
+        accessPlan,
+        billingPlan: plan,
         message: "Payment verified successfully",
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,

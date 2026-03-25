@@ -6,6 +6,7 @@ import {
   errorResponse,
 } from "@/backend/database/api-response";
 import { generatePrismaId, toPrismaId } from "@/backend/database/prisma-id";
+import { FREE_WARDROBE_LIMIT } from "@/backend/langgraph/shared/regen";
 import type { WardrobeItemRequest } from "@/types/api";
 
 /**
@@ -37,6 +38,27 @@ export async function POST(request: NextRequest) {
           400,
         );
       }
+    }
+
+    const [user, wardrobeCount] = await prisma.$transaction([
+      prisma.user.findUnique({
+        where: { id: BigInt(userId) },
+        select: { plan: true },
+      }),
+      prisma.wardrobeItem.count({
+        where: { userId: BigInt(userId), isActive: true },
+      }),
+    ]);
+
+    const accessPlan = user?.plan ?? "free";
+    if (
+      accessPlan !== "pro" &&
+      wardrobeCount + items.length > FREE_WARDROBE_LIMIT
+    ) {
+      return errorResponse(
+        `Wardrobe limit reached (${FREE_WARDROBE_LIMIT} items on the free plan). Upgrade to Pro for unlimited items.`,
+        403,
+      );
     }
 
     const created = await prisma.$transaction(

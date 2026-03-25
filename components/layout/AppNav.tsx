@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, Stack } from "@mui/material";
+import { getPlanLabel } from "@/lib/billing/clientPlan";
 
 interface NavProps {
   page: string;
@@ -88,7 +89,7 @@ export default function AppNav({
             <Box>
               <Box className="nav-user-name">{user?.name || "—"}</Box>
               <Box className="nav-user-plan">
-                {plan ? `Pro · ${plan}` : "Free plan"}
+                {getPlanLabel(plan)}
               </Box>
             </Box>
           </Stack>

@@ -22,9 +22,9 @@ import { deleteWardrobeItem } from "@/lib/actions/wardrobe";
 import { logoutUser } from "@/lib/actions/auth";
 import { clear as clearIdb } from "idb-keyval";
 import { getStoredUser, getAuthToken, decodeJwt } from "@/lib/utils/authUtils";
+import { FREE_LIMIT } from "@/lib/constants";
+import { isProPlan, toClientPlan } from "@/lib/billing/clientPlan";
 import type { WardrobeItem } from "@/components/wardrobe/WardrobeItemCard";
-
-const FREE_LIMIT = 10;
 
 export interface AppUser {
   id?: string;
@@ -59,8 +59,19 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [plan, setPlan] = useState<string | null>(null);
+  const [user, setUser] = useState<AppUser | null>(() => {
+    const storedUser = getStoredUser();
+    return storedUser ? (storedUser as AppUser) : null;
+  });
+  const [plan, setPlan] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+
+    try {
+      return toClientPlan(JSON.parse(localStorage.getItem("altfit-plan") ?? "null"));
+    } catch {
+      return null;
+    }
+  });
   const [toast, setToast] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [savedOutfitsCount, setSavedOutfitsCount] = useState(0);
@@ -86,21 +97,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadItems: loadWardrobeItems,
   } = useWardrobe();
 
+  const syncPlanFromServer = useCallback(async () => {
+    try {
+      const token = getAuthToken();
+      const res = await fetch("/api/user/subscription", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!res.ok) return;
+
+      const payload = await res.json();
+      const nextPlan = toClientPlan(payload?.data?.accessPlan);
+      setPlan(nextPlan);
+
+      try {
+        if (nextPlan) {
+          localStorage.setItem("altfit-plan", JSON.stringify(nextPlan));
+        } else {
+          localStorage.removeItem("altfit-plan");
+        }
+      } catch {
+        /* noop */
+      }
+    } catch {
+      /* noop */
+    }
+  }, []);
+
   // Hydrate from localStorage on mount
   useEffect(() => {
     const storedUser = getStoredUser();
     const token = getAuthToken();
-    const planRaw = localStorage.getItem("altfit-plan");
-    if (planRaw) {
-      try {
-        setPlan(JSON.parse(planRaw));
-      } catch {
-        /* noop */
-      }
-    }
-    if (storedUser && token) {
-      setUser(storedUser as AppUser);
 
+    const bootstrapAppState = () => {
+      queueMicrotask(() => {
+        void syncPlanFromServer();
+        void loadWardrobeItems();
+        void loadSavedOutfitsCount();
+      });
+    };
+
+    if (storedUser && token) {
       // Proactively refresh if the access token is expired or within 60 s of expiry.
       // This prevents the 401 → refresh → retry round-trip on every page load.
       const payload = decodeJwt(token);
@@ -121,17 +159,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
               if (data.data?.user)
                 localStorage.setItem("user", JSON.stringify(data.data.user));
             }
-            loadWardrobeItems();
-            loadSavedOutfitsCount();
+            bootstrapAppState();
           })
-          .catch(() => { loadWardrobeItems(); loadSavedOutfitsCount(); });
+          .catch(() => {
+            bootstrapAppState();
+          });
       } else {
-        loadWardrobeItems();
-        loadSavedOutfitsCount();
+        bootstrapAppState();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadSavedOutfitsCount, loadWardrobeItems, syncPlanFromServer]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -140,7 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleSaveItem = useCallback(
     async (item: { name?: string }): Promise<boolean> => {
-      if (!plan && savedItems.length >= FREE_LIMIT) {
+      if (!isProPlan(plan) && wardrobeTotal >= FREE_LIMIT) {
         setShowPaywall(true);
         return false;
       }
@@ -148,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showToast(`"${item.name}" saved to your wardrobe`);
       return true;
     },
-    [plan, savedItems.length, loadWardrobeItems, showToast],
+    [plan, wardrobeTotal, loadWardrobeItems, showToast],
   );
 
   const handleRemoveItem = useCallback(
@@ -182,10 +219,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleUpgrade = useCallback(
     (selectedPlan: string) => {
-      setPlan(selectedPlan);
+      const nextPlan = toClientPlan(selectedPlan) ?? "pro";
+      setPlan(nextPlan);
       setShowPaywall(false);
       try {
-        localStorage.setItem("altfit-plan", JSON.stringify(selectedPlan));
+        localStorage.setItem("altfit-plan", JSON.stringify(nextPlan));
       } catch {
         /* noop */
       }

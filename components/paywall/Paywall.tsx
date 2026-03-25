@@ -121,7 +121,7 @@ export default function Paywall({
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok)
               throw new Error(verifyData.error || "Payment verification failed.");
-            onUpgrade(selected);
+            onUpgrade(verifyData.accessPlan || "pro");
           } catch (err) {
             setError(err instanceof Error ? err.message : "Payment verification failed.");
             setLoading(false);

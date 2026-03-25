@@ -2,6 +2,8 @@
 "use client";
 
 import { Box, Stack } from "@mui/material";
+import { FREE_LIMIT } from "@/lib/constants";
+import { isProPlan } from "@/lib/billing/clientPlan";
 
 interface ProfileDropdownProps {
   user: { name?: string | null; email?: string | null } | null;
@@ -76,7 +78,7 @@ export default function ProfileDropdown({
           <Box sx={{ fontSize: 11, color: "var(--taupe)", fontWeight: 300 }}>
             {user?.email || ""}
           </Box>
-          {plan ? (
+          {isProPlan(plan) ? (
             <Box
               sx={{
                 fontSize: 9,
@@ -87,7 +89,7 @@ export default function ProfileDropdown({
                 fontWeight: isMobile ? undefined : 500,
               }}
             >
-              {isMobile ? `Pro · ${plan}` : `✦ Pro · ${plan}`}
+              {isMobile ? "Pro" : "✦ Pro"}
             </Box>
           ) : !isMobile ? (
             <Box
@@ -99,7 +101,7 @@ export default function ProfileDropdown({
                 marginTop: "6px",
               }}
             >
-              Free · {10 - savedItemCount} uploads left
+              Free · {Math.max(FREE_LIMIT - savedItemCount, 0)} uploads left
             </Box>
           ) : null}
         </Box>
